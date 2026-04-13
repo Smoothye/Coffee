@@ -29,6 +29,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(g => g.TableId)
             .OnDelete(DeleteBehavior.Restrict);
         
+        modelBuilder.Entity<Expense>()
+            .HasOne(e => e.Supplier)
+            .WithMany(s => s.Expenses)
+            .HasForeignKey(e => e.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
+        modelBuilder.Entity<EventSupplier>()
+            .HasOne(es => es.Supplier)
+            .WithMany(s => s.EventSuppliers)
+            .HasForeignKey(es => es.SupplierId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
         modelBuilder.Entity<CheckListTask>()
             .Property(t => t.Status)
             .HasConversion<string>();
