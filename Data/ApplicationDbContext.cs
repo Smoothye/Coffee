@@ -14,7 +14,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<RsvpStatus> RsvpStatuses { get; set; }
     public DbSet<WeddingTable> WeddingTables { get; set; }
     public DbSet<Guest> Guests { get; set; }
-    public DbSet<CheckListTaskStatus> CheckListTaskStatuses { get; set; }
     public DbSet<CheckListTask> CheckListTasks { get; set; }
     public DbSet<PaymentStatus> PaymentStatuses { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
@@ -31,6 +30,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(w => w.Guests)
             .HasForeignKey(g => g.TableId)
             .OnDelete(DeleteBehavior.Restrict);
+        
+        modelBuilder.Entity<CheckListTask>()
+            .Property(t => t.Status)
+            .HasConversion<string>();
+        
+        modelBuilder.Entity<CheckListTask>()
+            .Property(t => t.Priority)
+            .HasConversion<string>();
+        
+        modelBuilder.Entity<CheckListTask>()
+            .Property(t => t.Category)
+            .HasConversion<string>();
     }
     
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
