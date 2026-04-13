@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # undo last migration
 dotnet ef database update 0
 
