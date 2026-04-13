@@ -3,6 +3,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WeddingPlannerApp.Models;
 
+public enum PaymentStatus
+{
+    Unpaid,
+    Paid,
+}
+
 public class Expense
 {
     [Key]
@@ -16,17 +22,15 @@ public class Expense
     [Required, ForeignKey(nameof(SupplierId))]
     public required Supplier Supplier { get; init; }
     
-    public int PaymentStatusId { get; init; }
-    [Required, ForeignKey(nameof(PaymentStatusId))]
-    public required PaymentStatus PaymentStatus { get; init; }
+    public PaymentStatus PaymentStatus { get; set; } =  PaymentStatus.Unpaid;
     
-    public required string Category { get; init; }
+    // public required string Category { get; init; }
     
     public string? Description { get; set; }
     
-    public decimal Amount { get; set; }
+    public decimal Amount { get; init; }
     
-    public DateTime ExpenseDate { get; set; }
+    public DateTime ExpenseDate { get; init; }
     
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; init; } = DateTime.UtcNow;
