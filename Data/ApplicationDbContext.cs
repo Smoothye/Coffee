@@ -11,11 +11,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Venue> Venues { get; set; }
     public DbSet<Event> Events { get; set; }
     public DbSet<Menu> Menus { get; set; }
-    public DbSet<RsvpStatus> RsvpStatuses { get; set; }
     public DbSet<WeddingTable> WeddingTables { get; set; }
     public DbSet<Guest> Guests { get; set; }
     public DbSet<CheckListTask> CheckListTasks { get; set; }
-    public DbSet<PaymentStatus> PaymentStatuses { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
     public DbSet<EventSupplier> EventSuppliers { get; set; }
     public DbSet<Expense> Expenses { get; set; }
@@ -41,6 +39,22 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         
         modelBuilder.Entity<CheckListTask>()
             .Property(t => t.Category)
+            .HasConversion<string>();
+        
+        modelBuilder.Entity<Guest>()
+            .Property(t => t.RsvpStatus)
+            .HasConversion<string>();
+        
+        modelBuilder.Entity<Guest>()
+            .Property(t => t.Group)
+            .HasConversion<string>();
+        
+        modelBuilder.Entity<Guest>()
+            .Property(t => t.DietaryRequirements)
+            .HasConversion<string>();
+        
+        modelBuilder.Entity<Expense>()
+            .Property(t => t.PaymentStatus)
             .HasConversion<string>();
     }
     

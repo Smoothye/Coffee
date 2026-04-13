@@ -7,15 +7,15 @@ namespace WeddingPlannerApp.Models;
 [PrimaryKey(nameof(EventId),nameof(SupplierId))]
 public class EventSupplier
 {
-    public int EventId { get; set; }
+    public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; set; }
+    public required Event Event { get; init; }
     
-    public int SupplierId { get; set; }
+    public int SupplierId { get; init; }
     [Required, ForeignKey(nameof(SupplierId))]
-    public required Supplier Supplier { get; set; }
+    public required Supplier Supplier { get; init; }
 
     public string? CollaborationStatus { get; set; }
-    public string? Notes { get; set; }
     
+    public string? Notes { get; set; }
 }

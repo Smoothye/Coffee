@@ -57,19 +57,6 @@ namespace WeddingPlannerApp.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "CheckListTaskStatuses",
-                columns: table => new
-                {
-                    StatusId = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    StatusName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_CheckListTaskStatuses", x => x.StatusId);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Menus",
                 columns: table => new
                 {
@@ -82,32 +69,6 @@ namespace WeddingPlannerApp.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Menus", x => x.MenuId);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PaymentStatuses",
-                columns: table => new
-                {
-                    PaymentStatusId = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    StatusName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PaymentStatuses", x => x.PaymentStatusId);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "RsvpStatuses",
-                columns: table => new
-                {
-                    RsvpStatusId = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
-                    StatusName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RsvpStatuses", x => x.RsvpStatusId);
                 });
 
             migrationBuilder.CreateTable(
@@ -310,22 +271,16 @@ namespace WeddingPlannerApp.Migrations
                     TaskId = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     EventId = table.Column<int>(type: "INTEGER", nullable: false),
-                    StatusId = table.Column<int>(type: "INTEGER", nullable: false),
                     Title = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    Category = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
                     DueDate = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Priority = table.Column<int>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", nullable: false),
+                    Priority = table.Column<string>(type: "TEXT", nullable: false),
+                    Category = table.Column<string>(type: "TEXT", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_CheckListTasks", x => x.TaskId);
-                    table.ForeignKey(
-                        name: "FK_CheckListTasks_CheckListTaskStatuses_StatusId",
-                        column: x => x.StatusId,
-                        principalTable: "CheckListTaskStatuses",
-                        principalColumn: "StatusId",
-                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_CheckListTasks_Events_EventId",
                         column: x => x.EventId,
@@ -368,8 +323,7 @@ namespace WeddingPlannerApp.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     EventId = table.Column<int>(type: "INTEGER", nullable: false),
                     SupplierId = table.Column<int>(type: "INTEGER", nullable: false),
-                    PaymentStatusId = table.Column<int>(type: "INTEGER", nullable: false),
-                    Category = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    PaymentStatus = table.Column<string>(type: "TEXT", nullable: false),
                     Description = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     Amount = table.Column<decimal>(type: "TEXT", precision: 8, scale: 2, nullable: false),
                     ExpenseDate = table.Column<DateTime>(type: "TEXT", nullable: false),
@@ -384,12 +338,6 @@ namespace WeddingPlannerApp.Migrations
                         column: x => x.EventId,
                         principalTable: "Events",
                         principalColumn: "EventId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Expenses_PaymentStatuses_PaymentStatusId",
-                        column: x => x.PaymentStatusId,
-                        principalTable: "PaymentStatuses",
-                        principalColumn: "PaymentStatusId",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Expenses_Suppliers_SupplierId",
@@ -477,15 +425,15 @@ namespace WeddingPlannerApp.Migrations
                         .Annotation("Sqlite:Autoincrement", true),
                     EventId = table.Column<int>(type: "INTEGER", nullable: false),
                     TableId = table.Column<int>(type: "INTEGER", nullable: true),
-                    RsvpStatusId = table.Column<int>(type: "INTEGER", nullable: false),
                     FirstName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
                     LastName = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
-                    Phone = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    Category = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     Age = table.Column<int>(type: "INTEGER", nullable: true),
-                    Gender = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
-                    DietaryRequirements = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    Email = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    Phone = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
+                    Gender = table.Column<int>(type: "INTEGER", nullable: true),
+                    RsvpStatus = table.Column<string>(type: "TEXT", nullable: false),
+                    Group = table.Column<string>(type: "TEXT", nullable: false),
+                    DietaryRequirements = table.Column<string>(type: "TEXT", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 256, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
@@ -498,12 +446,6 @@ namespace WeddingPlannerApp.Migrations
                         column: x => x.EventId,
                         principalTable: "Events",
                         principalColumn: "EventId",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Guests_RsvpStatuses_RsvpStatusId",
-                        column: x => x.RsvpStatusId,
-                        principalTable: "RsvpStatuses",
-                        principalColumn: "RsvpStatusId",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Guests_WeddingTables_TableId",
@@ -561,17 +503,6 @@ namespace WeddingPlannerApp.Migrations
                 column: "EventId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_CheckListTasks_StatusId",
-                table: "CheckListTasks",
-                column: "StatusId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_CheckListTaskStatuses_StatusName",
-                table: "CheckListTaskStatuses",
-                column: "StatusName",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Events_MenuId",
                 table: "Events",
                 column: "MenuId");
@@ -592,11 +523,6 @@ namespace WeddingPlannerApp.Migrations
                 column: "EventId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Expenses_PaymentStatusId",
-                table: "Expenses",
-                column: "PaymentStatusId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Expenses_SupplierId",
                 table: "Expenses",
                 column: "SupplierId");
@@ -607,20 +533,9 @@ namespace WeddingPlannerApp.Migrations
                 column: "EventId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Guests_RsvpStatusId",
-                table: "Guests",
-                column: "RsvpStatusId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Guests_TableId",
                 table: "Guests",
                 column: "TableId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PaymentStatuses_StatusName",
-                table: "PaymentStatuses",
-                column: "StatusName",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ScheduleItems_EventId",
@@ -681,16 +596,7 @@ namespace WeddingPlannerApp.Migrations
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "CheckListTaskStatuses");
-
-            migrationBuilder.DropTable(
-                name: "PaymentStatuses");
-
-            migrationBuilder.DropTable(
                 name: "Suppliers");
-
-            migrationBuilder.DropTable(
-                name: "RsvpStatuses");
 
             migrationBuilder.DropTable(
                 name: "WeddingTables");

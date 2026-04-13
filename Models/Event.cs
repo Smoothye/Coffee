@@ -7,11 +7,11 @@ namespace WeddingPlannerApp.Models;
 public class Event
 {
     [Key]
-    public int EventId { get; set; }
+    public int EventId { get; init; }
     
-    public int VenueId { get; set; }
+    public int VenueId { get; init; }
     [Required, ForeignKey(nameof(VenueId))]
-    public required Venue Venue { get; set; }
+    public required Venue Venue { get; init; }
     
     public int MenuId { get; set; }
     [Required, ForeignKey(nameof(MenuId))]
@@ -30,7 +30,7 @@ public class Event
     [MaxLength(256)]
     public string? Notes { get; set; }
     
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<UserEvent> UserEvents { get; set; } = [];

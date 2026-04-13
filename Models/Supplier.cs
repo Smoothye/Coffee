@@ -19,7 +19,6 @@ public class Supplier
     
     public string? Notes { get; set; }
 
-    // Relational fields
     public ICollection<Expense> Expenses { get; set; } = [];
     public ICollection<EventSupplier> EventSuppliers { get; set; } = [];
 }

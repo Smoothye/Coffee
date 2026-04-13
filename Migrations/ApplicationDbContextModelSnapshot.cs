@@ -261,7 +261,6 @@ namespace WeddingPlannerApp.Migrations
 
                     b.Property<string>("Category")
                         .IsRequired()
-                        .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("DueDate")
@@ -274,11 +273,13 @@ namespace WeddingPlannerApp.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Priority")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
-                    b.Property<int>("StatusId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -289,28 +290,7 @@ namespace WeddingPlannerApp.Migrations
 
                     b.HasIndex("EventId");
 
-                    b.HasIndex("StatusId");
-
                     b.ToTable("CheckListTasks");
-                });
-
-            modelBuilder.Entity("WeddingPlannerApp.Models.CheckListTaskStatus", b =>
-                {
-                    b.Property<int>("StatusId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("StatusName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("StatusId");
-
-                    b.HasIndex("StatusName")
-                        .IsUnique();
-
-                    b.ToTable("CheckListTaskStatuses");
                 });
 
             modelBuilder.Entity("WeddingPlannerApp.Models.Event", b =>
@@ -392,11 +372,6 @@ namespace WeddingPlannerApp.Migrations
                         .HasPrecision(8, 2)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
@@ -410,8 +385,9 @@ namespace WeddingPlannerApp.Migrations
                     b.Property<DateTime>("ExpenseDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("PaymentStatusId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("SupplierId")
                         .HasColumnType("INTEGER");
@@ -422,8 +398,6 @@ namespace WeddingPlannerApp.Migrations
                     b.HasKey("ExpenseId");
 
                     b.HasIndex("EventId");
-
-                    b.HasIndex("PaymentStatusId");
 
                     b.HasIndex("SupplierId");
 
@@ -439,18 +413,15 @@ namespace WeddingPlannerApp.Migrations
                     b.Property<int?>("Age")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Category")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("DietaryRequirements")
-                        .HasMaxLength(256)
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
@@ -462,8 +433,11 @@ namespace WeddingPlannerApp.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Gender")
-                        .HasMaxLength(256)
+                    b.Property<int?>("Gender")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Group")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("LastName")
@@ -479,8 +453,9 @@ namespace WeddingPlannerApp.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("RsvpStatusId")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("RsvpStatus")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("TableId")
                         .HasColumnType("INTEGER");
@@ -491,8 +466,6 @@ namespace WeddingPlannerApp.Migrations
                     b.HasKey("GuestId");
 
                     b.HasIndex("EventId");
-
-                    b.HasIndex("RsvpStatusId");
 
                     b.HasIndex("TableId");
 
@@ -521,41 +494,6 @@ namespace WeddingPlannerApp.Migrations
                     b.HasKey("MenuId");
 
                     b.ToTable("Menus");
-                });
-
-            modelBuilder.Entity("WeddingPlannerApp.Models.PaymentStatus", b =>
-                {
-                    b.Property<int>("PaymentStatusId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("StatusName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("PaymentStatusId");
-
-                    b.HasIndex("StatusName")
-                        .IsUnique();
-
-                    b.ToTable("PaymentStatuses");
-                });
-
-            modelBuilder.Entity("WeddingPlannerApp.Models.RsvpStatus", b =>
-                {
-                    b.Property<int>("RsvpStatusId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("StatusName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("RsvpStatusId");
-
-                    b.ToTable("RsvpStatuses");
                 });
 
             modelBuilder.Entity("WeddingPlannerApp.Models.ScheduleItem", b =>
@@ -813,14 +751,6 @@ namespace WeddingPlannerApp.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("WeddingPlannerApp.Models.CheckListTaskStatus", "CheckListTaskStatus")
-                        .WithMany()
-                        .HasForeignKey("StatusId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CheckListTaskStatus");
-
                     b.Navigation("Event");
                 });
 
@@ -870,12 +800,6 @@ namespace WeddingPlannerApp.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("WeddingPlannerApp.Models.PaymentStatus", "PaymentStatus")
-                        .WithMany()
-                        .HasForeignKey("PaymentStatusId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("WeddingPlannerApp.Models.Supplier", "Supplier")
                         .WithMany("Expenses")
                         .HasForeignKey("SupplierId")
@@ -883,8 +807,6 @@ namespace WeddingPlannerApp.Migrations
                         .IsRequired();
 
                     b.Navigation("Event");
-
-                    b.Navigation("PaymentStatus");
 
                     b.Navigation("Supplier");
                 });
@@ -897,20 +819,12 @@ namespace WeddingPlannerApp.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("WeddingPlannerApp.Models.RsvpStatus", "RsvpStatus")
-                        .WithMany("Guests")
-                        .HasForeignKey("RsvpStatusId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("WeddingPlannerApp.Models.WeddingTable", "WeddingTable")
                         .WithMany("Guests")
                         .HasForeignKey("TableId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Event");
-
-                    b.Navigation("RsvpStatus");
 
                     b.Navigation("WeddingTable");
                 });
@@ -981,11 +895,6 @@ namespace WeddingPlannerApp.Migrations
             modelBuilder.Entity("WeddingPlannerApp.Models.Menu", b =>
                 {
                     b.Navigation("Events");
-                });
-
-            modelBuilder.Entity("WeddingPlannerApp.Models.RsvpStatus", b =>
-                {
-                    b.Navigation("Guests");
                 });
 
             modelBuilder.Entity("WeddingPlannerApp.Models.Supplier", b =>

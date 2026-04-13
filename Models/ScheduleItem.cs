@@ -13,7 +13,7 @@ public class ScheduleItem
     public required Event Event { get; init; }
     
     [Required]
-    public required string Title { get; set; }
+    public required string Title { get; init; }
     
     public DateTime? StartTime { get; set; }
     

@@ -6,11 +6,11 @@ namespace WeddingPlannerApp.Models;
 public class WeddingTable
 {
     [Key]
-    public int TableId { get; set; }
+    public int TableId { get; init; }
     
-    public int EventId { get; set; }
+    public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; set; }
+    public required Event Event { get; init; }
     
     public int TableNumber { get; set; }
     public int Capacity { get; set; }
