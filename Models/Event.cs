@@ -9,13 +9,13 @@ public class Event
     [Key]
     public int EventId { get; init; }
     
-    public int VenueId { get; init; }
+    public int VenueId { get; set; }
     [Required, ForeignKey(nameof(VenueId))]
     public Venue? Venue { get; init; }
     
     public int MenuId { get; set; }
     [Required, ForeignKey(nameof(MenuId))]
-    public Menu? Menu { get; set; }
+    public Menu? Menu { get; init; }
     
     [Required, MaxLength(128)]
     public required string Name { get; set; }
