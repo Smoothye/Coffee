@@ -16,11 +16,11 @@ public class Expense
     
     public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; init; }
+    public Event? Event { get; init; }
     
     public int SupplierId { get; init; }
     [Required, ForeignKey(nameof(SupplierId))]
-    public required Supplier Supplier { get; init; }
+    public Supplier? Supplier { get; init; }
     
     public PaymentStatus PaymentStatus { get; set; } =  PaymentStatus.Unpaid;
     

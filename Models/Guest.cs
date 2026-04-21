@@ -43,7 +43,7 @@ public class Guest
     
     public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; init; }   
+    public Event? Event { get; init; }   
     
     public int? TableId { get; set; }
     [ForeignKey(nameof(TableId))]
