@@ -1,0 +1,541 @@
+﻿@page "/venues/{VenueId:int}"
+@page "/venues"
+@layout UserLayout
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@implements IDisposable
+
+<HeadContent>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</HeadContent>
+
+<nav class="tables-nav">
+    <div class="tables-nav-brand">
+        <div class="tables-nav-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+            </svg>
+        </div>
+        <div>
+            <span class="tables-nav-title">Venues</span>
+            <span class="tables-nav-sub">Explore &amp; compare spaces</span>
+        </div>
+    </div>
+</nav>
+
+<div class="venues-page">
+
+    @if (current == null)
+    {
+        var selected = allVenues.FirstOrDefault(v => v.Id == userSelectedVenueId);
+
+        @if (selected != null)
+        {
+            <div class="venue-selected-hero" @onclick="@(() => SelectVenue(selected.Id))" style="cursor:pointer;">
+                <img src="@selected.Images[0]" alt="@selected.Name" class="venue-selected-img" />
+                <div class="venue-selected-overlay">
+                    <div class="venue-selected-top">
+                        <div class="venue-selected-badge">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                            Your venue
+                        </div>
+                    </div>
+                    <div class="venue-selected-spacer"></div>
+                    <div class="venue-selected-bottom">
+                        <div class="venue-selected-text-wrap">
+                            <span class="venue-selected-type">@selected.Type</span>
+                            <h1 class="venues-h1">@selected.Name</h1>
+                            <p class="venues-sub">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                                @selected.Address &nbsp;·&nbsp; @selected.MinCapacity–@selected.MaxCapacity guests
+                                @if (selected.EstimatedPrice > 0)
+                                {
+                                    <span style="margin-left:.6rem;font-weight:700;color:#fff;">est. $@selected.EstimatedPrice.ToString("N0")</span>
+                                }
+                            </p>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;flex-shrink:0;">
+                            <div class="venue-selected-explore" @onclick:stopPropagation="true" @onclick="@(() => SelectVenue(selected.Id))">
+                                Explore details
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="venue-selected-amenities">
+                        @foreach (var a in selected.Amenities.Take(5))
+                        {
+                            <span class="amenity-tag-dark">@a</span>
+                        }
+                        @if (selected.Amenities.Count > 5)
+                        {
+                            <span class="amenity-tag-dark" style="opacity:.55;">+@(selected.Amenities.Count - 5) more</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="venues-bottom">
+            <div class="other-venues-header">
+                <h2 class="other-venues-title">Other venues</h2>
+                <p class="other-venues-sub">Swipe to explore &nbsp;·&nbsp; @(allVenues.Count - 1) more available</p>
+            </div>
+
+            <div class="venue-carousel">
+                @foreach (var v in allVenues.Where(v => v.Id != userSelectedVenueId))
+                {
+                    var venue = v;
+                    <button class="carousel-card" @onclick="@(() => SelectVenue(venue.Id))">
+                        <div class="carousel-img-wrap">
+                            <img src="@venue.Images[0]" alt="@venue.Name" class="carousel-img" />
+                        </div>
+                        <div class="carousel-info">
+                            <p class="carousel-name">@venue.Name</p>
+                            <p class="carousel-meta">@venue.Type &nbsp;·&nbsp; @venue.MinCapacity–@venue.MaxCapacity</p>
+                            @if (venue.EstimatedPrice > 0)
+                            {
+                                <p class="carousel-price">est. $@venue.EstimatedPrice.ToString("N0")</p>
+                            }
+                        </div>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="venue-hero-full">
+            <img src="@current.Images[activeImage]" alt="@current.Name" class="venue-selected-img" />
+            <div class="venue-selected-overlay">
+                <div class="venue-selected-top">
+                    <button class="venue-back-hero" @onclick="ClearVenue">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
+                        All venues
+                    </button>
+                    @if (current?.Id == userSelectedVenueId)
+                    {
+                        <span class="venue-booked-badge">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                            Your venue
+                        </span>
+                    }
+                    else
+                    {
+                        <button class="venue-book-btn" @onclick="@(() => showBookConfirm = true)" @onclick:stopPropagation="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            Book this venue
+                        </button>
+                    }
+                </div>
+                <div class="venue-selected-spacer"></div>
+                <div class="venue-selected-bottom">
+                    <div class="venue-selected-text-wrap">
+                        <span class="venue-selected-type">@current.Type</span>
+                        <h1 class="venues-h1">@current.Name</h1>
+                        <p class="venues-sub">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                            @current.Address &nbsp;·&nbsp; @current.MinCapacity–@current.MaxCapacity guests
+                            @if (current.EstimatedPrice > 0)
+                            {
+                                <span style="margin-left:.6rem;font-weight:700;color:#fff;">est. $@current.EstimatedPrice.ToString("N0")</span>
+                            }
+                        </p>
+                    </div>
+                </div>
+                <div class="venue-selected-amenities">
+                    @foreach (var a in current.Amenities.Take(6))
+                    {
+                        <span class="amenity-tag-dark">@a</span>
+                    }
+                </div>
+            </div>
+            @if (current.Images.Count > 1)
+            {
+                <div class="venue-thumbs">
+                    @for (int i = 0; i < current.Images.Count; i++)
+                    {
+                        var idx = i;
+                        <button class="venue-thumb @(activeImage == idx ? "thumb-active" : "")"
+                                @onclick="@(() => activeImage = idx)">
+                            <img src="@current.Images[idx]" alt="@(idx + 1)" />
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="venue-two-col">
+
+            <div class="venue-col-main">
+
+                <div class="venue-info-grid">
+                    <div class="vinfo-card">
+                        <div class="vinfo-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                        </div>
+                        <div><p class="vinfo-label">Capacity</p><p class="vinfo-val">@current.MinCapacity–@current.MaxCapacity guests</p></div>
+                    </div>
+
+
+                    @if (current.EstimatedPrice > 0)
+                    {
+                        <div class="vinfo-card">
+                            <div class="vinfo-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                            </div>
+                            <div><p class="vinfo-label">Est. Price</p><p class="vinfo-val">$@current.EstimatedPrice.ToString("N0")</p></div>
+                        </div>
+                    }
+                </div>
+
+                <div class="venue-section">
+                    <h3 class="venue-section-title">About</h3>
+                    <p class="venue-description">@current.Description</p>
+                </div>
+
+                <div class="venue-section">
+                    <h3 class="venue-section-title">Amenities</h3>
+                    <div class="amenities-wrap">
+                        @foreach (var a in current.Amenities)
+                        {
+                            <span class="amenity-tag">@a</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="venue-section">
+                    <h3 class="venue-section-title">Gallery</h3>
+                    <div class="venue-gallery">
+                        @for (int i = 0; i < current.Images.Count; i++)
+                        {
+                            var idx = i;
+                            <button class="gallery-item" @onclick="@(() => activeImage = idx)">
+                                <img src="@current.Images[idx]" alt="@(idx + 1)" class="gallery-img" />
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="venue-section">
+                    <h3 class="venue-section-title">Location</h3>
+                    <div id="venue-map" class="venue-map"></div>
+                    <p class="venue-map-addr">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem;color:var(--sage)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                        @current.Address
+                        <a href="https://www.openstreetmap.org/search?query=@Uri.EscapeDataString(current.Address)" target="_blank" class="map-ext-link">Open in maps →</a>
+                    </p>
+                </div>
+
+            </div>
+
+            <aside class="venue-col-sidebar">
+                <h3 class="sidebar-venues-title">Other venues</h3>
+                @foreach (var sv in allVenues.Where(v => v.Id != current.Id))
+                {
+                    var s = sv;
+                    <button class="sidebar-venue-card" @onclick="@(() => SelectVenue(s.Id))">
+                        <div class="sidebar-venue-img-wrap">
+                            <img src="@s.Images[0]" alt="@s.Name" class="sidebar-venue-img" />
+                            @if (s.MaxCapacity >= current.MinCapacity && s.MinCapacity <= current.MaxCapacity)
+                            {
+                                <span class="sidebar-venue-match">Similar capacity</span>
+                            }
+                        </div>
+                        <div class="sidebar-venue-info">
+                            <div class="sidebar-venue-top">
+                                <p class="sidebar-venue-name">@s.Name</p>
+                            </div>
+                            <p class="sidebar-venue-meta">@s.Type · @s.MinCapacity–@s.MaxCapacity guests</p>
+                            @if (s.EstimatedPrice > 0)
+                            {
+                                <p class="sidebar-venue-price">est. $@s.EstimatedPrice.ToString("N0")</p>
+                            }
+                        </div>
+                    </button>
+                }
+            </aside>
+
+        </div>
+    }
+</div>
+
+@if (showBookConfirm && current != null)
+{
+    var bookVenue = current!;
+    <div class="modal-backdrop" @onclick="@(() => showBookConfirm = false)">
+        <div class="modal-box" @onclick:stopPropagation="true" style="max-width:420px;">
+            <div class="modal-header">
+                <h3>Change your venue?</h3>
+                <button class="modal-close" @onclick="@(() => showBookConfirm = false)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+            </div>
+            <div style="padding:.25rem 0 1.25rem;">
+                <p style="font-size:.9rem;color:var(--text);margin:0 0 .75rem;">
+                    You're about to set <strong>@bookVenue.Name</strong> as your wedding venue.
+                </p>
+                <div class="book-confirm-venue">
+                    <img src="@bookVenue.Images[0]" alt="@bookVenue.Name" class="book-confirm-img" />
+                    <div>
+                        <p style="font-weight:700;font-size:.92rem;color:var(--sage-dark);margin:0 0 .2rem;">@bookVenue.Name</p>
+                        <p style="font-size:.78rem;color:var(--muted);margin:0;">@bookVenue.Address</p>
+                        <p style="font-size:.78rem;color:var(--muted);margin:.15rem 0 0;">@bookVenue.MinCapacity–@bookVenue.MaxCapacity guests</p>
+                    </div>
+                </div>
+                <div class="error-banner" style="background:#fef9c3;border-color:#fcd34d;color:#92400e;margin-top:.85rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    This change will require admin approval before it takes effect.
+                </div>
+            </div>
+            <div style="display:flex;gap:.65rem;">
+                <button class="btn-outline" style="flex:1;" @onclick="@(() => showBookConfirm = false)">Cancel</button>
+                <button class="btn-add-guest" style="flex:2;" @onclick="ConfirmBooking">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    Confirm booking request
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(toastMsg))
+{
+    <div class="toast toast-success">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+        @toastMsg
+    </div>
+}
+
+
+@code {
+
+    [Parameter] public int VenueId { get; set; }
+    class Venue
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";
+        public string Address { get; set; } = "";
+        public string Description { get; set; } = "";
+        public int MinCapacity { get; set; }
+        public int MaxCapacity { get; set; }
+        public decimal EstimatedPrice { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public List<string> Images { get; set; } = new();
+        public List<string> Amenities { get; set; } = new();
+        public string ImageFolder { get; set; } = "";
+    }
+
+    List<Venue> allVenues = new()
+    {
+        new Venue
+        {
+            Id=1, Name="Rosewood Gardens", Type="Garden",
+            Address="12 Rose Lane, Greenfield",
+            Description="A stunning garden venue surrounded by lush greenery, blooming roses and elegant fountains. Perfect for romantic outdoor ceremonies with a beautiful indoor reception hall.",
+            MinCapacity=50, MaxCapacity=200, EstimatedPrice=5000,
+            ImageFolder="rosewood",
+            Images=new()
+            {
+                "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80",
+                "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80",
+                "https://images.unsplash.com/photo-1478146059778-26028b07395a?w=800&q=80",
+                "https://images.unsplash.com/photo-1510076857177-7470076d4098?w=800&q=80",
+            },
+            Amenities=new(){"Parking","Catering Kitchen","Bridal Suite","Sound System","Garden","Wheelchair Access"},
+        },
+        new Venue
+        {
+            Id=2, Name="The Grand Ballroom", Type="Indoor",
+            Address="88 Grand Ave, Maplewood",
+            Description="An opulent ballroom with crystal chandeliers, marble floors and world-class catering. Hosts up to 500 guests in timeless elegance.",
+            MinCapacity=100, MaxCapacity=500, EstimatedPrice=12000,
+            ImageFolder="grandballroom",
+            Images=new()
+            {
+                "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80",
+                "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80",
+                "https://images.unsplash.com/photo-1505236858219-8359eb29e329?w=800&q=80",
+            },
+            Amenities=new(){"Valet Parking","Full Catering","Honeymoon Suite","Live Band Stage","Bar","AV System"},
+        },
+        new Venue
+        {
+            Id=3, Name="Lakeside Pavilion", Type="Waterfront",
+            Address="1 Lake Road, Crystal Shores",
+            Description="A breathtaking waterfront pavilion with panoramic lake views. Ideal for intimate ceremonies and open-air receptions under the stars.",
+            MinCapacity=30, MaxCapacity=150, EstimatedPrice=3500,
+            ImageFolder="lakeside",
+            Images=new()
+            {
+                "https://images.unsplash.com/photo-1478146059778-26028b07395a?w=800&q=80",
+                "https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80",
+                "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80",
+            },
+            Amenities=new(){"Boat Dock","Outdoor Terrace","Scenic Views","Parking","Catering","Fire Pit"},
+        },
+        new Venue
+        {
+            Id=4, Name="Vineyard Estate", Type="Countryside",
+            Address="44 Vine St, Rolling Hills",
+            Description="A romantic countryside estate among rolling vineyards. Rustic elegance meets modern comfort with wine tastings and farm-to-table catering.",
+            MinCapacity=80, MaxCapacity=300, EstimatedPrice=7500,
+            ImageFolder="vineyard",
+            Images=new()
+            {
+                "https://images.unsplash.com/photo-1510076857177-7470076d4098?w=800&q=80",
+                "https://images.unsplash.com/photo-1505236858219-8359eb29e329?w=800&q=80",
+                "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80",
+            },
+            Amenities=new(){"Wine Cellar","Barn Hall","Outdoor Ceremony","Farm Catering","Parking","Pet Friendly"},
+        },
+    };
+
+    static List<string> FolderImages(string folder) => new()
+    {
+        $"/images/venues/{folder}/1.jpg",
+        $"/images/venues/{folder}/2.jpg",
+        $"/images/venues/{folder}/3.jpg",
+    };
+
+    Venue? current = null;
+    int activeImage = 0;
+    bool mapLoaded = false;
+    int userSelectedVenueId = 1; // In production: load from user session/DB
+    bool showBookConfirm = false;
+    string toastMsg = "";
+    System.Timers.Timer? _toast;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (current != null && !mapLoaded)
+        {
+            mapLoaded = true;
+            await InitMap(current.Name, current.Address);
+        }
+    }
+
+    async Task InitMap(string name, string address)
+    {
+        try
+        {
+            var escapedName = name.Replace("'", "\\'").Replace("\"", "\\\"");
+            var escapedAddress = address.Replace("'", "\\'").Replace("\"", "\\\"");
+
+            await JS.InvokeVoidAsync("eval", $$"""
+                (function() {
+                    if (window._venueMap) {
+                        window._venueMap.remove();
+                        window._venueMap = null;
+                    }
+                    var el = document.getElementById('venue-map');
+                    if (!el) return;
+
+                    function initLeaflet() {
+                        // Geocode address via Nominatim (OpenStreetMap, free, no key)
+                        fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent('{{escapedAddress}}'))
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                var lat = data && data[0] ? parseFloat(data[0].lat) : 44.4268;
+                                var lng = data && data[0] ? parseFloat(data[0].lon) : 26.1025;
+
+                                var map = L.map('venue-map', { zoomControl: true, scrollWheelZoom: false })
+                                    .setView([lat, lng], 15);
+
+                                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+                                    maxZoom: 19
+                                }).addTo(map);
+
+                                var icon = L.divIcon({
+                                    className: '',
+                                    html: '<div style="width:2rem;height:2rem;background:linear-gradient(135deg,#7d9b76,#4f6b4a);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>',
+                                    iconSize: [32, 32],
+                                    iconAnchor: [16, 32]
+                                });
+
+                                L.marker([lat, lng], { icon: icon })
+                                    .addTo(map)
+                                    .bindPopup('<strong>{{escapedName}}</strong><br>{{escapedAddress}}')
+                                    .openPopup();
+
+                                window._venueMap = map;
+                            })
+                            .catch(function() {
+                                // Fallback — show map centered on Romania if geocoding fails
+                                var map = L.map('venue-map', { zoomControl: true, scrollWheelZoom: false })
+                                    .setView([45.9432, 24.9668], 7);
+                                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+                                    maxZoom: 19
+                                }).addTo(map);
+                                window._venueMap = map;
+                            });
+                    }
+
+                    if (!document.querySelector('script[src*="leaflet"]')) {
+                        var s = document.createElement('script');
+                        s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                        s.onload = function() { initLeaflet(); };
+                        document.head.appendChild(s);
+                    } else {
+                        initLeaflet();
+                    }
+                })();
+            """);
+        }
+        catch { /* map load failed silently */ }
+    }
+
+
+    void SelectVenue(int id)
+    {
+        current = allVenues.FirstOrDefault(v => v.Id == id);
+        activeImage = 0;
+        mapLoaded = false;
+    }
+
+    void ClearVenue()
+    {
+        current = null;
+        mapLoaded = false;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (VenueId > 0 && current?.Id != VenueId)
+        {
+            current = allVenues.FirstOrDefault(v => v.Id == VenueId);
+            activeImage = 0;
+            mapLoaded = false;
+        }
+        else if (VenueId == 0 && current != null && Nav.Uri.TrimEnd('/').EndsWith("/venues"))
+        {
+            current = null;
+            mapLoaded = false;
+        }
+    }
+
+    void ConfirmBooking()
+    {
+        if (current == null) return;
+        userSelectedVenueId = current.Id;
+        showBookConfirm = false;
+        toastMsg = $"Booking request sent for {current.Name}. Awaiting admin approval.";
+        _toast?.Dispose();
+        _toast = new System.Timers.Timer(4000);
+        _toast.Elapsed += async (_, _) => { toastMsg = ""; _toast?.Dispose(); await InvokeAsync(StateHasChanged); };
+        _toast.AutoReset = false;
+        _toast.Start();
+    }
+
+    public void Dispose()
+    {
+        _toast?.Dispose();
+        try { JS.InvokeVoidAsync("eval", "if(window._venueMap){window._venueMap.remove();window._venueMap=null;}"); }
+        catch { }
+    }
+}

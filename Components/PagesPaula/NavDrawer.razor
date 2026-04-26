@@ -1,0 +1,80 @@
+﻿@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<HeadContent>
+    <link rel="stylesheet" href="styles/NavDrawer.css" />
+</HeadContent>
+
+<button class="drawer-fab" @onclick="ToggleDrawer" title="Menu">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+</button>
+
+@if (drawerOpen)
+{
+    <div class="drawer-overlay" @onclick="CloseDrawer"></div>
+}
+
+<div class="drawer-panel @(drawerOpen ? "drawer-open" : "")">
+    <div class="drawer-header">
+        <div class="drawer-brand">
+            <div class="drawer-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                </svg>
+            </div>
+            <div>
+                <span class="drawer-app-name"><em>Ever</em>After</span>
+                <span class="drawer-app-sub">Wedding Planner</span>
+            </div>
+        </div>
+        <button class="drawer-close" @onclick="CloseDrawer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
+    <nav class="drawer-nav">
+        @foreach (var item in navItems)
+        {
+            var i = item;
+            var isActive = Nav.Uri.TrimEnd('/').EndsWith(i.Href.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+            <a href="@i.Href"
+               class="drawer-link @(isActive ? "drawer-link-active" : "")"
+               @onclick="CloseDrawer">
+                <span class="drawer-link-icon">@((MarkupString)i.Svg)</span>
+                <span class="drawer-link-label">@i.Label</span>
+            </a>
+        }
+    </nav>
+
+    <div class="drawer-footer">
+        <div class="countdown-pill" style="width:100%;justify-content:center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            @daysUntilWedding days to your wedding
+        </div>
+    </div>
+</div>
+
+@code {
+    bool drawerOpen = false;
+    void ToggleDrawer() => drawerOpen = !drawerOpen;
+    void CloseDrawer()  => drawerOpen = false;
+
+    DateTime weddingDate     = new DateTime(2026, 9, 12);
+    int daysUntilWedding     => Math.Max(0, (weddingDate - DateTime.Today).Days);
+
+    record NavItem(string Label, string Href, string Svg);
+
+    List<NavItem> navItems = new()
+    {
+        new NavItem("Dashboard", "/dashboard", "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='7' height='7'/><rect x='14' y='3' width='7' height='7'/><rect x='14' y='14' width='7' height='7'/><rect x='3' y='14' width='7' height='7'/></svg>"),
+        new NavItem("Venues",    "/venues",    "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>"),
+        new NavItem("Guests",    "/guests",    "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>"),
+        new NavItem("Tables",    "/tables",    "<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 3h7v7H3z'/><path d='M14 3h7v7h-7z'/><path d='M14 14h7v7h-7z'/><path d='M3 14h7v7H3z'/></svg>"),
+    };
+}

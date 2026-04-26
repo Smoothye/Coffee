@@ -1,0 +1,375 @@
+﻿@page "/dashboard"
+@layout UserLayout
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@implements IDisposable
+
+<HeadContent>
+    <link rel="stylesheet" href="styles/Dashboard.css" />
+</HeadContent>
+
+<div class="dash-body">
+    <div class="dash-header">
+        <h1 class="dash-greeting">@Greeting, Emma</h1>
+        <p class="dash-subtitle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            @daysUntilWedding days until your wedding · @weddingDate.ToString("MMMM d, yyyy")
+        </p>
+    </div>
+
+    <div class="dash-grid">
+        <div class="widget widget-budget">
+            <div class="widget-head">
+                <div class="widget-head-left">
+                    <div class="widget-icon wicon-green">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23" />
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                    </div>
+                    <h3 class="widget-title">Budget</h3>
+                </div>
+                <span class="widget-badge wbadge-green">@budgetPercent% used</span>
+            </div>
+
+            <div class="budget-amounts">
+                <div>
+                    <p class="budget-spent">$@budgetSpent.ToString("N0")</p>
+                    <p class="budget-label">spent</p>
+                </div>
+                <div class="budget-divider"></div>
+                <div>
+                    <p class="budget-total">$@budgetTotal.ToString("N0")</p>
+                    <p class="budget-label">total</p>
+                </div>
+                <div class="budget-divider"></div>
+                <div>
+                    <p class="budget-remaining" style="color:@(budgetRemaining > 0 ? "#16a34a" : "#dc2626")">
+                        $@Math.Abs(budgetRemaining).ToString("N0")
+                    </p>
+                    <p class="budget-label">@(budgetRemaining >= 0 ? "remaining" : "over budget")</p>
+                </div>
+            </div>
+
+            <div class="budget-bar-wrap">
+                <div class="budget-bar">
+                    <div class="budget-bar-fill @(budgetPercent > 90 ? "bar-danger" : budgetPercent > 70 ? "bar-warn" : "bar-ok")"
+                         style="width:@Math.Min(budgetPercent, 100)%"></div>
+                </div>
+                <span class="budget-bar-pct">@budgetPercent%</span>
+            </div>
+
+            <div class="budget-categories">
+                @foreach (var cat in budgetCategories)
+                {
+                    var c = cat;
+                    <div class="bcat-row">
+                        <div class="bcat-dot" style="background:@c.Color"></div>
+                        <span class="bcat-name">@c.Name</span>
+                        <div class="bcat-bar-wrap">
+                            <div class="bcat-bar" style="width:@((int)((double)c.Amount / budgetTotal * 100))%;background:@c.Color;opacity:.7;"></div>
+                        </div>
+                        <span class="bcat-amount">$@c.Amount.ToString("N0")</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="widget widget-rsvp">
+            <div class="widget-head">
+                <div class="widget-head-left">
+                    <div class="widget-icon wicon-blue">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                    </div>
+                    <h3 class="widget-title">Guest RSVPs</h3>
+                </div>
+                <a href="/guests" class="widget-link">View all →</a>
+            </div>
+
+            <div class="rsvp-donut-wrap">
+                <svg class="rsvp-donut" viewBox="0 0 120 120">
+                    @{
+                        var total = rsvpConfirmed + rsvpPending + rsvpDeclined;
+                        var r = 48.0;
+                        var cx = 60.0; var cy = 60.0;
+                        var circ = 2 * Math.PI * r;
+                        double offset = 0;
+                        var segments = new[]
+                        {
+                                (rsvpConfirmed, "#16a34a"),
+                                (rsvpPending,   "#d97706"),
+                                (rsvpDeclined,  "#dc2626"),
+                            };
+                    }
+                    @foreach (var seg in segments)
+                    {
+                        var pct = total > 0 ? (double)seg.Item1 / total : 0;
+                        var dash = pct * circ;
+                        var gap = circ - dash;
+                        <circle cx="@cx" cy="@cy" r="@r"
+                                fill="none"
+                                stroke="@seg.Item2"
+                                stroke-width="14"
+                                stroke-dasharray="@dash.ToString("F2") @gap.ToString("F2")"
+                                stroke-dashoffset="@(-(offset * circ)).ToString(" F2")"
+                                transform="rotate(-90 60 60)"
+                                style="transition:stroke-dasharray .6s ease;" />
+                        offset += pct;
+                    }
+                    <text x="60" y="55" text-anchor="middle" class="donut-num">@total</text>
+                    <text x="60" y="70" text-anchor="middle" class="donut-label">guests</text>
+                </svg>
+
+                <div class="rsvp-legend">
+                    <div class="rsvp-leg-item">
+                        <div class="rsvp-leg-dot" style="background:#16a34a"></div>
+                        <span class="rsvp-leg-label">Confirmed</span>
+                        <span class="rsvp-leg-val">@rsvpConfirmed</span>
+                    </div>
+                    <div class="rsvp-leg-item">
+                        <div class="rsvp-leg-dot" style="background:#d97706"></div>
+                        <span class="rsvp-leg-label">Pending</span>
+                        <span class="rsvp-leg-val">@rsvpPending</span>
+                    </div>
+                    <div class="rsvp-leg-item">
+                        <div class="rsvp-leg-dot" style="background:#dc2626"></div>
+                        <span class="rsvp-leg-label">Declined</span>
+                        <span class="rsvp-leg-val">@rsvpDeclined</span>
+                    </div>
+                    <div class="rsvp-leg-item" style="border-top:1px solid rgba(200,219,197,.3);padding-top:.4rem;margin-top:.2rem;">
+                        <div class="rsvp-leg-dot" style="background:var(--sage)"></div>
+                        <span class="rsvp-leg-label">Plus Ones</span>
+                        <span class="rsvp-leg-val">@rsvpPlusOnes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="widget widget-tasks">
+            <div class="widget-head">
+                <div class="widget-head-left">
+                    <div class="widget-icon wicon-amber">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                    </div>
+                    <h3 class="widget-title">Urgent Tasks</h3>
+                </div>
+                <span class="widget-badge wbadge-amber">@tasks.Count(t => !t.Done && t.IsUrgent) urgent</span>
+            </div>
+
+            <div class="task-list">
+                @foreach (var task in tasks.OrderBy(t => t.Done).ThenBy(t => t.DueDate).Take(6))
+                {
+                    var tk = task;
+                    <div class="task-row @(tk.Done ? "task-done" : "") @(tk.IsUrgent && !tk.Done ? "task-urgent" : "")">
+                        <button class="task-check" @onclick="@(() => ToggleTask(tk.Id))">
+                            @if (tk.Done)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                            }
+                        </button>
+                        <div class="task-info">
+                            <span class="task-title">@tk.Title</span>
+                            <span class="task-meta">
+                                <span class="task-cat">@tk.Category</span>
+                                @if (!tk.Done)
+                                {
+                                    <span class="task-due @(tk.IsUrgent ? "due-urgent" : "")">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle">
+                                            <circle cx="12" cy="12" r="10" />
+                                            <polyline points="12 6 12 12 16 14" />
+                                        </svg>
+                                        @tk.DueDate.ToString("MMM d")
+                                    </span>
+                                }
+                            </span>
+                        </div>
+                        @if (tk.Priority == "high" && !tk.Done)
+                        {
+                            <span class="task-priority-dot"></span>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="task-progress">
+                <div class="task-progress-bar">
+                    <div class="task-progress-fill" style="width:@(tasks.Count > 0 ? tasks.Count(t => t.Done) * 100 / tasks.Count : 0)%"></div>
+                </div>
+                <span class="task-progress-label">@tasks.Count(t => t.Done)/@tasks.Count completed</span>
+            </div>
+        </div>
+
+        <div class="widget widget-menu">
+            <div class="widget-head">
+                <div class="widget-head-left">
+                    <div class="widget-icon wicon-sage">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                            <path d="M7 2v20" />
+                            <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
+                        </svg>
+                    </div>
+                    <h3 class="widget-title">Menu &amp; Details</h3>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(selectedMenu))
+            {
+                <div class="menu-selected">
+                    <div class="menu-check-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="menu-name">@selectedMenu</p>
+                        <p class="menu-sub">Menu confirmed</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="menu-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-light)">
+                        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                        <path d="M7 2v20" />
+                        <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
+                    </svg>
+                    <p>No menu selected yet</p>
+                    <a href="/events" class="widget-link" style="font-size:.8rem;margin-top:.25rem;">Select menu →</a>
+                </div>
+            }
+
+            <div class="quick-details">
+                <div class="qd-row">
+                    <span class="qd-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                            <circle cx="12" cy="10" r="3" />
+                        </svg>
+                    </span>
+                    <span class="qd-label">Venue</span>
+                    <span class="qd-value">@venueName</span>
+                </div>
+                <div class="qd-row">
+                    <span class="qd-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                    </span>
+                    <span class="qd-label">Expected guests</span>
+                    <span class="qd-value">@expectedGuests</span>
+                </div>
+                <div class="qd-row">
+                    <span class="qd-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                    </span>
+                    <span class="qd-label">Tables confirmed</span>
+                    <span class="qd-value @(tablesConfirmed ? "qd-ok" : "qd-pending")">
+                        @(tablesConfirmed ? "Yes" : "Pending")
+                    </span>
+                </div>
+                <div class="qd-row">
+                    <span class="qd-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="1" x2="12" y2="23" />
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                        </svg>
+                    </span>
+                    <span class="qd-label">Budget status</span>
+                    <span class="qd-value @(budgetPercent <= 80 ? "qd-ok" : "qd-warn")">
+                        @(budgetPercent <= 80 ? "On track" : budgetPercent <= 100 ? "Watch it" : "Over budget")
+                    </span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+@code {
+    DateTime weddingDate = new DateTime(2026, 9, 12);
+    string venueName = "Rosewood Gardens";
+    int expectedGuests = 120;
+    bool tablesConfirmed = false;
+    string selectedMenu = "Classic Elegance";
+
+    int daysUntilWedding => Math.Max(0, (weddingDate - DateTime.Today).Days);
+
+    string Greeting => DateTime.Now.Hour switch
+    {
+        < 12 => "Good morning",
+        < 18 => "Good afternoon",
+        _ => "Good evening"
+    };
+
+    int budgetTotal = 20000;
+    int budgetSpent = 14200;
+    int budgetRemaining => budgetTotal - budgetSpent;
+    int budgetPercent => budgetTotal > 0 ? budgetSpent * 100 / budgetTotal : 0;
+
+    record BudgetCategory(string Name, int Amount, string Color);
+    List<BudgetCategory> budgetCategories = new()
+    {
+        new("Catering",     5800, "#7d9b76"),
+        new("Venue",        4500, "#a8c8a4"),
+        new("Photography",  2200, "#4f6b4a"),
+        new("Florals",       900, "#c8dbc5"),
+        new("Other",         800, "#d97706"),
+    };
+
+    int rsvpConfirmed = 84;
+    int rsvpPending = 28;
+    int rsvpDeclined = 8;
+    int rsvpPlusOnes = 14;
+
+    record DashTask(int Id, string Title, string Category, DateTime DueDate, string Priority, bool Done = false)
+    {
+        public bool IsUrgent => !Done && (DueDate - DateTime.Today).Days <= 14;
+        public bool Done { get; set; } = Done;
+    }
+
+    List<DashTask> tasks = new()
+    {
+        new DashTask(1,  "Final headcount to caterer",    "Catering",     DateTime.Today.AddDays(3),  "high"),
+        new DashTask(2,  "Confirm florist order",         "Florals",      DateTime.Today.AddDays(5),  "high"),
+        new DashTask(3,  "Send final seating chart",      "Tables",       DateTime.Today.AddDays(7),  "high"),
+        new DashTask(4,  "Pay venue balance",             "Venue",        DateTime.Today.AddDays(10), "high"),
+        new DashTask(5,  "Review ceremony timeline",      "Schedule",     DateTime.Today.AddDays(14), "medium"),
+        new DashTask(6,  "Collect dietary requirements",  "Catering",     DateTime.Today.AddDays(4),  "medium"),
+        new DashTask(7,  "Book hair & makeup",            "Beauty",       DateTime.Today.AddDays(21), "medium"),
+        new DashTask(8,  "Order wedding favors",          "Decor",        DateTime.Today.AddDays(30), "low",  true),
+        new DashTask(9,  "Send save-the-dates",           "Invitations",  DateTime.Today.AddDays(-5), "high", true),
+    };
+
+    void ToggleTask(int id)
+    {
+        var t = tasks.FirstOrDefault(x => x.Id == id);
+        if (t is not null) t.Done = !t.Done;
+    }
+
+
+
+    public void Dispose() { }
+}

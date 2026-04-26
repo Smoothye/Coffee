@@ -1,0 +1,640 @@
+﻿@page "/guests"
+@layout UserLayout
+
+@using System.Text
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<nav class="tables-nav">
+    <div class="tables-nav-brand">
+        <div class="tables-nav-icon">
+            @SvgUsers
+        </div>
+        <div>
+            <span class="tables-nav-title">Guest List</span>
+            <span class="tables-nav-sub">Manage &amp; track RSVPs</span>
+        </div>
+    </div>
+</nav>
+
+@if (csvGuideOpen)
+{
+    <div class="modal-backdrop" @onclick="@(() => { csvGuideOpen = false; dragActive = false; })">
+        <div class="modal-box csv-guide-box" @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+                <h3>Import Guests</h3>
+                <button class="modal-close" @onclick="@(() => { csvGuideOpen = false; dragActive = false; })">@SvgX</button>
+            </div>
+
+            <div class="csv-two-col">
+                <div class="csv-left">
+                    <p class="csv-section-title">Accepted formats</p>
+                    <div class="csv-formats">
+                        <span class="csv-format-tag">.csv</span>
+                        <span class="csv-format-note">Only .csv files are accepted. Excel files must be saved as CSV first (File → Save As → CSV UTF-8).</span>
+                    </div>
+
+                    <p class="csv-section-title" style="margin-top:1rem;">Columns</p>
+                    <div class="csv-col-table">
+                        <div class="csv-col-head">
+                            <span>Column</span><span>Req.</span><span>Valid values</span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">FirstName</span>
+                            <span class="csv-req yes">Yes</span>
+                            <span class="csv-col-vals">Any text</span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">LastName</span>
+                            <span class="csv-req yes">Yes</span>
+                            <span class="csv-col-vals">Any text</span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Email</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">Used for duplicate check</span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Phone</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">Any format</span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Age</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">Number</span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Gender</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">
+                                <span class="csv-tag csv-other">male</span>
+                                <span class="csv-tag csv-other">female</span>
+                                <span class="csv-tag csv-other">other</span>
+                            </span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Dietary</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">
+                                <span class="csv-tag csv-other">none</span>
+                                <span class="csv-tag csv-other">vegan</span>
+                                <span class="csv-tag csv-other">vegetarian</span>
+                                <span class="csv-tag csv-other">gluten-free</span>
+                                <span class="csv-tag csv-other">halal</span>
+                                <span class="csv-tag csv-other">kosher</span>
+                            </span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Group</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">
+                                <span class="csv-tag csv-family">family</span>
+                                <span class="csv-tag csv-friends">friends</span>
+                                <span class="csv-tag csv-colleagues">colleagues</span>
+                                <span class="csv-tag csv-other">other</span>
+                            </span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">Status</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">
+                                <span class="csv-tag csv-friends">confirmed</span>
+                                <span class="csv-tag csv-other">pending</span>
+                                <span class="csv-tag" style="background:#fee2e2;color:#dc2626;border-color:#fca5a5;">declined</span>
+                            </span>
+                        </div>
+                        <div class="csv-col-row">
+                            <span class="csv-col-name">PlusOne</span>
+                            <span class="csv-req no">No</span>
+                            <span class="csv-col-vals">
+                                <span class="csv-tag csv-friends">Yes</span>
+                                <span class="csv-tag csv-other">No</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="csv-rules">
+                        <p class="csv-rules-title">@SvgAlertCircle Duplicate rules</p>
+                        <ul class="csv-rules-list">
+                            <li>Same <strong>email</strong> or <strong>phone</strong> → skipped</li>
+                            <li>Same <strong>full name</strong> → allowed (shown as duplicate)</li>
+                            <li>Invalid <strong>Group/Dietary/Status</strong> → default used</li>
+                        </ul>
+                    </div>
+
+                    <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
+                        @SvgDownload Download blank template
+                    </button>
+                </div>
+
+                <div class="csv-right">
+                    <p class="csv-section-title">Upload file</p>
+
+                    <div class="csv-dropzone @(dragActive ? "csv-dropzone-active" : "")"
+                         @ondragenter="@((e) => dragActive = true)"
+                         @ondragleave="@((e) => dragActive = false)"
+                         @ondragover:preventDefault="true"
+                         @ondragover="@((e) => dragActive = true)">
+
+                        <div class="csv-drop-inner">
+                            @if (importResult == null)
+                            {
+                                <div class="csv-drop-icon">@SvgUploadCloud</div>
+                                <p class="csv-drop-title">Drag &amp; drop your .csv here</p>
+                                <p class="csv-drop-sub">or</p>
+                            }
+                            else
+                            {
+                                <div class="csv-drop-icon @(importResult.HasWarning ? "icon-warn" : "icon-ok")">
+                                    @(importResult.HasWarning ? SvgAlertCircle : SvgCheckCircle)
+                                </div>
+                                <p class="csv-drop-title">@importResult.Message</p>
+                                <p class="csv-drop-sub">Upload another file?</p>
+                            }
+
+                            <label class="btn-add" style="cursor:pointer;margin-top:.5rem;">
+                                @SvgUpload Browse file
+                                <InputFile OnChange="HandleImport" accept=".csv" style="display:none;" />
+                            </label>
+
+                            <p class="csv-accepted-note">Accepted: <strong>.csv</strong> only</p>
+                        </div>
+                    </div>
+
+                    @if (importResult != null)
+                    {
+                        <button class="btn-add-guest" style="margin-top:.75rem;" @onclick="@(() => { csvGuideOpen = false; dragActive = false; importResult = null; })">
+                            @SvgCheck Done — View Guests
+                        </button>
+                    }
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@if (dialogOpen)
+{
+    <div class="modal-backdrop" @onclick="CloseDialog">
+        <div class="modal-box" @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+                <h3>Add New Guest</h3>
+                <button class="modal-close" @onclick="CloseDialog" title="Close">@SvgX</button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(formError))
+            {
+                <div class="error-banner">
+                    @SvgAlertCircle
+                    @formError
+                </div>
+            }
+
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>First Name *</label>
+                    <input class="input" @bind="newGuest.FirstName" @bind:event="oninput" placeholder="First name" />
+                </div>
+                <div class="field">
+                    <label>Last Name *</label>
+                    <input class="input" @bind="newGuest.LastName" @bind:event="oninput" placeholder="Last name" />
+                </div>
+            </div>
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>Email</label>
+                    <input class="input" @bind="newGuest.Email" @bind:event="oninput" placeholder="email@example.com" />
+                </div>
+                <div class="field">
+                    <label>Phone</label>
+                    <input class="input" @bind="newGuest.Phone" @bind:event="oninput" placeholder="+1234567890" />
+                </div>
+            </div>
+            <div class="form-grid-3">
+                <div class="field">
+                    <label>Age</label>
+                    <input class="input" type="number" min="0" @bind="newGuest.Age" @bind:event="oninput" />
+                </div>
+                <div class="field">
+                    <label>Gender</label>
+                    <select class="input select-input" @bind="newGuest.Gender">
+                        <option value="">—</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Dietary</label>
+                    <select class="input select-input" @bind="newGuest.DietaryRequirements">
+                        @foreach (var d in DietaryOptions)
+                        {
+                            <option value="@d.Value">@d.Label</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="field">
+                <label>Group</label>
+                <select class="input select-input" @bind="newGuest.Group">
+                    <option value="family">Family</option>
+                    <option value="friends">Friends</option>
+                    <option value="colleagues">Colleagues</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label class="field-label">Plus One</label>
+                <div class="plusone-toggle">
+                    <button type="button"
+                            class="toggle-opt @(!newGuest.PlusOne ? "toggle-active-no" : "toggle-inactive")"
+                            @onclick="@(() => newGuest.PlusOne = false)">
+                        @SvgXSmall No
+                    </button>
+                    <button type="button"
+                            class="toggle-opt @(newGuest.PlusOne ? "toggle-active-yes" : "toggle-inactive")"
+                            @onclick="@(() => newGuest.PlusOne = true)">
+                        @SvgCheck Yes
+                    </button>
+                </div>
+            </div>
+
+            <button class="btn-add-guest" @onclick="AddGuest">Add Guest</button>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(importSummary))
+{
+    <div class="import-toast @(importHasWarning ? "import-toast-warn" : "import-toast-ok")">
+        @(importHasWarning ? SvgAlertCircle : SvgCheckCircle)
+        @importSummary
+        <button class="import-toast-close" @onclick="@(() => importSummary = "")">@SvgX</button>
+    </div>
+}
+
+<div class="guests-wrap">
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-icon">@SvgUsers</span>
+            <div>
+                <p class="stat-value">@guests.Count</p>
+                <p class="stat-label">Total Guests</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon confirmed-icon">@SvgUserCheck</span>
+            <div>
+                <p class="stat-value">@guests.Count(g => g.Status == "confirmed")</p>
+                <p class="stat-label">Confirmed</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon pending-icon">@SvgClock</span>
+            <div>
+                <p class="stat-value">@guests.Count(g => g.Status == "pending")</p>
+                <p class="stat-label">Pending</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon declined-icon">@SvgUserX</span>
+            <div>
+                <p class="stat-value">@guests.Count(g => g.Status == "declined")</p>
+                <p class="stat-label">Declined</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div class="search-wrap">
+            <span class="search-icon">@SvgSearch</span>
+            <input class="input search-input"
+                   placeholder="Search guests..."
+                   @bind="search"
+                   @bind:event="oninput" />
+        </div>
+        <select class="input select-input filter-select" @bind="filterGroup">
+            <option value="all">All Groups</option>
+            <option value="family">Family</option>
+            <option value="friends">Friends</option>
+            <option value="colleagues">Colleagues</option>
+            <option value="other">Other</option>
+        </select>
+        <div class="toolbar-actions">
+            <button class="btn-outline" @onclick="@(() => { csvGuideOpen = true; importResult = null; })">
+                @SvgFileText CSV Guide
+            </button>
+            <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
+                @SvgUpload Import
+                <InputFile OnChange="HandleImport" accept=".csv" style="display:none;" />
+            </label>
+            <button class="btn-outline" @onclick="ExportCSV">
+                @SvgDownload Export
+            </button>
+            <button class="btn-add" @onclick="OpenDialog">
+                @SvgPlus Add Guest
+            </button>
+        </div>
+    </div>
+
+    <div class="guest-list">
+        @if (!FilteredGuests.Any())
+        {
+            <div class="empty-state">
+                <span class="empty-state-icon">@SvgUsersLarge</span>
+                <p>No guests found.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var guest in FilteredGuests)
+            {
+                var g = guest;
+                <div class="guest-row">
+                    <div class="guest-avatar">
+                        @g.FirstName[0]@g.LastName[0]
+                    </div>
+                    <div class="guest-info">
+                        <p class="guest-name">@g.FirstName @g.LastName</p>
+                        <div class="guest-meta">
+                            <span>@g.Email</span>
+                            @if (g.DietaryRequirements != "none")
+                            {
+                                <span class="badge badge-dietary">@g.DietaryRequirements</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="guest-actions">
+                        <span class="badge @GroupBadgeClass(g.Group)">@g.Group</span>
+                        @if (g.PlusOne)
+                        {
+                            <span class="plus-one-badge" title="Has +1">+1</span>
+                        }
+                        <div class="rsvp-btns">
+                            <button class="rsvp-btn rsvp-confirmed @(g.Status == "confirmed" ? "rsvp-active" : "rsvp-inactive")"
+                                    title="Confirmed"
+                                    @onclick="@(() => SetStatus(g.Id, "confirmed"))">
+                                @SvgCheck
+                            </button>
+                            <button class="rsvp-btn rsvp-pending @(g.Status == "pending" ? "rsvp-active" : "rsvp-inactive")"
+                                    title="Pending"
+                                    @onclick="@(() => SetStatus(g.Id, "pending"))">
+                                @SvgClockSmall
+                            </button>
+                            <button class="rsvp-btn rsvp-declined @(g.Status == "declined" ? "rsvp-active" : "rsvp-inactive")"
+                                    title="Declined"
+                                    @onclick="@(() => SetStatus(g.Id, "declined"))">
+                                @SvgXSmall
+                            </button>
+                        </div>
+                        <button class="delete-btn" title="Remove guest"
+                                @onclick="@(() => RemoveGuest(g.Id))">
+                            @SvgTrash
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+</div>
+@code {
+
+    bool dialogOpen = false;
+    string formError = "";
+    string search = "";
+    string filterGroup = "all";
+    string importSummary = "";
+    bool importHasWarning = false;
+
+    bool csvGuideOpen = false;
+    bool dragActive = false;
+    ImportResult? importResult = null;
+
+    record ImportResult(string Message, bool HasWarning);
+
+    record DietaryOption(string Value, string Label);
+    static readonly DietaryOption[] DietaryOptions =
+    {
+        new("none",        "None"),
+        new("vegan",       "Vegan"),
+        new("vegetarian",  "Vegetarian"),
+        new("gluten-free", "Gluten-Free"),
+        new("halal",       "Halal"),
+        new("kosher",      "Kosher"),
+        new("other",       "Other"),
+    };
+
+    class Guest
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public int? Age { get; set; }
+        public string Gender { get; set; } = "";
+        public string DietaryRequirements { get; set; } = "none";
+        public string Group { get; set; } = "friends";
+        public string Status { get; set; } = "pending";
+        public bool PlusOne { get; set; }
+    }
+
+    List<Guest> guests = new()
+    {
+        new Guest { Id=1, FirstName="Emma",   LastName="Johnson",  Email="emma@email.com",   Phone="+1234567890", Age=28, Gender="female", DietaryRequirements="none",        Group="family",     Status="confirmed" },
+        new Guest { Id=2, FirstName="Liam",   LastName="Smith",    Email="liam@email.com",   Phone="+1234567891", Age=30, Gender="male",   DietaryRequirements="vegetarian",  Group="friends",    Status="pending"   },
+        new Guest { Id=3, FirstName="Sophia", LastName="Williams", Email="sophia@email.com", Phone="+1234567892", Age=26, Gender="female", DietaryRequirements="gluten-free", Group="colleagues", Status="confirmed" },
+        new Guest { Id=4, FirstName="Oliver", LastName="Brown",    Email="oliver@email.com", Phone="+1234567893", Age=35, Gender="male",   DietaryRequirements="none",        Group="family",     Status="declined"  },
+        new Guest { Id=5, FirstName="Mia",    LastName="Davis",    Email="mia@email.com",    Phone="+1234567894", Age=24, Gender="female", DietaryRequirements="vegan",       Group="friends",    Status="pending"   },
+    };
+
+    Guest newGuest = new();
+
+    IEnumerable<Guest> FilteredGuests => guests.Where(g =>
+    {
+        var name = $"{g.FirstName} {g.LastName}".ToLower();
+        var matchSearch = string.IsNullOrEmpty(search) || name.Contains(search.ToLower()) || g.Email.Contains(search, StringComparison.OrdinalIgnoreCase);
+        var matchGroup = filterGroup == "all" || g.Group == filterGroup;
+        return matchSearch && matchGroup;
+    });
+
+    void OpenDialog() { newGuest = new Guest { Group = "friends", DietaryRequirements = "none" }; formError = ""; dialogOpen = true; }
+    void CloseDialog() { dialogOpen = false; formError = ""; }
+
+    bool IsDuplicate(string firstName, string lastName, string email, string phone)
+    {
+        var nameKey = $"{firstName.Trim().ToLower()} {lastName.Trim().ToLower()}";
+        var emailKey = email.Trim().ToLower();
+        var phoneKey = phone.Trim();
+
+        return guests.Any(g =>
+        {
+            var gName = $"{g.FirstName.ToLower()} {g.LastName.ToLower()}";
+            var gEmail = g.Email.Trim().ToLower();
+            var gPhone = g.Phone.Trim();
+            return gName == nameKey
+                || (!string.IsNullOrWhiteSpace(emailKey) && gEmail == emailKey)
+                || (!string.IsNullOrWhiteSpace(phoneKey) && gPhone == phoneKey);
+        });
+    }
+
+    void AddGuest()
+    {
+        if (string.IsNullOrWhiteSpace(newGuest.FirstName) || string.IsNullOrWhiteSpace(newGuest.LastName))
+        { formError = "Please enter first and last name."; return; }
+
+        if (IsDuplicate(newGuest.FirstName, newGuest.LastName, newGuest.Email, newGuest.Phone))
+        { formError = "A guest with the same name, email or phone already exists."; return; }
+
+        newGuest.Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue);
+        newGuest.Status = "pending";
+        guests.Add(newGuest);
+        CloseDialog();
+    }
+
+    void SetStatus(int id, string status)
+    {
+        var g = guests.FirstOrDefault(x => x.Id == id);
+        if (g is null) return;
+        g.Status = status;
+    }
+
+    void RemoveGuest(int id) => guests.RemoveAll(g => g.Id == id);
+
+    async Task ExportCSV()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("FirstName,LastName,Email,Phone,Age,Gender,Dietary,Group,Status,PlusOne");
+        foreach (var g in guests)
+            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Email},{g.Phone},{g.Age},{g.Gender},{g.DietaryRequirements},{g.Group},{g.Status},{(g.PlusOne ? "Yes" : "No")}");
+        var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
+        await JS.InvokeVoidAsync("eval",
+            $"var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='guest_list.csv';a.click()");
+    }
+
+    async Task HandleImport(InputFileChangeEventArgs e)
+    {
+        dragActive = false;
+        var file = e.File;
+
+        if (!file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            importResult = new ImportResult("Only .csv files are accepted.", true);
+            return;
+        }
+
+        using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
+        var text = await reader.ReadToEndAsync();
+        int imported = 0, skipped = 0, counter = 0;
+
+        var validGroups = new[] { "family", "friends", "colleagues", "other" };
+        var validDietary = new[] { "none", "vegan", "vegetarian", "gluten-free", "halal", "kosher", "other" };
+        var validStatuses = new[] { "confirmed", "pending", "declined" };
+
+        foreach (var line in text.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        {
+            var c = line.TrimEnd('\r').Split(',');
+            if (c.Length < 2) continue;
+
+            var firstName = c.ElementAtOrDefault(0)?.Trim() ?? "";
+            var lastName = c.ElementAtOrDefault(1)?.Trim() ?? "";
+            var email = c.ElementAtOrDefault(2)?.Trim() ?? "";
+            var phone = c.ElementAtOrDefault(3)?.Trim() ?? "";
+            var ageStr = c.ElementAtOrDefault(4)?.Trim() ?? "";
+            var gender = c.ElementAtOrDefault(5)?.Trim().ToLower() ?? "";
+            var dietary = c.ElementAtOrDefault(6)?.Trim().ToLower() ?? "";
+            var group = c.ElementAtOrDefault(7)?.Trim().ToLower() ?? "";
+            var status = c.ElementAtOrDefault(8)?.Trim().ToLower() ?? "";
+            var plusOne = c.ElementAtOrDefault(9)?.Trim().ToLower() ?? "";
+
+            if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName))
+            { skipped++; continue; }
+
+            if (IsDuplicate(firstName, lastName, email, phone))
+            { skipped++; continue; }
+
+            guests.Add(new Guest
+            {
+                Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + counter++,
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                Phone = phone,
+                Age = int.TryParse(ageStr, out var age) ? age : null,
+                Gender = new[] { "male", "female", "other" }.Contains(gender) ? gender : "",
+                DietaryRequirements = validDietary.Contains(dietary) ? dietary : "none",
+                Group = validGroups.Contains(group) ? group : "other",
+                Status = validStatuses.Contains(status) ? status : "pending",
+                PlusOne = plusOne is "yes" or "true" or "1",
+            });
+            imported++;
+        }
+
+        var msg = skipped > 0
+            ? $"Imported {imported} guest(s). Skipped {skipped} duplicate(s)."
+            : $"Successfully imported {imported} guest(s).";
+        importResult = new ImportResult(msg, skipped > 0);
+        importSummary = msg;
+        importHasWarning = skipped > 0;
+    }
+
+    async Task DownloadTemplate()
+    {
+        var csv = "FirstName,LastName,Email,Phone,Age,Gender,Dietary,Group,Status,PlusOne\n" +
+                  "Maria,Ionescu,maria@@example.com,+40721000001,30,female,none,family,confirmed,No\n" +
+                  "Andrei,Pop,andrei@@example.com,,28,male,vegetarian,friends,pending,Yes\n" +
+                  "Elena,Dumitrescu,,,,,gluten-free,colleagues,pending,No\n";
+        var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
+        await JS.InvokeVoidAsync("eval",
+            $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='guests_template.csv';a.click()");
+    }
+
+    static string GroupBadgeClass(string group) => group switch
+    {
+        "family" => "badge-family",
+        "friends" => "badge-friends",
+        "colleagues" => "badge-colleagues",
+        _ => "badge-other",
+    };
+
+    static string StatusClass(string status) => status switch
+    {
+        "confirmed" => "status-confirmed",
+        "pending" => "status-pending",
+        "declined" => "status-declined",
+        _ => "",
+    };
+
+    RenderFragment StatusSvg(string status) => status switch
+    {
+        "confirmed" => SvgCheck,
+        "pending" => SvgClockSmall,
+        _ => SvgXSmall,
+    };
+
+    static RenderFragment SvgUsers = @<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+    static RenderFragment SvgUsersLarge = @<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+    static RenderFragment SvgUserCheck = @<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></svg>;
+    static RenderFragment SvgUserX = @<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="18" y1="8" x2="23" y2="13" /><line x1="23" y1="8" x2="18" y2="13" /></svg>;
+    static RenderFragment SvgClock = @<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
+    static RenderFragment SvgClockSmall = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>;
+    static RenderFragment SvgCheck = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>;
+    static RenderFragment SvgXSmall = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
+    static RenderFragment SvgX = @<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
+    static RenderFragment SvgSearch = @<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>;
+    static RenderFragment SvgUpload = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>;
+    static RenderFragment SvgUploadCloud = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" /><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" /></svg>;
+    static RenderFragment SvgFileText = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>;
+    static RenderFragment SvgCheckCircle = @<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
+    static RenderFragment SvgDownload = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
+    static RenderFragment SvgPlus = @<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
+    static RenderFragment SvgTrash = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>;
+    static RenderFragment SvgAlertCircle = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>;
+}

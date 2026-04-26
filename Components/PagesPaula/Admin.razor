@@ -1,0 +1,798 @@
+﻿@page "/admin"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+@inject IWebHostEnvironment Env
+@inject IJSRuntime JS
+@using System.Text
+@implements IDisposable
+
+<div class="admin-wrap">
+    <nav class="tables-nav">
+        <div class="tables-nav-brand">
+            <div class="tables-nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                </svg>
+            </div>
+            <div>
+                <span class="tables-nav-title">Application Manager</span>
+                <span class="tables-nav-sub">Review events &amp; manage venues</span>
+            </div>
+        </div>
+        <div class="tables-nav-actions">
+            <button class="btn-signout" @onclick="SignOut">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign Out
+            </button>
+        </div>
+    </nav>
+
+    <div class="admin-body">
+
+        <div class="stats-row">
+            <div class="stat-tile">
+                <div class="stat-tile-icon tile-sage">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-tile-val">@events.Count</p>
+                    <p class="stat-tile-label">Total Events</p>
+                </div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-tile-icon tile-amber">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-tile-val">@events.Count(e => e.Status == "pending")</p>
+                    <p class="stat-tile-label">Pending</p>
+                </div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-tile-icon tile-green">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-tile-val">@events.Count(e => e.Status == "confirmed")</p>
+                    <p class="stat-tile-label">Confirmed</p>
+                </div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-tile-icon tile-blue">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="stat-tile-val">@events.Sum(e => e.GuestCount)</p>
+                    <p class="stat-tile-label">Total Guests</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-head-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    <h2>Events</h2>
+                </div>
+                <div class="filter-pills">
+                    @foreach (var s in new[] { "all", "pending", "confirmed", "rejected", "completed" })
+                    {
+                        var sf = s;
+                        <button class="pill @(filterStatus == sf ? "pill-active" : "")"
+                                @onclick="@(() => filterStatus = sf)">
+                            @(sf == "all" ? "All" : char.ToUpper(sf[0]) + sf[1..])
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="event-list">
+                @if (!filteredEvents.Any())
+                {
+                    <div class="admin-empty">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        <p>@(filterStatus == "all" ? "No events submitted yet." : $"No {filterStatus} events.")</p>
+                    </div>
+                }
+
+                @foreach (var ev in filteredEvents)
+                {
+                    var e = ev;
+                    <div class="event-card @(e.Status == "pending" ? "is-pending" : e.Status == "confirmed" ? "is-confirmed" : "")">
+                        <div class="event-card-main">
+                            <div class="event-type-icon @(e.Status == "pending" ? "tile-amber" : "tile-sage")">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                </svg>
+                            </div>
+                            <div class="event-info">
+                                <p class="event-name">@e.Name</p>
+                                <div class="event-meta-row">
+                                    <span class="event-meta-item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                        @e.EventDate.ToString("MMM d, yyyy")
+                                    </span>
+                                    <span class="event-meta-item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                            <circle cx="12" cy="10" r="3" />
+                                        </svg>
+                                        @e.VenueName
+                                    </span>
+                                    <span class="event-meta-item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                            <circle cx="9" cy="7" r="4" />
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                        </svg>
+                                        @e.GuestCount guests
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(e.OwnerEmail))
+                                    {
+                                        <span class="event-meta-item" style="color:var(--sage-dark);font-weight:500;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                                <circle cx="12" cy="7" r="4" />
+                                            </svg>
+                                            @e.OwnerEmail
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="event-actions">
+                                <span class="status-badge @StatusBadgeClass(e.Status)">
+                                    @StatusIcon(e.Status)
+                                    @(char.ToUpper(e.Status[0]) + e.Status[1..])
+                                </span>
+                                @if (e.Status == "pending")
+                                {
+                                    <button class="icon-btn accept" title="Confirm" @onclick="@(() => ConfirmEvent(e.Id))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                    </button>
+                                    <button class="icon-btn reject" title="Reject" @onclick="@(() => RejectEvent(e.Id))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    </button>
+                                }
+                                @if (e.Status == "confirmed")
+                                {
+                                    <button class="icon-btn complete" title="Mark completed" @onclick="@(() => CompleteEvent(e.Id))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                                    </button>
+                                }
+                                <button class="icon-btn expand" title="@(expandedEventId == e.Id ? "Collapse" : "Details")" @onclick="@(() => ToggleExpand(e.Id))">
+                                    @if (expandedEventId == e.Id)
+                                    {
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
+                                    }
+                                    else
+                                    {
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+                                    }
+                                </button>
+                                <button class="icon-btn delete" title="Delete" @onclick="@(() => DeleteEvent(e.Id))">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                        <path d="M10 11v6" />
+                                        <path d="M14 11v6" />
+                                        <path d="M9 6V4h6v2" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (expandedEventId == e.Id)
+                        {
+                            <div class="event-detail">
+                                <div class="detail-item"><span class="detail-label">Event Type</span><span class="detail-value">@e.Type</span></div>
+                                <div class="detail-item"><span class="detail-label">Menu</span><span class="detail-value">@(string.IsNullOrEmpty(e.MenuName) ? "Not selected" : e.MenuName)</span></div>
+                                <div class="detail-item"><span class="detail-label">Owner Name</span><span class="detail-value">@(string.IsNullOrEmpty(e.OwnerName) ? "—" : e.OwnerName)</span></div>
+                                <div class="detail-item"><span class="detail-label">Owner Email</span><span class="detail-value">@(string.IsNullOrEmpty(e.OwnerEmail) ? "—" : e.OwnerEmail)</span></div>
+                                <div class="detail-item"><span class="detail-label">Total Budget</span><span class="detail-value">@(e.TotalBudget > 0 ? $"${e.TotalBudget:N0}" : "Not set")</span></div>
+                                <div class="detail-item"><span class="detail-label">Created</span><span class="detail-value">@e.CreatedAt.ToString("MMM d, yyyy")</span></div>
+                                @if (!string.IsNullOrEmpty(e.Notes))
+                                {
+                                    <div class="detail-item" style="grid-column:1/-1;">
+                                        <span class="detail-label">Notes</span>
+                                        <span class="detail-value notes-text">@e.Notes</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-head-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <h2>Venues</h2>
+                </div>
+                <button class="btn-add" @onclick="OpenNewVenueModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Add Venue
+                </button>
+            </div>
+
+            <div class="venue-list">
+                @foreach (var v in venues)
+                {
+                    var venue = v;
+                    <div class="venue-tile">
+                        @if (!string.IsNullOrEmpty(venue.ImagePath))
+                        {
+                            <img src="@venue.ImagePath" alt="@venue.Name" class="venue-tile-img" />
+                        }
+                        else
+                        {
+                            <div class="venue-tile-img venue-tile-img-placeholder">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                                    <circle cx="8.5" cy="8.5" r="1.5" />
+                                    <polyline points="21 15 16 10 5 21" />
+                                </svg>
+                            </div>
+                        }
+                        <div class="venue-tile-info">
+                            <h4>@venue.Name</h4>
+                            <p>@venue.Type · @venue.Address</p>
+                            @if (venue.EstimatedPrice > 0)
+                            {
+                                <p style="color:var(--sage-dark);font-weight:600;margin-top:.2rem;">est. $@venue.EstimatedPrice.ToString("N0")</p>
+                            }
+                        </div>
+                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;padding:.5rem .75rem .5rem 0;">
+                            <span class="venue-tile-cap">@venue.MinCapacity–@venue.MaxCapacity guests</span>
+                            <button class="icon-btn delete" title="Remove venue" @onclick="@(() => DeleteVenue(venue.Id))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                    <path d="M10 11v6" />
+                                    <path d="M14 11v6" />
+                                    <path d="M9 6V4h6v2" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-head-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    <h2>Venue Change Requests</h2>
+                </div>
+                @if (venueRequests.Any(r => r.Status == "pending"))
+                {
+                    <span class="badge-pending" style="font-size:.75rem;padding:.25rem .65rem;border-radius:999px;">
+                        @venueRequests.Count(r => r.Status == "pending") pending
+                    </span>
+                }
+            </div>
+
+            <div class="event-list">
+                @if (!venueRequests.Any())
+                {
+                    <div class="admin-empty">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                        <p>No venue change requests.</p>
+                    </div>
+                }
+
+                @foreach (var req in venueRequests.OrderByDescending(r => r.Status == "pending"))
+                {
+                    var r = req;
+                    <div class="event-card @(r.Status == "pending" ? "is-pending" : "")">
+                        <div class="event-card-main">
+
+                            <!-- Venue images side by side -->
+                            <div class="vreq-venues">
+                                <div class="vreq-venue-block">
+                                    <span class="vreq-label">Current</span>
+                                    <img src="@r.FromImagePath" alt="@r.FromVenueName" class="vreq-img" />
+                                    <p class="vreq-name">@r.FromVenueName</p>
+                                </div>
+                                <div class="vreq-arrow">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                        <polyline points="12 5 19 12 12 19" />
+                                    </svg>
+                                </div>
+                                <div class="vreq-venue-block">
+                                    <span class="vreq-label vreq-label-new">Requested</span>
+                                    <img src="@r.ToImagePath" alt="@r.ToVenueName" class="vreq-img" />
+                                    <p class="vreq-name">@r.ToVenueName</p>
+                                </div>
+                            </div>
+
+                            <div class="event-info">
+                                <p class="event-name">@r.EventName</p>
+                                <div class="event-meta-row">
+                                    <span class="event-meta-item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                            <circle cx="12" cy="7" r="4" />
+                                        </svg>
+                                        @r.OwnerName
+                                    </span>
+                                    <span class="event-meta-item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                        @r.RequestedAt.ToString("MMM d, yyyy")
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="event-actions">
+                                <span class="status-badge @StatusBadgeClass(r.Status)">
+                                    @StatusIcon(r.Status)
+                                    @(char.ToUpper(r.Status[0]) + r.Status[1..])
+                                </span>
+                                @if (r.Status == "pending")
+                                {
+                                    <button class="icon-btn accept" title="Approve" @onclick="@(() => ApproveVenueRequest(r.Id))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                    </button>
+                                    <button class="icon-btn reject" title="Reject" @onclick="@(() => RejectVenueRequest(r.Id))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    </button>
+                                }
+                                <button class="icon-btn delete" title="Remove" @onclick="@(() => venueRequests.Remove(r))">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                        <path d="M10 11v6" />
+                                        <path d="M14 11v6" />
+                                        <path d="M9 6V4h6v2" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@if (showVenueModal)
+{
+    <div class="modal-backdrop" @onclick="CloseVenueModal">
+        <div class="modal-box" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Add New Venue</h3>
+                <button class="modal-close" @onclick="CloseVenueModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(venueModalError))
+            {
+                <div class="error-banner">@venueModalError</div>
+            }
+
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>Venue Name</label>
+                    <input class="input" placeholder="Rosewood Gardens" @bind="newVenue.Name" @bind:event="oninput" />
+                </div>
+                <div class="field">
+                    <label>Type</label>
+                    <select class="input select-input" @bind="newVenue.Type">
+                        @foreach (var t in new[] { "Garden", "Indoor", "Waterfront", "Countryside", "Rooftop", "Other" })
+                        {
+                            <option value="@t">@t</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Address</label>
+                <input class="input" placeholder="123 Rose Lane, City" @bind="newVenue.Address" @bind:event="oninput" />
+            </div>
+
+            <div class="field">
+                <label>Venue Image</label>
+                <div class="venue-upload-zone @(uploadDragActive ? "venue-upload-active" : "")"
+                     @ondragenter="@(() => uploadDragActive = true)"
+                     @ondragleave="@(() => uploadDragActive = false)"
+                     @ondragover:preventDefault="true"
+                     @ondragover="@(() => uploadDragActive = true)">
+
+                    @if (!string.IsNullOrEmpty(newVenue.ImagePath))
+                    {
+                        <div style="position:relative;width:100%;height:100%;">
+                            <img src="@newVenue.ImagePath" alt="preview" class="venue-upload-preview" />
+                            <button type="button" class="venue-upload-clear" @onclick="ClearImage"
+                                    @onclick:stopPropagation="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="venue-upload-inner">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-light)">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <polyline points="21 15 16 10 5 21" />
+                            </svg>
+                            <p class="venue-upload-title">Drag &amp; drop or browse</p>
+                            <p class="venue-upload-sub">JPG, PNG, WebP · max 5 MB</p>
+                            <label class="btn-outline" style="cursor:pointer;margin-top:.35rem;font-size:.82rem;padding:.35rem .8rem;">
+                                Browse
+                                <InputFile OnChange="HandleVenueImageUpload" accept=".jpg,.jpeg,.png,.webp" style="display:none;" />
+                            </label>
+                        </div>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(uploadError))
+                {
+                    <p style="font-size:.78rem;color:var(--error);margin:.35rem 0 0;">@uploadError</p>
+                }
+            </div>
+
+            <div class="form-grid-3">
+                <div class="field">
+                    <label>Min Guests</label>
+                    <input type="number" class="input" min="1" @bind="newVenue.MinCapacity" @bind:event="oninput" />
+                </div>
+                <div class="field">
+                    <label>Max Guests</label>
+                    <input type="number" class="input" min="1" @bind="newVenue.MaxCapacity" @bind:event="oninput" />
+                </div>
+                <div class="field">
+                    <label>Est. Price ($)</label>
+                    <input type="number" class="input" min="0" @bind="newVenue.EstimatedPrice" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <button class="btn-add-guest" @onclick="AddVenue">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.35rem">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add Venue
+            </button>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(toastMessage))
+{
+    <div class="toast @(toastIsError ? "toast-error" : "toast-success")">
+        @if (toastIsError)
+        {
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+        }
+        else
+        {
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+        }
+        @toastMessage
+    </div>
+}
+
+@code {
+
+    class AdminEvent
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "Wedding";
+        public DateTime EventDate { get; set; } = DateTime.Today.AddMonths(3);
+        public int VenueId { get; set; }
+        public string VenueName { get; set; } = "";
+        public int GuestCount { get; set; }
+        public decimal TotalBudget { get; set; }
+        public string Status { get; set; } = "pending";
+        public string OwnerName { get; set; } = "";
+        public string OwnerEmail { get; set; } = "";
+        public string MenuName { get; set; } = "";
+        public string Notes { get; set; } = "";
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+    }
+
+    class AdminVenue
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "Garden";
+        public string Address { get; set; } = "";
+        public int MinCapacity { get; set; }
+        public int MaxCapacity { get; set; }
+        public decimal EstimatedPrice { get; set; }
+        public string ImagePath { get; set; } = "";
+        public string ImageFolder { get; set; } = "";
+    }
+
+    class VenueChangeRequest
+    {
+        public int Id { get; set; }
+        public string EventName { get; set; } = "";
+        public string OwnerName { get; set; } = "";
+        public string FromVenueName { get; set; } = "";
+        public string FromImagePath { get; set; } = "";
+        public string ToVenueName { get; set; } = "";
+        public string ToImagePath { get; set; } = "";
+        public string Status { get; set; } = "pending";
+        public DateTime RequestedAt { get; set; } = DateTime.Now;
+    }
+
+    List<VenueChangeRequest> venueRequests = new()
+    {
+        new VenueChangeRequest
+        {
+            Id=1, EventName="Emma & James Wedding", OwnerName="Emma Rossi",
+            FromVenueName="Rosewood Gardens",
+            FromImagePath="https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=200&q=80",
+            ToVenueName="The Grand Ballroom",
+            ToImagePath="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=200&q=80",
+            Status="pending", RequestedAt=DateTime.Today.AddDays(-1)
+        },
+    };
+
+    void ApproveVenueRequest(int id)
+    {
+        var req = venueRequests.FirstOrDefault(r => r.Id == id);
+        if (req is null) return;
+        req.Status = "approved";
+        ShowToast($"Venue change approved — {req.ToVenueName} confirmed for {req.EventName}.");
+    }
+
+    void RejectVenueRequest(int id)
+    {
+        var req = venueRequests.FirstOrDefault(r => r.Id == id);
+        if (req is null) return;
+        req.Status = "rejected";
+        ShowToast($"Venue change rejected for {req.EventName}.");
+    }
+
+    List<AdminEvent> events = new()
+    {
+        new AdminEvent { Id=1, Name="Emma & James Wedding",   Type="Wedding",     EventDate=new DateTime(2026,6,15), VenueId=1, VenueName="Rosewood Gardens",   GuestCount=120, TotalBudget=18000, Status="confirmed", OwnerName="Emma Rossi",    OwnerEmail="emma@example.com",   MenuName="Classic Elegance", Notes="Outdoor ceremony, indoor reception.", CreatedAt=new DateTime(2025,12,1)  },
+        new AdminEvent { Id=2, Name="Sophie's Birthday Gala", Type="Birthday",    EventDate=new DateTime(2026,7,20), VenueId=2, VenueName="The Grand Ballroom", GuestCount=200, TotalBudget=12000, Status="pending",   OwnerName="Sophie Martin", OwnerEmail="sophie@example.com", MenuName="Festive Buffet",   Notes="Surprise — do not email owner!", CreatedAt=new DateTime(2025,12,10) },
+        new AdminEvent { Id=3, Name="Johnson Anniversary",    Type="Anniversary", EventDate=new DateTime(2026,8,10), VenueId=3, VenueName="Lakeside Pavilion",  GuestCount=80,  TotalBudget=8000,  Status="pending",   OwnerName="Mark Johnson",  OwnerEmail="mark@example.com",   MenuName="",                 Notes="25th anniversary, prefer garden seating.", CreatedAt=new DateTime(2026,1,5) },
+    };
+
+    List<AdminVenue> venues = new()
+    {
+        new AdminVenue { Id=1, Name="Rosewood Gardens",   Type="Garden",      Address="12 Rose Lane, Greenfield",    MinCapacity=50,  MaxCapacity=200, EstimatedPrice=5000,  ImagePath="https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80" },
+        new AdminVenue { Id=2, Name="The Grand Ballroom", Type="Indoor",      Address="88 Grand Ave, Maplewood",     MinCapacity=100, MaxCapacity=500, EstimatedPrice=12000, ImagePath="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=600&q=80" },
+        new AdminVenue { Id=3, Name="Lakeside Pavilion",  Type="Waterfront",  Address="1 Lake Road, Crystal Shores", MinCapacity=30,  MaxCapacity=150, EstimatedPrice=3500,  ImagePath="https://images.unsplash.com/photo-1478146059778-26028b07395a?w=600&q=80" },
+        new AdminVenue { Id=4, Name="Vineyard Estate",    Type="Countryside", Address="44 Vine St, Rolling Hills",   MinCapacity=80,  MaxCapacity=300, EstimatedPrice=7500,  ImagePath="https://images.unsplash.com/photo-1510076857177-7470076d4098?w=600&q=80" },
+    };
+
+
+    string filterStatus = "all";
+    int? expandedEventId = null;
+
+    bool showVenueModal = false;
+    string venueModalError = "";
+    AdminVenue newVenue = new();
+    bool uploadDragActive = false;
+    string uploadError = "";
+
+    string toastMessage = "";
+    bool toastIsError = false;
+    System.Timers.Timer? toastTimer;
+
+    List<AdminEvent> filteredEvents =>
+        filterStatus == "all" ? events : events.Where(e => e.Status == filterStatus).ToList();
+
+    void ToggleExpand(int id) =>
+        expandedEventId = expandedEventId == id ? null : id;
+
+    void ConfirmEvent(int id)
+    {
+        var e = events.FirstOrDefault(x => x.Id == id);
+        if (e is null) return;
+        if (events.Any(x => x.Id != id && x.VenueId == e.VenueId && x.EventDate.Date == e.EventDate.Date && x.Status == "confirmed"))
+        { ShowToast($"{e.VenueName} is already confirmed for that date!", error: true); return; }
+        e.Status = "confirmed";
+        ShowToast("Event confirmed!");
+    }
+
+    void RejectEvent(int id)
+    {
+        var e = events.FirstOrDefault(x => x.Id == id);
+        if (e is not null) { e.Status = "rejected"; ShowToast("Event rejected."); }
+    }
+
+    void CompleteEvent(int id)
+    {
+        var e = events.FirstOrDefault(x => x.Id == id);
+        if (e is not null) { e.Status = "completed"; ShowToast("Marked as completed."); }
+    }
+
+    void DeleteEvent(int id)
+    {
+        events.RemoveAll(x => x.Id == id);
+        if (expandedEventId == id) expandedEventId = null;
+        ShowToast("Event removed.");
+    }
+
+    void OpenNewVenueModal()
+    {
+        newVenue = new AdminVenue { Type = "Garden" };
+        venueModalError = "";
+        uploadError = "";
+        uploadDragActive = false;
+        showVenueModal = true;
+    }
+
+    void CloseVenueModal() { showVenueModal = false; venueModalError = ""; uploadError = ""; }
+
+    void ClearImage() => newVenue.ImagePath = "";
+
+    static string Slugify(string name) =>
+        System.Text.RegularExpressions.Regex
+            .Replace(name.ToLowerInvariant().Trim(), @"[^a-z0-9]+", "-")
+            .Trim('-');
+
+    async Task HandleVenueImageUpload(InputFileChangeEventArgs e)
+    {
+        uploadError = "";
+        uploadDragActive = false;
+
+        var file = e.File;
+        var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
+
+        if (!allowed.Contains(file.ContentType))
+        { uploadError = "Only JPG, PNG and WebP images are accepted."; return; }
+
+        const long maxSize = 5 * 1024 * 1024;
+        if (file.Size > maxSize)
+        { uploadError = "Image must be under 5 MB."; return; }
+
+        var slug = !string.IsNullOrWhiteSpace(newVenue.Name)
+                     ? Slugify(newVenue.Name)
+                     : Guid.NewGuid().ToString("N")[..8];
+
+        var folder = Path.Combine(Env.WebRootPath, "images", "venues", slug);
+
+        Directory.CreateDirectory(folder);
+        var existing = Directory.GetFiles(folder).Length;
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+        var fileName = $"{existing + 1}{ext}";
+        var filePath = Path.Combine(folder, fileName);
+
+        await using var fs = new FileStream(filePath, FileMode.Create);
+        await file.OpenReadStream(maxSize).CopyToAsync(fs);
+
+        newVenue.ImageFolder = slug;
+        newVenue.ImagePath = $"/images/venues/{slug}/{fileName}";
+    }
+
+    void AddVenue()
+    {
+        venueModalError = "";
+        if (string.IsNullOrWhiteSpace(newVenue.Name)) { venueModalError = "Venue name is required."; return; }
+        if (newVenue.MinCapacity <= 0) { venueModalError = "Min capacity must be > 0."; return; }
+        if (newVenue.MaxCapacity < newVenue.MinCapacity) { venueModalError = "Max capacity must be ≥ min."; return; }
+
+        newVenue.Id = venues.Count > 0 ? venues.Max(v => v.Id) + 1 : 1;
+        venues.Add(newVenue);
+        CloseVenueModal();
+        ShowToast($"\"{newVenue.Name}\" added. Planners will see it during onboarding.");
+    }
+
+    void DeleteVenue(int id) { venues.RemoveAll(v => v.Id == id); ShowToast("Venue removed."); }
+
+    void SignOut() => Nav.NavigateTo("/");
+
+    void ShowToast(string msg, bool error = false)
+    {
+        toastMessage = msg;
+        toastIsError = error;
+        toastTimer?.Dispose();
+        toastTimer = new System.Timers.Timer(3000);
+        toastTimer.Elapsed += async (_, _) =>
+        {
+            toastMessage = "";
+            toastTimer?.Dispose();
+            await InvokeAsync(StateHasChanged);
+        };
+        toastTimer.AutoReset = false;
+        toastTimer.Start();
+    }
+
+    string StatusBadgeClass(string status) => status switch
+    {
+        "pending" => "badge-pending",
+        "confirmed" => "badge-confirmed",
+        "rejected" => "badge-rejected",
+        "completed" => "badge-completed",
+        _ => ""
+    };
+
+    MarkupString StatusIcon(string status)
+    {
+        var svg = status switch
+        {
+            "pending" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>",
+            "confirmed" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>",
+            "rejected" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><line x1='18' y1='6' x2='6' y2='18'/><line x1='6' y1='6' x2='18' y2='18'/></svg>",
+            "completed" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>",
+            _ => ""
+        };
+        return new MarkupString(svg);
+    }
+
+    public void Dispose() => toastTimer?.Dispose();
+}

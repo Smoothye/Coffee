@@ -1,0 +1,283 @@
+﻿@page "/onboarding"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<div class="page-center">
+    <div class="progress-steps">
+        @for (int i = 0; i < steps.Length; i++)
+        {
+            var idx = i;
+            <div class="step-item">
+                <div class="step-circle @(idx < step ? "done" : idx == step ? "active" : "")">
+                    @if (idx < step)
+                    {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    }
+                    else
+                    {
+                        @steps[idx].SvgIcon
+                    }
+                </div>
+                @if (idx < steps.Length - 1)
+                {
+                    <div class="step-line @(idx < step ? "line-done" : "")"></div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="glass-card">
+        @if (!string.IsNullOrEmpty(errorMsg))
+        {
+            <div class="error-banner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                @errorMsg
+            </div>
+        }
+
+        @if (step == 0)
+        {
+            <div class="step-content">
+                <div class="step-header">
+                    <h2>Tell us about your event</h2>
+                    <p>What are we celebrating?</p>
+                </div>
+
+                <div class="field">
+                    <label>Event Name</label>
+                    <input class="input"
+                           placeholder="e.g. Sarah & Tom's Wedding"
+                           @bind="eventName"
+                           @bind:event="oninput" />
+                </div>
+
+                <div class="field">
+                    <label>Event Type</label>
+                    <div class="wedding-badge">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                        Wedding
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (step == 1)
+        {
+            <div class="step-content">
+                <div class="step-header">
+                    <h2>When's the big day?</h2>
+                    <p>Pick a date for your celebration</p>
+                </div>
+
+                <div class="field centered">
+                    <input type="date"
+                           class="input date-input"
+                           min="@DateTime.Today.ToString("yyyy-MM-dd")"
+                           @bind="date" />
+                </div>
+
+                @if (date.HasValue)
+                {
+                    <p class="date-display">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.35rem;color:var(--sage);">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                        @date.Value.ToString("dddd, MMMM d, yyyy")
+                    </p>
+                }
+            </div>
+        }
+
+        @if (step == 2)
+        {
+            <div class="step-content">
+                <div class="step-header">
+                    <h2>How many guests?</h2>
+                    <p>An estimate is perfectly fine</p>
+                </div>
+
+                <div class="field centered">
+                    <input type="number"
+                           class="input number-input"
+                           min="1"
+                           placeholder="Number of guests"
+                           @bind-value="guestCount"
+                           @bind-value:event="oninput" />
+                </div>
+
+                <div class="quick-picks">
+                    @foreach (var n in new[] { 30, 80, 150, 250 })
+                    {
+                        var num = n;
+                        <button type="button"
+                                class="quick-btn @(guestCount == num ? "quick-btn-active" : "")"
+                                @onclick="@(() => guestCount = num)">
+                            @num
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (step == 3)
+        {
+            <div class="step-content">
+                <div class="step-header">
+                    <h2>Choose a venue</h2>
+                    <p>Venues matching your @guestCount guests · or skip and decide later</p>
+                </div>
+
+                @if (filteredVenues.Any())
+                {
+                    <div class="venue-grid">
+                        @foreach (var v in filteredVenues)
+                        {
+                            var venue = v;
+                            <button type="button"
+                                    class="venue-card @(selectedVenue == venue.Id ? "venue-card-active" : "")"
+                                    @onclick="@(() => selectedVenue = venue.Id)">
+                                <div class="venue-img-wrap">
+                                    <img src="@venue.Image" alt="@venue.Name" class="venue-img" />
+                                    @if (selectedVenue == venue.Id)
+                                    {
+                                        <div class="venue-check">✓</div>
+                                    }
+                                </div>
+                                <div class="venue-info">
+                                    <p class="venue-name">@venue.Name</p>
+                                    <p class="venue-meta">@venue.Type · @venue.MinCapacity–@venue.MaxCapacity guests</p>
+                                </div>
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-venues">
+                        <span class="empty-icon">⚠</span>
+                        <p>No venues match @guestCount guests. Try adjusting your guest count.</p>
+                    </div>
+                }
+
+                @if (unavailableVenues.Any() && filteredVenues.Any())
+                {
+                    <div class="unavailable-section">
+                        <p class="unavailable-label">Not available for @guestCount guests:</p>
+                        <div class="venue-grid faded">
+                            @foreach (var v in unavailableVenues)
+                            {
+                                <div class="venue-card">
+                                    <div class="venue-img-wrap">
+                                        <img src="@v.Image" alt="@v.Name" class="venue-img grayscale" />
+                                    </div>
+                                    <div class="venue-info">
+                                        <p class="venue-name">@v.Name</p>
+                                        <p class="venue-meta">@v.Type · @v.MinCapacity–@v.MaxCapacity guests</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="nav-row">
+            <button type="button"
+                    class="btn-back"
+                    @onclick="Prev"
+                    disabled="@(step == 0)">
+                ← Back
+            </button>
+            <button type="button"
+                    class="btn-next"
+                    @onclick="Next">
+                @(step == 3 ? "Start Planning" : "Next")
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-left:.3rem">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+            </button>
+        </div>
+
+    </div>
+</div>
+
+@using System.Collections.Generic
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.EntityFrameworkCore
+
+@code {
+    int step = 0;
+    string errorMsg = "";
+
+    string eventName = "";
+    DateTime? date = null;
+    int guestCount = 0;
+    int? selectedVenue = null;
+
+    record StepMeta(MarkupString SvgIcon, string Label);
+    StepMeta[] steps = new[]
+    {
+        new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/></svg>"), "Event Details"),
+        new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2' ry='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>"), "Pick a Date"),
+        new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M23 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>"), "Guest Count"),
+        new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>"), "Choose Venue"),
+    };
+
+    List<Venue> venues = new()
+    {
+        new Venue { Id = 1, Name = "Rosewood Gardens",  Image = "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=400&q=80", MinCapacity = 50,  MaxCapacity = 200, Type = "Garden"     },
+        new Venue { Id = 2, Name = "The Grand Ballroom", Image = "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400&q=80", MinCapacity = 100, MaxCapacity = 500, Type = "Indoor"     },
+        new Venue { Id = 3, Name = "Lakeside Pavilion",  Image = "https://images.unsplash.com/photo-1478146059778-26028b07395a?w=400&q=80", MinCapacity = 30,  MaxCapacity = 150, Type = "Waterfront" },
+        new Venue { Id = 4, Name = "Vineyard Estate",    Image = "https://images.unsplash.com/photo-1510076857177-7470076d4098?w=400&q=80", MinCapacity = 80,  MaxCapacity = 300, Type = "Countryside"},
+    };
+
+    List<Venue> filteredVenues => venues.Where(v => guestCount >= v.MinCapacity && guestCount <= v.MaxCapacity).ToList();
+    List<Venue> unavailableVenues => venues.Where(v => guestCount < v.MinCapacity || guestCount > v.MaxCapacity).ToList();
+
+    void Next()
+    {
+        errorMsg = "";
+
+        if (step == 0 && string.IsNullOrWhiteSpace(eventName))
+        { errorMsg = "Please enter your event name."; return; }
+
+        if (step == 1 && date == null)
+        { errorMsg = "Please select a date."; return; }
+
+        if (step == 2 && guestCount <= 0)
+        { errorMsg = "Please enter the number of guests."; return; }
+
+        if (step < 3) { step++; }
+        else { Nav.NavigateTo("/events"); }
+    }
+
+    void Prev()
+    {
+        errorMsg = "";
+        if (step > 0) step--;
+    }
+
+    class Venue
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Image { get; set; } = "";
+        public string Type { get; set; } = "";
+        public int MinCapacity { get; set; }
+        public int MaxCapacity { get; set; }
+    }
+}
+
