@@ -58,7 +58,7 @@ public class Guest
     public int? Age { get; set; }
     
     [Required]
-    public required string Email { get; init; }
+    public required string Email { get; set; }
     
     public string? Phone  { get; set; }
     public Gender? Gender { get; set; }
