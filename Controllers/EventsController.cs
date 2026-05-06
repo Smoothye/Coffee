@@ -109,7 +109,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     {
         var eventItem = await context.Events.FindAsync(id);
         if (eventItem == null)
-            return NotFound();
+            return NotFound($"Event with id: {id} was not found.");
         
         var venueExists = await context.Venues.AnyAsync(v => v.VenueId == model.VenueId);
         if (!venueExists)
