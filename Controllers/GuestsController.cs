@@ -71,7 +71,7 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
         return Ok(guestItem);
     }
     
-    // POST api/Events/{eventId}/Guests
+    // POST: api/Events/{eventId}/Guests
     [HttpPost]
     public async Task<ActionResult<GuestDto>> Create([FromBody] GuestDto model, int eventId)
     {
@@ -177,7 +177,7 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
         return CreatedAtAction(nameof(GetAll), new { eventId }, result);
     }
     
-    // POST: api/Event/{eventId}/Guests/{guestId}
+    // POST: api/Events/{eventId}/Guests/{guestId}
     [HttpPut("{guestId:int}")]
     public async Task<IActionResult> Update(int eventId, int guestId, [FromBody] GuestUpdateDto model)
     {
