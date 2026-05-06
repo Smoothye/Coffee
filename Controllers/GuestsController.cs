@@ -15,6 +15,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GuestDto>>> GetAll(int eventId)
     {
+        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
+        if (!eventExists)
+            return BadRequest($"Event with id {eventId} was not found.");       
+        
         var guestItems = await context.Guests
             .Where(g => g.EventId == eventId)
             .Select(g => new GuestDto
@@ -41,6 +45,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpGet("{guestId:int}")]
     public async Task<ActionResult<GuestDto>> GetById(int eventId, int guestId)
     {
+        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
+        if (!eventExists)
+            return BadRequest($"Event with id {eventId} was not found.");
+        
         var guestItem = await context.Guests
             .Where(g => g.EventId == eventId && g.GuestId == guestId)
             .Select(g => new GuestDto
@@ -173,6 +181,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpPut("{guestId:int}")]
     public async Task<IActionResult> Update(int eventId, int guestId, [FromBody] GuestUpdateDto model)
     {
+        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
+        if (!eventExists)
+            return BadRequest($"Event with id {eventId} was not found.");
+        
         var guestItem = await context.Guests.FindAsync(guestId);
         if (guestItem == null)
             return NotFound($"Guest with id: {guestId} does not exist.");
@@ -200,6 +212,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpDelete("{guestId:int}")]
     public async Task<IActionResult> Delete(int eventId, int guestId)
     {
+        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
+        if (!eventExists)
+            return BadRequest($"Event with id {eventId} was not found.");
+        
         var guestItem = await context.Guests.FindAsync(guestId);
         if (guestItem == null)
             return NotFound($"Guest with id: {guestId} does not exist.");
