@@ -9,16 +9,16 @@ public class Venue
     public int VenueId { get; init; }
     
     [Required, MaxLength(64)]
-    public required string Name { get; init; }
+    public required string Name { get; set; }
     
     [Required, MaxLength(64)]
-    public required string Address { get; init; }
+    public required string Address { get; set; }
     
-    public int MinCapacity { get; init; }
-    public int MaxCapacity { get; init; }
+    public int MinCapacity { get; set; }
+    public int MaxCapacity { get; set; }
     
     [Precision(8, 2)]
-    public decimal EstimatedPrice { get; init; }
+    public decimal EstimatedPrice { get; set; }
     
     public ICollection<Event> Events { get; set; } = [];
 }
