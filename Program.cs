@@ -28,6 +28,9 @@ public class Program
             })
             .AddIdentityCookies();
 
+        // Add services required by the application controllers
+        builder.Services.AddControllers();
+        
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
                                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -72,6 +75,9 @@ public class Program
         // Add additional endpoints required by the Identity /Account Razor components.
         app.MapAdditionalIdentityEndpoints();
 
+        // Makes controller endpoints available at /api/...
+        app.MapControllers();
+        
         app.Run();
     }
 }

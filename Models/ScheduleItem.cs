@@ -10,7 +10,7 @@ public class ScheduleItem
     
     public int EventId { get; init; }
    [Required, ForeignKey(nameof(EventId))] 
-    public required Event Event { get; init; }
+    public Event? Event { get; init; }
     
     [Required]
     public required string Title { get; init; }

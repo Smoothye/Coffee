@@ -10,9 +10,9 @@ public class UserEvent
 {
     public int UserId { get; init; }
     [Required, ForeignKey(nameof(UserId))]
-    public required ApplicationUser User { get; init; }
+    public ApplicationUser? User { get; init; }
     
     public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; init; }
+    public Event? Event { get; init; }
 }

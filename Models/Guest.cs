@@ -43,7 +43,7 @@ public class Guest
     
     public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; init; }   
+    public Event? Event { get; init; }   
     
     public int? TableId { get; set; }
     [ForeignKey(nameof(TableId))]
@@ -58,7 +58,7 @@ public class Guest
     public int? Age { get; set; }
     
     [Required]
-    public required string Email { get; init; }
+    public required string Email { get; set; }
     
     public string? Phone  { get; set; }
     public Gender? Gender { get; set; }

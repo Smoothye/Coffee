@@ -10,7 +10,7 @@ public class WeddingTable
     
     public int EventId { get; init; }
     [Required, ForeignKey(nameof(EventId))]
-    public required Event Event { get; init; }
+    public Event? Event { get; init; }
     
     public int TableNumber { get; set; }
     public int Capacity { get; set; }
