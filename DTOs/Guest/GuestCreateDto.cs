@@ -20,5 +20,8 @@ public sealed class GuestCreateDto
     public Group Group { get; set; } = Group.Other;
     public DietaryRequirements DietaryRequirements { get; set; } = DietaryRequirements.None;
 
+    public bool HasPlusOne { get; set; } = false;
+    public int? SeatNumber { get; set; }
+
     public string? Notes { get; set; }
 }

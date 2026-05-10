@@ -34,6 +34,8 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
                 RsvpStatus = g.RsvpStatus,
                 Group = g.Group,
                 DietaryRequirements = g.DietaryRequirements,
+                HasPlusOne = g.HasPlusOne,
+                SeatNumber = g.SeatNumber,
                 Notes = g.Notes,
             })
             .ToListAsync();
@@ -64,6 +66,8 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
                 RsvpStatus = g.RsvpStatus,
                 Group = g.Group,
                 DietaryRequirements = g.DietaryRequirements,
+                HasPlusOne = g.HasPlusOne,
+                SeatNumber = g.SeatNumber,
                 Notes = g.Notes,
             })
             .SingleOrDefaultAsync();
@@ -92,9 +96,11 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             RsvpStatus = model.RsvpStatus,
             Group = model.Group,
             DietaryRequirements = model.DietaryRequirements,
+            HasPlusOne = model.HasPlusOne,
+            SeatNumber = model.SeatNumber,
             Notes = model.Notes,
         };
-        
+
         context.Guests.Add(entity);
         await context.SaveChangesAsync();
 
@@ -112,6 +118,8 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             RsvpStatus = entity.RsvpStatus,
             Group = entity.Group,
             DietaryRequirements = entity.DietaryRequirements,
+            HasPlusOne = entity.HasPlusOne,
+            SeatNumber = entity.SeatNumber,
             Notes = entity.Notes
         };
         
@@ -147,6 +155,8 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             RsvpStatus = model.RsvpStatus,
             Group = model.Group,
             DietaryRequirements = model.DietaryRequirements,
+            HasPlusOne = model.HasPlusOne,
+            SeatNumber = model.SeatNumber,
             Notes = model.Notes
         }).ToList();
 
@@ -170,6 +180,8 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
                 RsvpStatus = g.RsvpStatus,
                 Group = g.Group,
                 DietaryRequirements = g.DietaryRequirements,
+                HasPlusOne = g.HasPlusOne,
+                SeatNumber = g.SeatNumber,
                 Notes = g.Notes
             })
         };
@@ -202,6 +214,8 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
         guestItem.RsvpStatus = model.RsvpStatus;
         guestItem.Group = model.Group;
         guestItem.DietaryRequirements = model.DietaryRequirements;
+        guestItem.HasPlusOne = model.HasPlusOne;
+        guestItem.SeatNumber = model.SeatNumber;
         guestItem.Notes = model.Notes;
 
         await context.SaveChangesAsync();

@@ -9,6 +9,11 @@ public enum PaymentStatus
     Paid,
 }
 
+public enum ExpenseCategory
+{
+    
+}
+
 public class Expense
 {
     [Key]
@@ -24,11 +29,12 @@ public class Expense
     
     public PaymentStatus PaymentStatus { get; set; } =  PaymentStatus.Unpaid;
     
-    // public required string Category { get; init; }
-    
     public string? Description { get; set; }
     
-    public decimal Amount { get; init; }
+    public decimal EstimatedAmount { get; init; }
+    public decimal ActualAmount { get; init; }
+    
+    public ExpenseCategory? ExpenseCategory { get; init; }
     
     public DateTime ExpenseDate { get; init; }
     

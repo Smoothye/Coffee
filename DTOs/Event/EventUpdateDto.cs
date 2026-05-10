@@ -14,6 +14,12 @@ public sealed class EventUpdateDto
     [MaxLength(128)]
     public required string Name { get; set; }
 
+    [MaxLength(128)]
+    public string? BrideName { get; set; }
+
+    [MaxLength(128)]
+    public string? GroomName { get; set; }
+
     [Required]
     public DateTime EventDate { get; set; }
 
