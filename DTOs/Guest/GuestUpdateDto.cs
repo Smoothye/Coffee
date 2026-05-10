@@ -22,5 +22,8 @@ public sealed class GuestUpdateDto
     public Group Group { get; set; }
     public DietaryRequirements DietaryRequirements { get; set; }
     
+    public bool HasPlusOne { get; set; }
+    public int? SeatNumber { get; set; }
+
     public string? Notes { get; set; }
 }
