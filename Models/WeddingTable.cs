@@ -14,6 +14,8 @@ public class WeddingTable
     
     public int TableNumber { get; set; }
     public int Capacity { get; set; }
+
+    public bool IsHeadTable { get; set; } = true;
     
     [MaxLength(256)]
     public string? Notes { get; set; }

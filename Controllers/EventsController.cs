@@ -21,6 +21,8 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
                 VenueId = e.VenueId,
                 MenuId = e.MenuId,
                 Name = e.Name,
+                BrideName = e.BrideName,
+                GroomName = e.GroomName,
                 EventDate = e.EventDate,
                 EstimatedGuests = e.EstimatedGuests,
                 TotalBudget = e.TotalBudget,
@@ -45,6 +47,8 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
                 VenueId = e.VenueId,
                 MenuId = e.MenuId,
                 Name = e.Name,
+                BrideName = e.BrideName,
+                GroomName = e.GroomName,
                 EventDate = e.EventDate,
                 EstimatedGuests = e.EstimatedGuests,
                 TotalBudget = e.TotalBudget,
@@ -77,12 +81,14 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
             VenueId = model.VenueId,
             MenuId = model.MenuId,
             Name = model.Name,
+            BrideName = model.BrideName,
+            GroomName = model.GroomName,
             EventDate = model.EventDate,
             EstimatedGuests = model.EstimatedGuests,
             TotalBudget = model.TotalBudget,
             Notes = model.Notes
         };
-        
+
         context.Events.Add(entity);
         await context.SaveChangesAsync();
 
@@ -92,6 +98,8 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
             VenueId = entity.VenueId,
             MenuId = entity.MenuId,
             Name = entity.Name,
+            BrideName = entity.BrideName,
+            GroomName = entity.GroomName,
             EventDate = entity.EventDate,
             EstimatedGuests = entity.EstimatedGuests,
             TotalBudget = entity.TotalBudget,
@@ -109,7 +117,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     {
         var eventItem = await context.Events.FindAsync(id);
         if (eventItem == null)
-            return NotFound();
+            return NotFound($"Event with id: {id} was not found.");
         
         var venueExists = await context.Venues.AnyAsync(v => v.VenueId == model.VenueId);
         if (!venueExists)
@@ -122,6 +130,8 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         eventItem.VenueId = model.VenueId;
         eventItem.MenuId = model.MenuId;
         eventItem.Name = model.Name;
+        eventItem.BrideName = model.BrideName;
+        eventItem.GroomName = model.GroomName;
         eventItem.EventDate = model.EventDate;
         eventItem.EstimatedGuests = model.EstimatedGuests;
         eventItem.TotalBudget = model.TotalBudget;

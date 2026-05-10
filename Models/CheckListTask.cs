@@ -49,5 +49,7 @@ public class CheckListTask
     public CheckListTaskPriority Priority { get; set; } = CheckListTaskPriority.Low;
     public CheckListTaskCategory Category { get; set; } = CheckListTaskCategory.General;
     
+    public DateTime? CompletedAt { get; set; }
+    
     public string? Notes { get; set; }
 }

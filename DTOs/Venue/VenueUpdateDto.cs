@@ -1,33 +1,31 @@
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
+using WeddingPlannerApp.Models;
 
-namespace WeddingPlannerApp.Models;
+namespace WeddingPlannerApp.DTOs.Venue;
 
-public enum VenueTag
+public sealed class VenueUpdateDto
 {
-}
-
-public class Venue
-{
-    [Key]
-    public int VenueId { get; init; }
-
-    [Required, MaxLength(64)]
+    [Required]
+    [MaxLength(64)]
     public required string Name { get; set; }
 
-    [Required, MaxLength(64)]
+    [Required]
+    [MaxLength(64)]
     public required string Address { get; set; }
 
+    [Range(0, int.MaxValue)]
     public int MinCapacity { get; set; }
+
+    [Range(0, int.MaxValue)]
     public int MaxCapacity { get; set; }
 
-    [Precision(8, 2)]
+    [Range(typeof(decimal), "0", "999999.99")]
     public decimal EstimatedPrice { get; set; }
 
-    [Precision(9, 6)]
+    [Range(typeof(decimal), "-90.000000", "90.000000")]
     public decimal? Latitude { get; set; }
 
-    [Precision(9, 6)]
+    [Range(typeof(decimal), "-180.000000", "180.000000")]
     public decimal? Longitude { get; set; }
 
     [MaxLength(1024)]
@@ -40,6 +38,4 @@ public class Venue
 
     [MaxLength(512)]
     public string? ImagePath { get; set; }
-
-    public ICollection<Event> Events { get; set; } = [];
 }
