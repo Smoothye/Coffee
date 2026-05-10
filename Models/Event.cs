@@ -11,14 +11,20 @@ public class Event
     
     public int VenueId { get; set; }
     [Required, ForeignKey(nameof(VenueId))]
-    public Venue? Venue { get; init; }
+    public Venue? Venue { get; set; }
     
     public int MenuId { get; set; }
     [Required, ForeignKey(nameof(MenuId))]
-    public Menu? Menu { get; init; }
+    public Menu? Menu { get; set; }
     
     [Required, MaxLength(128)]
     public required string Name { get; set; }
+    
+    [MaxLength(128)]
+    public string? BrideName { get; set; }
+    
+    [MaxLength(128)]
+    public string? GroomName { get; set; }
     
     public DateTime EventDate { get; set; }
     

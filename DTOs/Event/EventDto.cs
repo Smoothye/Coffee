@@ -14,6 +14,12 @@ public sealed class EventDto
     [MaxLength(128)]
     public required string Name { get; set; }
 
+    [MaxLength(128)]
+    public string? BrideName { get; set; }
+
+    [MaxLength(128)]
+    public string? GroomName { get; set; }
+
     public DateTime EventDate { get; set; }
 
     public int EstimatedGuests { get; set; }
