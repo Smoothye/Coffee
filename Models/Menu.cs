@@ -3,6 +3,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace WeddingPlannerApp.Models;
 
+public enum MenuDietaryType
+{
+    Standard,
+    Vegan,
+    Vegetarian,
+    Fasting
+}
+
 public class Menu
 {
     [Key]
@@ -13,6 +21,8 @@ public class Menu
     
     [Precision(8, 2)]
     public decimal Price { get; set; }
+    
+    public MenuDietaryType DietaryType { get; set; } = MenuDietaryType.Standard;
     
     [MaxLength(256)]
     public string? Description { get; set; }
