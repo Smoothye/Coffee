@@ -1,0 +1,388 @@
+﻿@rendermode InteractiveServer
+@implements IDisposable
+@page "/vendors"
+@layout UserLayout
+@using System.Text
+@inject IJSRuntime JS
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<PageNav Title="Suppliers"
+         Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed · {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
+         IconSvg="@SvgIcons.VendorsNav" />
+
+<!-- CSV Guide Modal -->
+<ModalShell IsOpen="csvGuideOpen"
+            Title="Import Suppliers"
+            ExtraClass="csv-guide-box"
+            OnClose="@(() => csvGuideOpen = false)">
+    <div class="csv-two-col">
+        <div class="csv-left">
+            <p class="csv-section-title">Accepted format</p>
+            <p class="vendor-csv-note">Use a .csv file with Name, Category, Phone, Email, Description, EstimatedValue and ActualValue columns.</p>
+            <div class="csv-col-table">
+                <div class="csv-col-head"><span>Column</span><span>Req.</span><span>Valid values</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">Name</span><span class="csv-req yes">Yes</span><span class="csv-col-vals">Any text</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">Category</span><span class="csv-req no">No</span><span class="csv-col-vals">@string.Join(", ", categories)</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">Phone</span><span class="csv-req no">No</span><span class="csv-col-vals">Any format</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">Email</span><span class="csv-req no">No</span><span class="csv-col-vals">Used for duplicate check</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">Description</span><span class="csv-req no">No</span><span class="csv-col-vals">Short notes</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">EstimatedValue</span><span class="csv-req no">No</span><span class="csv-col-vals">Number</span></div>
+                <div class="csv-col-row"><span class="csv-col-name">ActualValue</span><span class="csv-req no">No</span><span class="csv-col-vals">Number</span></div>
+            </div>
+            <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
+                @SvgIcons.Download Download blank template
+            </button>
+        </div>
+        <div class="csv-right">
+            <p class="csv-section-title">Upload file</p>
+            <label class="csv-dropzone" style="cursor:pointer;">
+                <div class="csv-drop-inner">
+                    <div class="csv-drop-icon">@SvgIcons.UploadCloud</div>
+                    <p class="csv-drop-title">Browse a .csv file</p>
+                    <p class="csv-drop-sub">Suppliers will be added to this list</p>
+                    <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
+                </div>
+            </label>
+            @if (!string.IsNullOrEmpty(importSummary))
+            {
+                <div class="import-toast @(importHasWarning ? "import-toast-warn" : "import-toast-ok")" style="position:static;margin-top:.75rem;">
+                    @importSummary
+                </div>
+            }
+        </div>
+    </div>
+</ModalShell>
+
+<!-- Add Supplier Modal -->
+<ModalShell IsOpen="addSupplierOpen" Title="Add Supplier" OnClose="CloseAddSupplier">
+    @if (!string.IsNullOrEmpty(formError))
+    {
+        <div class="error-banner">@formError</div>
+    }
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Name *</label>
+            <input class="input" @bind="draftSupplier.Name" @bind:event="oninput" placeholder="Supplier name" />
+        </div>
+        <div class="field">
+            <label>Category</label>
+            <select class="input select-input" @bind="draftSupplier.Category">
+                @foreach (var c in categories) { <option value="@c">@c</option> }
+            </select>
+        </div>
+    </div>
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Phone</label>
+            <input class="input" @bind="draftSupplier.Phone" @bind:event="oninput" placeholder="+40..." />
+        </div>
+        <div class="field">
+            <label>Email</label>
+            <input class="input" @bind="draftSupplier.Email" @bind:event="oninput" placeholder="supplier@example.com" />
+        </div>
+    </div>
+    <div class="field">
+        <label>Description</label>
+        <input class="input" @bind="draftSupplier.Description" @bind:event="oninput" placeholder="Short notes" />
+    </div>
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Estimated value</label>
+            <input class="input" type="number" min="0" step="50" @bind="draftSupplier.EstimatedValue" @bind:event="oninput" />
+        </div>
+        <div class="field">
+            <label>Actual value</label>
+            <input class="input" type="number" min="0" step="50" @bind="draftSupplier.ActualValue" @bind:event="oninput" />
+        </div>
+    </div>
+    <button class="btn-add-guest" @onclick="AddSupplier">@SvgIcons.Plus Add Supplier</button>
+</ModalShell>
+
+<div class="vendors-page">
+
+    <!-- Stats -->
+    <div class="vendor-stats">
+        <div class="vendor-stat"><span class="vendor-stat-val">@allSuppliers.Count</span><span class="vendor-stat-label">Available</span></div>
+        <div class="vendor-stat"><span class="vendor-stat-val" style="color:#16a34a">@eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")</span><span class="vendor-stat-label">Confirmed</span></div>
+        <div class="vendor-stat"><span class="vendor-stat-val" style="color:#d97706">@eventSuppliers.Count(s => s.CollaborationStatus == "pending")</span><span class="vendor-stat-label">In contact</span></div>
+        <div class="vendor-stat"><span class="vendor-stat-val">@allSuppliers.Count(s => !eventSuppliers.Any(es => es.SupplierId == s.Id))</span><span class="vendor-stat-label">Not selected</span></div>
+        <div class="vendor-stat"><span class="vendor-stat-val">@Money(allSuppliers.Sum(s => s.EstimatedValue))</span><span class="vendor-stat-label">Estimated</span></div>
+        <div class="vendor-stat"><span class="vendor-stat-val">@Money(allSuppliers.Sum(s => s.ActualValue))</span><span class="vendor-stat-label">Actual</span></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="search-wrap">
+            <span class="search-icon">@SvgIcons.Search</span>
+            <input class="input search-input" placeholder="Search suppliers..."
+                   @bind="search" @bind:event="oninput" />
+        </div>
+        <select class="input select-input filter-select" @bind="filterCat">
+            <option value="">All Categories</option>
+            @foreach (var c in categories) { <option value="@c">@c</option> }
+        </select>
+        <select class="input select-input filter-select" @bind="filterStatus">
+            <option value="all">All Status</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="pending">In contact</option>
+            <option value="none">Not selected</option>
+        </select>
+        <div class="vendor-toolbar-actions">
+            <button class="btn-outline" @onclick="@(() => csvGuideOpen = true)">@SvgIcons.FileText CSV Guide</button>
+            <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
+                @SvgIcons.Upload Import
+                <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
+            </label>
+            <button class="btn-outline" @onclick="ExportCSV">@SvgIcons.Download Export</button>
+            <button class="btn-add" @onclick="OpenAddSupplier">@SvgIcons.Plus Add Supplier</button>
+        </div>
+    </div>
+
+    <!-- Supplier grid -->
+    <div class="vendor-grid">
+        @foreach (var supplier in filteredSuppliers)
+        {
+            var sid = supplier.Id;
+            var currentStatus = GetStatus(sid);
+            var esLocal = GetEventSupplier(sid);
+
+            <div class="vendor-card @(currentStatus == "confirmed" ? "vendor-card-booked" : "")" @key="sid">
+
+                <div class="vendor-card-top">
+                    <div class="vendor-card-info">
+                        <h4 class="vendor-name">@supplier.Name</h4>
+                        <span class="vendor-cat-badge">@supplier.Category</span>
+                    </div>
+                    @if (currentStatus != null)
+                    {
+                        <span class="vendor-status-pill status-@currentStatus">
+                            @(currentStatus == "confirmed" ? "Confirmed" : "In contact")
+                        </span>
+                    }
+                </div>
+
+                <div class="vendor-contacts">
+                    @if (!string.IsNullOrEmpty(supplier.Phone))
+                    {
+                        <div class="vendor-contact-row">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z" /></svg>
+                            @supplier.Phone
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(supplier.Email))
+                    {
+                        <div class="vendor-contact-row">
+                            @SvgIcons.Mail
+                            @supplier.Email
+                        </div>
+                    }
+                    <p class="vendor-notes">@supplier.Description</p>
+                    <div class="vendor-cost-row vendor-cost-edit">
+                        <label><span>Estimated</span><input class="input vendor-cost-input" type="number" min="0" step="50" @bind="supplier.EstimatedValue" @bind:event="oninput" /></label>
+                        <label><span>Actual</span><input class="input vendor-cost-input" type="number" min="0" step="50" @bind="supplier.ActualValue" @bind:event="oninput" /></label>
+                    </div>
+                </div>
+
+                @if (esLocal != null)
+                {
+                    <div class="vendor-notes-field">
+                        <input class="input" style="font-size:.78rem;padding:.35rem .6rem;" placeholder="Add notes..." @bind="esLocal.Notes" />
+                    </div>
+                }
+
+                <div class="vendor-actions">
+                    @if (currentStatus == null)
+                    {
+                        <button class="vendor-book-btn vendor-book-pending" @onclick="@(() => SetStatus(sid, "pending"))">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07" /><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /></svg>
+                            Contact supplier
+                        </button>
+                    }
+                    else if (currentStatus == "pending")
+                    {
+                        <button class="vendor-book-btn vendor-book-booked"
+                                style="background:linear-gradient(135deg,var(--sage),var(--sage-dark));color:#fff;border:none;"
+                                @onclick="@(() => SetStatus(sid, "confirmed"))">
+                            @SvgIcons.Check Mark confirmed
+                        </button>
+                        <button class="btn-outline" style="font-size:.78rem;padding:.35rem .65rem;" @onclick="@(() => RemoveStatus(sid))">Remove</button>
+                    }
+                    else if (currentStatus == "confirmed")
+                    {
+                        <button class="vendor-book-btn vendor-book-booked" @onclick="@(() => SetStatus(sid, "pending"))">
+                            @SvgIcons.Check Confirmed
+                        </button>
+                        <button class="btn-outline" style="font-size:.78rem;padding:.35rem .65rem;" @onclick="@(() => RemoveStatus(sid))">Remove</button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    class Supplier
+    {
+        public int     Id             { get; set; }
+        public string  Name           { get; set; } = "";
+        public string  Category       { get; set; } = "";
+        public string  Phone          { get; set; } = "";
+        public string  Email          { get; set; } = "";
+        public string  Description    { get; set; } = "";
+        public decimal EstimatedValue { get; set; }
+        public decimal ActualValue    { get; set; }
+    }
+
+    class EventSupplierLocal
+    {
+        public int     SupplierId          { get; set; }
+        public string? CollaborationStatus { get; set; }
+        public string? Notes               { get; set; }
+    }
+
+    static readonly string[] categories = { "Cake","Candy Bar","Flowers","Photography","Music/DJ","Catering","Decorations","Rentals","Other" };
+
+    List<Supplier> allSuppliers = new() {
+        new Supplier { Id=1, Name="Sweet Bliss Bakery",    Category="Cake",        Phone="+1 555-0101", Email="info@sweetbliss.com",  Description="Specializes in 3-tier wedding cakes.", EstimatedValue=900,  ActualValue=850 },
+        new Supplier { Id=2, Name="Petal & Bloom",         Category="Flowers",     Phone="+1 555-0102", Email="hello@petalbloom.com", Description="Eucalyptus and roses.",                EstimatedValue=1800, ActualValue=0 },
+        new Supplier { Id=3, Name="Snap & Co Photography", Category="Photography", Phone="+1 555-0103", Email="book@snapco.com",      Description="Full-day packages.",                  EstimatedValue=2400, ActualValue=2400 },
+        new Supplier { Id=4, Name="CandyLand Creations",   Category="Candy Bar",   Phone="+1 555-0104", Email="info@candyland.com",   Description="Custom packaging.",                    EstimatedValue=650,  ActualValue=0 },
+        new Supplier { Id=5, Name="DJ Harmony",            Category="Music/DJ",    Phone="+1 555-0105", Email="dj@harmony.com",       Description="Live mixing.",                         EstimatedValue=1200, ActualValue=0 },
+        new Supplier { Id=6, Name="Golden Lens Studio",    Category="Photography", Phone="+1 555-0106", Email="hi@goldenlens.com",    Description="Documentary-style.",                   EstimatedValue=2800, ActualValue=0 },
+        new Supplier { Id=7, Name="Bloom & Wild",          Category="Flowers",     Phone="+1 555-0107", Email="info@bloomwild.com",   Description="Garden-style bouquets.",               EstimatedValue=2100, ActualValue=0 },
+    };
+
+    List<EventSupplierLocal> eventSuppliers = new() {
+        new EventSupplierLocal { SupplierId=1, CollaborationStatus="confirmed", Notes="Tasting scheduled" },
+        new EventSupplierLocal { SupplierId=2, CollaborationStatus="pending",   Notes="Waiting for quote" },
+    };
+
+    bool   csvGuideOpen     = false;
+    bool   addSupplierOpen  = false;
+    string formError        = "";
+    string importSummary    = "";
+    bool   importHasWarning = false;
+    Supplier draftSupplier  = new() { Category = "Other" };
+
+    string _search = "";
+    string search { get => _search; set { _search = value; ApplyFilters(); } }
+
+    string _filterCat = "";
+    string filterCat { get => _filterCat; set { _filterCat = value; ApplyFilters(); } }
+
+    string _filterStatus = "all";
+    string filterStatus { get => _filterStatus; set { _filterStatus = value; ApplyFilters(); } }
+
+    List<Supplier> filteredSuppliers = new();
+
+    void ApplyFilters()
+    {
+        var q = allSuppliers.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_search))
+            q = q.Where(s => s.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) || s.Category.Contains(_search, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(_filterCat))
+            q = q.Where(s => s.Category == _filterCat);
+        if (_filterStatus != "all")
+        {
+            q = _filterStatus switch
+            {
+                "confirmed" => q.Where(s => eventSuppliers.Any(e => e.SupplierId == s.Id && e.CollaborationStatus == "confirmed")),
+                "pending"   => q.Where(s => eventSuppliers.Any(e => e.SupplierId == s.Id && e.CollaborationStatus == "pending")),
+                "none"      => q.Where(s => !eventSuppliers.Any(e => e.SupplierId == s.Id)),
+                _           => q
+            };
+        }
+        filteredSuppliers = q.OrderBy(s => s.Name).ToList();
+    }
+
+    protected override void OnInitialized() => ApplyFilters();
+
+    void OpenAddSupplier()  { draftSupplier = new Supplier { Category = "Other" }; formError = ""; addSupplierOpen = true; }
+    void CloseAddSupplier() { addSupplierOpen = false; formError = ""; }
+
+    void AddSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(draftSupplier.Name))
+        { formError = "Please enter a supplier name."; return; }
+        if (allSuppliers.Any(s => s.Name.Equals(draftSupplier.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
+        { formError = "A supplier with this name already exists."; return; }
+        draftSupplier.Id = allSuppliers.Count == 0 ? 1 : allSuppliers.Max(s => s.Id) + 1;
+        draftSupplier.Name = draftSupplier.Name.Trim();
+        draftSupplier.Category = categories.Contains(draftSupplier.Category) ? draftSupplier.Category : "Other";
+        allSuppliers.Add(draftSupplier);
+        CloseAddSupplier();
+        ApplyFilters();
+    }
+
+    string? GetStatus(int id) => eventSuppliers.FirstOrDefault(e => e.SupplierId == id)?.CollaborationStatus;
+    EventSupplierLocal? GetEventSupplier(int id) => eventSuppliers.FirstOrDefault(e => e.SupplierId == id);
+
+    void SetStatus(int supplierId, string status)
+    {
+        var es = eventSuppliers.FirstOrDefault(e => e.SupplierId == supplierId);
+        if (es != null) es.CollaborationStatus = status;
+        else eventSuppliers.Add(new EventSupplierLocal { SupplierId = supplierId, CollaborationStatus = status });
+        if (_filterStatus != "all") ApplyFilters();
+    }
+
+    void RemoveStatus(int supplierId)
+    {
+        eventSuppliers.RemoveAll(e => e.SupplierId == supplierId);
+        if (_filterStatus != "all") ApplyFilters();
+    }
+
+    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "—";
+
+    async Task ExportCSV()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Name,Category,Phone,Email,Description,EstimatedValue,ActualValue,Status,Notes");
+        foreach (var s in allSuppliers)
+        {
+            var es = GetEventSupplier(s.Id);
+            sb.AppendLine($"{s.Name},{s.Category},{s.Phone},{s.Email},{s.Description},{s.EstimatedValue},{s.ActualValue},{es?.CollaborationStatus ?? ""},{es?.Notes ?? ""}");
+        }
+        var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
+        await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='suppliers.csv';a.click()");
+    }
+
+    async Task ImportCSV(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (!file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        { importSummary = "Only .csv files are accepted."; importHasWarning = true; return; }
+        using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
+        var text = await reader.ReadToEndAsync();
+        int imported = 0, skipped = 0, counter = 0;
+        var nextId = allSuppliers.Count == 0 ? 1 : allSuppliers.Max(s => s.Id) + 1;
+        foreach (var line in text.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        {
+            var c = line.TrimEnd('\r').Split(',');
+            var name = c.ElementAtOrDefault(0)?.Trim() ?? "";
+            if (string.IsNullOrWhiteSpace(name) || allSuppliers.Any(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) { skipped++; continue; }
+            allSuppliers.Add(new Supplier
+            {
+                Id = nextId + counter++, Name = name,
+                Category      = categories.Contains(c.ElementAtOrDefault(1)?.Trim() ?? "") ? c[1].Trim() : "Other",
+                Phone         = c.ElementAtOrDefault(2)?.Trim() ?? "",
+                Email         = c.ElementAtOrDefault(3)?.Trim() ?? "",
+                Description   = c.ElementAtOrDefault(4)?.Trim() ?? "",
+                EstimatedValue = decimal.TryParse(c.ElementAtOrDefault(5), out var est) ? est : 0,
+                ActualValue    = decimal.TryParse(c.ElementAtOrDefault(6), out var act) ? act : 0,
+            });
+            imported++;
+        }
+        importSummary = skipped > 0 ? $"Imported {imported} supplier(s). Skipped {skipped} duplicate/invalid row(s)." : $"Successfully imported {imported} supplier(s).";
+        importHasWarning = skipped > 0;
+        ApplyFilters();
+    }
+
+    async Task DownloadTemplate()
+    {
+        var csv = "Name,Category,Phone,Email,Description,EstimatedValue,ActualValue\nFloral Atelier,Flowers,+40721000001,hello@floral.example,Garden-style arrangements,1800,0\nMidnight Band,Music/DJ,+40721000002,bookings@midnight.example,Live band and DJ set,2200,0\n";
+        var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
+        await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='suppliers_template.csv';a.click()");
+    }
+
+    public void Dispose() { }
+}

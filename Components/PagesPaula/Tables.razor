@@ -6,6 +6,8 @@
 @using System.Text
 @implements IDisposable
 
+
+
 <nav class="tables-nav">
     <div class="tables-nav-brand">
         <div class="tables-nav-icon">
@@ -229,6 +231,16 @@
             <p style="font-size:.85rem;color:var(--muted);margin:0 0 1.25rem;">
                 The head table always includes the Bride &amp; Groom. Choose how many godparent couples to add.
             </p>
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>Bride name</label>
+                    <input class="input" @bind="pendingBrideName" @bind:event="oninput" placeholder="Bride name" />
+                </div>
+                <div class="field">
+                    <label>Groom name</label>
+                    <input class="input" @bind="pendingGroomName" @bind:event="oninput" placeholder="Groom name" />
+                </div>
+            </div>
             <div class="field">
                 <label>Number of godparent couples</label>
                 <div class="couple-picker">
@@ -249,6 +261,53 @@
     </div>
 }
 
+@if (seatPickerOpen && pickerTable != null)
+{
+    var pickerGuests = PickerGuests().ToList();
+    var seatLabel = pickerTable.IsHeadTable
+        ? (HeadLabels().ElementAtOrDefault(pickerSeatIndex) ?? $"Seat {pickerSeatIndex + 1}")
+        : $"Seat {pickerSeatIndex + 1}";
+    <div class="modal-backdrop" @onclick="CloseSeatPicker">
+        <div class="modal-box seat-picker-box" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Assign to @pickerTable.Name — @seatLabel</h3>
+                <button class="modal-close" @onclick="CloseSeatPicker">@SvgX</button>
+            </div>
+            <div class="seat-picker-search-wrap">
+                <input class="input seat-picker-search"
+                       placeholder="Search guests…"
+                       value="@pickerSearch"
+                       @oninput="@((e) => pickerSearch = e.Value?.ToString() ?? "")" />
+            </div>
+            @if (!pickerGuests.Any())
+            {
+                <div class="seat-picker-empty">No guests found.</div>
+            }
+            else
+            {
+                <div class="seat-picker-list">
+                    @foreach (var g in pickerGuests)
+                    {
+                        var guest = g;
+                        var colors = GroupDefs[guest.Group];
+                        var isSeated = tables.Any(t => t.Seats.Any(s => s?.Id == guest.Id));
+                        <button class="seat-picker-item" @onclick="@(() => AssignGuestToSeat(guest))">
+                            <div class="pool-avatar" style="background:linear-gradient(135deg,@colors.SeatFrom,@colors.SeatTo);flex-shrink:0;">
+                                @Initials(guest)
+                            </div>
+                            <div class="seat-picker-info">
+                                <span class="seat-picker-name">@DisplayName(guest)</span>
+                                <span class="seat-picker-meta" style="color:@colors.DotColor;">@guest.Group@(isSeated ? " · currently seated" : " · in pool")</span>
+                            </div>
+                            <span class="seat-picker-assign-icon">@SvgCheckSmall</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="tables-page">
 
     <div class="tables-canvas">
@@ -265,7 +324,7 @@
                 {
                     <span class="seats-ok-badge">@SvgCheckSmall All seated</span>
                 }
-                <button class="btn-outline" @onclick="@(() => { headConfigOpen = true; pendingGodparentCount = godparentCouples; })">
+                <button class="btn-outline" @onclick="OpenHeadConfig">
                     @SvgSettings Configure Head Table
                 </button>
                 <div class="toolbar-actions">
@@ -313,7 +372,7 @@
                                 @SvgRings
                                 Head Table
                             </h4>
-                            <p class="head-table-sub">Bride, Groom &amp; @godparentCouples godparent couple@(godparentCouples > 1 ? "s" : "")</p>
+                            <p class="head-table-sub">@brideName, @groomName &amp; @godparentCouples godparent couple@(godparentCouples > 1 ? "s" : "")</p>
                         </div>
                         <span class="seat-count-badge @(headFilled >= head.Capacity ? "badge-full" : "badge-ok")">
                             @headFilled/@head.Capacity
@@ -326,7 +385,7 @@
                             @for (int i = 0; i < head.Seats.Count; i++)
                             {
                                 var idx = i;
-                                var label = HeadLabels(godparentCouples).ElementAtOrDefault(idx) ?? $"Seat {idx + 1}";
+                                var label = HeadLabels().ElementAtOrDefault(idx) ?? $"Seat {idx + 1}";
                                 <div class="head-seat-col">
                                     @RenderSeat(head.Seats[idx], head, idx, label)
                                     <span class="head-seat-label">@label</span>
@@ -452,7 +511,7 @@
         public string Group { get; set; } = "other";
         public string Email { get; set; } = "";
         public string Phone { get; set; } = "";
-        public int DupIndex { get; set; } = 0; 
+        public int DupIndex { get; set; } = 0;
     }
 
     class EventTable
@@ -466,7 +525,7 @@
 
     class DragSource
     {
-        public string Type { get; set; } = "pool"; 
+        public string Type { get; set; } = "pool";
         public int TableId { get; set; }
         public int SeatIndex { get; set; }
     }
@@ -480,6 +539,8 @@
         ["other"] = new("#fffbeb", "#fcd34d", "#92400e", "#f59e0b", "#fcd34d", "#fbbf24"),
     };
     int godparentCouples = 2;
+    string brideName = "Bride";
+    string groomName = "Groom";
     List<EventTable> tables = new();
     List<TableGuest> pool = new();
     TableGuest? draggedGuest = null;
@@ -497,6 +558,8 @@
     string ng_AssignTo = "pool";
     bool headConfigOpen = false;
     int pendingGodparentCount = 2;
+    string pendingBrideName = "Bride";
+    string pendingGroomName = "Groom";
     bool csvGuideOpen = false;
     bool dragActive = false;
     record CsvImportResult(string Message, bool HasWarning);
@@ -504,6 +567,69 @@
     string toastMsg = "";
     bool toastError = false;
     System.Timers.Timer? toastTimer;
+
+    // Seat picker popover
+    bool seatPickerOpen = false;
+    EventTable? pickerTable = null;
+    int pickerSeatIndex = -1;
+    string pickerSearch = "";
+
+    void OpenSeatPicker(EventTable table, int idx)
+    {
+        pickerTable = table;
+        pickerSeatIndex = idx;
+        pickerSearch = "";
+        seatPickerOpen = true;
+    }
+
+    void CloseSeatPicker()
+    {
+        seatPickerOpen = false;
+        pickerTable = null;
+        pickerSeatIndex = -1;
+        pickerSearch = "";
+    }
+
+    void AssignGuestToSeat(TableGuest guest)
+    {
+        if (pickerTable == null || pickerSeatIndex < 0) return;
+
+        // If guest is currently seated somewhere else, free that seat
+        foreach (var t in tables)
+        {
+            for (int i = 0; i < t.Seats.Count; i++)
+            {
+                if (t.Seats[i]?.Id == guest.Id)
+                {
+                    t.Seats[i] = null;
+                    goto found;
+                }
+            }
+        }
+        // Otherwise remove from pool
+        pool.RemoveAll(g => g.Id == guest.Id);
+
+    found:
+        pickerTable.Seats[pickerSeatIndex] = guest;
+        ShowToast($"{guest.FirstName} {guest.LastName} seated!");
+        CloseSeatPicker();
+    }
+
+    IEnumerable<TableGuest> PickerGuests()
+    {
+        var all = pool.Concat(
+            tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>())
+        );
+        if (!string.IsNullOrWhiteSpace(pickerSearch))
+        {
+            var q = pickerSearch.Trim().ToLower();
+            all = all.Where(g =>
+                g.FirstName.ToLower().Contains(q) ||
+                g.LastName.ToLower().Contains(q) ||
+                $"{g.FirstName} {g.LastName}".ToLower().Contains(q));
+        }
+        return all;
+    }
 
     protected override void OnInitialized()
     {
@@ -535,6 +661,9 @@
         for (int i = 0; i < Math.Min(oldSeats.Count, capacity); i++)
             ht.Seats[i] = oldSeats[i];
 
+        ht.Seats[0] = MakeGuest(-1, brideName, "", "family");
+        ht.Seats[1] = MakeGuest(-2, groomName, "", "family");
+
         if (existing != null)
         {
             for (int i = capacity; i < oldSeats.Count; i++)
@@ -556,9 +685,9 @@
     static TableGuest MakeGuest(int id, string fn, string ln, string group) =>
         new() { Id = id, FirstName = fn, LastName = ln, Group = group };
 
-    static List<string> HeadLabels(int godparentCouples)
+    List<string> HeadLabels()
     {
-        var labels = new List<string> { "Bride", "Groom" };
+        var labels = new List<string> { brideName, groomName };
         for (int i = 1; i <= godparentCouples; i++)
         {
             labels.Add($"Godmother {i}");
@@ -567,10 +696,19 @@
         return labels;
     }
 
+    void OpenHeadConfig()
+    {
+        pendingGodparentCount = godparentCouples;
+        pendingBrideName = brideName;
+        pendingGroomName = groomName;
+        headConfigOpen = true;
+    }
 
     void ApplyHeadConfig()
     {
         godparentCouples = pendingGodparentCount;
+        brideName = string.IsNullOrWhiteSpace(pendingBrideName) ? "Bride" : pendingBrideName.Trim();
+        groomName = string.IsNullOrWhiteSpace(pendingGroomName) ? "Groom" : pendingGroomName.Trim();
         BuildHeadTable();
         headConfigOpen = false;
         ShowToast($"Head table updated — {2 + godparentCouples * 2} seats total.");
@@ -828,26 +966,50 @@
         using var reader = new System.IO.StreamReader(e.File.OpenReadStream());
         var content = await reader.ReadToEndAsync();
 
+        var lines = content.Split('\n');
+        if (lines.Length == 0) return;
+
+        // ── Detect column layout from header row ──────────────────────────
+        // Supports both the Tables template (FirstName,LastName,Group,Email,Phone)
+        // and the Guests export  (FirstName,LastName,Email,Phone,Age,Gender,Dietary,Menu,Group,Status,PlusOne)
+        var header = lines[0].TrimEnd('\r').Split(',');
+        int colFn = Array.FindIndex(header, h => h.Trim().Equals("FirstName", StringComparison.OrdinalIgnoreCase));
+        int colLn = Array.FindIndex(header, h => h.Trim().Equals("LastName", StringComparison.OrdinalIgnoreCase));
+        int colGroup = Array.FindIndex(header, h => h.Trim().Equals("Group", StringComparison.OrdinalIgnoreCase));
+        int colEmail = Array.FindIndex(header, h => h.Trim().Equals("Email", StringComparison.OrdinalIgnoreCase));
+        int colPhone = Array.FindIndex(header, h => h.Trim().Equals("Phone", StringComparison.OrdinalIgnoreCase));
+
+        // Fall back to positional defaults if header is missing
+        if (colFn < 0) colFn = 0;
+        if (colLn < 0) colLn = 1;
+        if (colGroup < 0) colGroup = 2;
+        if (colEmail < 0) colEmail = 3;
+        if (colPhone < 0) colPhone = 4;
+
+        var validGroups = new[] { "family", "friends", "colleagues", "other" };
+
         var allGuests = pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>())).ToList();
         int imported = 0, skipped = 0, counter = 0;
 
-        foreach (var line in content.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        foreach (var line in lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
         {
-            var c = line.Split(',');
+            var c = line.TrimEnd('\r').Split(',');
             if (c.Length < 2) continue;
-            var fn = c.ElementAtOrDefault(0)?.Trim() ?? "";
-            var ln = c.ElementAtOrDefault(1)?.Trim() ?? "";
-            var group = c.ElementAtOrDefault(2)?.Trim() ?? "other";
-            var email = c.ElementAtOrDefault(3)?.Trim() ?? "";
-            var phone = c.ElementAtOrDefault(4)?.Trim() ?? "";
+
+            var fn = c.ElementAtOrDefault(colFn)?.Trim() ?? "";
+            var ln = c.ElementAtOrDefault(colLn)?.Trim() ?? "";
+            var email = c.ElementAtOrDefault(colEmail)?.Trim() ?? "";
+            var phone = c.ElementAtOrDefault(colPhone)?.Trim() ?? "";
+
+            // ── Case-insensitive group matching ───────────────────────────
+            var rawGroup = c.ElementAtOrDefault(colGroup)?.Trim().ToLowerInvariant() ?? "";
+            var group = validGroups.Contains(rawGroup) ? rawGroup : "other";
 
             if (string.IsNullOrWhiteSpace(fn) && string.IsNullOrWhiteSpace(ln)) { skipped++; continue; }
 
             if ((!string.IsNullOrWhiteSpace(email) && allGuests.Any(g => g.Email.Trim().ToLower() == email.ToLower())) ||
                 (!string.IsNullOrWhiteSpace(phone) && allGuests.Any(g => g.Phone.Trim() == phone)))
             { skipped++; continue; }
-
-            if (!new[] { "family", "friends", "colleagues", "other" }.Contains(group)) group = "other";
 
             pool.Add(new TableGuest
             {
@@ -900,9 +1062,12 @@
         }
         else
         {
-            <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "")"
-                 title="@(label != null ? label : $"Seat {idx + 1}") — drop a guest here">
+            <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") seat-empty-clickable"
+                 title="@(label != null ? label : $"Seat {idx + 1}") — click to assign or drop a guest"
+                 @onclick="@(() => OpenSeatPicker(table, idx))"
+                 @onclick:stopPropagation="true">
                 <span class="seat-empty-num">@(label != null ? label.Split(' ').Select(w => w[0].ToString()).Aggregate((a, b) => a + b) : (idx + 1).ToString())</span>
+                <span class="seat-empty-plus">+</span>
             </div>
         }
     </div>;

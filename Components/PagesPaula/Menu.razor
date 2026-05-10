@@ -1,0 +1,256 @@
+﻿@page "/menu"
+@layout UserLayout
+@rendermode InteractiveServer
+@inject WeddingPlannerApp.Services.WeddingStateService State
+@using WeddingPlannerApp.Components.LayoutPaula
+@implements IDisposable
+
+<PageNav Title="Menu"
+         Subtitle="@(string.IsNullOrEmpty(State.SelectedMenuName) ? "Choose your wedding menu package" : $"{State.SelectedMenuName} selected")"
+         IconSvg="@SvgIcons.MenuNav" />
+
+<div class="menu-page">
+
+    <!-- Dietary filter -->
+    <div class="menu-filter-bar">
+        <span class="menu-filter-label">Filter by dietary:</span>
+        @foreach (var f in dietaryFilters)
+        {
+            var ff = f;
+            <button class="menu-diet-btn @(dietFilter == ff.Key ? "menu-diet-active" : "")"
+                    @onclick="@(() => { dietFilter = ff.Key; activePackage = null; })">
+                @ff.Label
+            </button>
+        }
+    </div>
+
+    <div class="menu-count-grid">
+        @foreach (var item in GuestMenuBreakdown)
+        {
+            <div class="menu-count-card count-@item.Menu">
+                <span class="menu-count-icon diet-icon-@item.Menu">@DietIcon(item.Menu)</span>
+                <span class="menu-count-label">@DietLabel(item.Menu)</span>
+                <strong>@item.Count</strong>
+            </div>
+        }
+    </div>
+
+    @if (selectedByType.Count > 0)
+    {
+        <div class="menu-selection-summary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Selected: <strong>@SelectionSummary</strong></span>
+            <button class="task-filter-btn" style="font-size:.72rem;padding:.2rem .55rem;" @onclick="@(() => { selectedByType.Clear(); State.SelectMenu("",""); })">Clear all</button>
+        </div>
+    }
+
+    @if (activePackage == null)
+    {
+        <!-- Package grid -->
+        <div class="menu-packages-grid">
+            @foreach (var pkg in filteredPackages)
+            {
+                var p = pkg;
+                var isSelected = State.SelectedMenuId == p.Id;
+                <div class="menu-pkg-card @(isSelected ? "menu-pkg-selected" : "")" @key="p.Id">
+                    @if (IsSelected(p))
+                    {
+                        <div class="menu-pkg-booked-badge">
+                            @SvgIcons.CheckSmall
+                            Your menu
+                        </div>
+                    }
+                    <div class="menu-pkg-header">
+                        <div class="menu-pkg-diet-badge diet-@p.DietaryType">@DietLabel(p.DietaryType)</div>
+                        <h3 class="menu-pkg-name">@p.Name</h3>
+                        <p class="menu-pkg-price">$@p.PricePerPerson<span>/person</span></p>
+                        <p class="menu-pkg-desc">@p.Description</p>
+                    </div>
+
+                    <div class="menu-pkg-courses">
+                        @foreach (var course in p.Courses)
+                        {
+                            <div class="menu-course-preview">
+                                <span class="menu-course-label">@course.Label</span>
+                                <span class="menu-course-count">@course.Items.Count dishes</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="menu-pkg-actions">
+                        <button class="btn-outline menu-view-btn" @onclick="@(() => { activePackage = p; activeCourse = 0; })">
+                            View dishes
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                        <button class="menu-book-btn @(isSelected ? "menu-book-active" : "")" @onclick="@(() => ToggleSelect(p))">
+                            @if (isSelected)
+                            {
+                                @SvgIcons.CheckSmall
+                                <text>Selected</text>
+                            }
+                            else
+                            {
+                                <text>Select menu</text>
+                            }
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Package detail -->
+        <div class="menu-detail" @key="activePackage.Id">
+            <div class="menu-detail-header">
+                <button class="venue-back" @onclick="@(() => activePackage = null)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    All menus
+                </button>
+                <div class="menu-detail-title-wrap">
+                    <div class="menu-pkg-diet-badge diet-@activePackage.DietaryType">@DietLabel(activePackage.DietaryType)</div>
+                    <h2 class="menu-detail-title">@activePackage.Name</h2>
+                    <p class="menu-pkg-price">$@activePackage.PricePerPerson<span>/person</span></p>
+                </div>
+                <button class="menu-book-btn @(IsSelected(activePackage) ? "menu-book-active" : "")"
+                        @onclick="@(() => ToggleSelect(activePackage))">
+                    @if (IsSelected(activePackage))
+                    {
+                        @SvgIcons.CheckSmall
+                        <text>Selected</text>
+                    }
+                    else
+                    {
+                        <text>Select this menu</text>
+                    }
+                </button>
+            </div>
+
+            <!-- Course tabs -->
+            <div class="menu-course-tabs">
+                @for (int i = 0; i < activePackage.Courses.Count; i++)
+                {
+                    var idx = i;
+                    var course = activePackage.Courses[i];
+                    <button class="menu-course-tab @(activeCourse == idx ? "course-tab-active" : "")"
+                            @onclick="@(() => activeCourse = idx)">
+                        @course.Label
+                    </button>
+                }
+            </div>
+
+            <!-- Dishes -->
+            <div class="menu-dishes-grid">
+                @foreach (var dish in activePackage.Courses[activeCourse].Items)
+                {
+                    var d = dish;
+                    <div class="menu-dish-card">
+                        <div class="menu-dish-info">
+                            <h4 class="menu-dish-name">@d.Name</h4>
+                            <p class="menu-dish-desc">@d.Description</p>
+                            <div class="menu-dish-tags">
+                                @foreach (var tag in d.DietaryTags)
+                                {
+                                    <span class="menu-dish-tag diet-tag-@tag">@DietTagLabel(tag)</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="menu-dish-icon diet-icon-@activePackage.DietaryType">
+                            @DietIcon(activePackage.DietaryType)
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+
+    record Dish(string Name, string Description, List<string> DietaryTags);
+    record Course(string Label, List<Dish> Items);
+    record MenuPackage(string Id, string Name, string DietaryType, int PricePerPerson, string Description, List<Course> Courses);
+
+    string        dietFilter    = "all";
+    MenuPackage?  activePackage = null;
+    int           activeCourse  = 0;
+
+    Dictionary<string, string> selectedByType = new();
+
+    bool IsSelected(MenuPackage p) => selectedByType.TryGetValue(p.DietaryType, out var id) && id == p.Id;
+
+    void ToggleSelect(MenuPackage p)
+    {
+        if (IsSelected(p)) selectedByType.Remove(p.DietaryType);
+        else selectedByType[p.DietaryType] = p.Id;
+
+        var names = selectedByType.Keys
+            .OrderBy(k => k)
+            .Select(k => packages.First(p2 => p2.Id == selectedByType[k]).Name);
+        State.SelectMenu(string.Join(",", selectedByType.Values), string.Join(" + ", names));
+    }
+
+    record DietFilter(string Key, string Label);
+    List<DietFilter> dietaryFilters = new()
+    {
+        new("all","All packages"), new("standard","Casual"),
+        new("vegetarian","Vegetarian"), new("vegan","Vegan"), new("fasting","Fasting"),
+    };
+
+    List<string> guestMenuTypes = new() { "standard","standard","standard","standard","vegetarian","vegan","fasting" };
+
+    IEnumerable<(string Menu, int Count)> GuestMenuBreakdown =>
+        dietaryFilters.Where(f => f.Key != "all")
+            .Select(f => (Menu: f.Key, Count: guestMenuTypes.Count(t => t == f.Key)));
+
+    string SelectionSummary =>
+        selectedByType.Count == 0 ? "" :
+        string.Join(" + ", selectedByType.Keys.OrderBy(k => k)
+            .Select(k => packages.First(p => p.Id == selectedByType[k]).Name));
+
+    IEnumerable<MenuPackage> filteredPackages =>
+        dietFilter == "all" ? packages : packages.Where(p => p.DietaryType == dietFilter);
+
+    string DietLabel(string type) => type switch
+    {
+        "vegan"      => "Vegan",
+        "vegetarian" => "Vegetarian",
+        "fasting"    => "Fasting",
+        _            => "Casual",
+    };
+
+    string DietTagLabel(string tag) => tag switch
+    {
+        "vegan"      => "Vegan",
+        "vegetarian" => "Vegetarian",
+        "fasting"    => "Fasting",
+        "gf"         => "Gluten-Free",
+        _            => tag,
+    };
+
+    MarkupString DietIcon(string type) => type switch
+    {
+        "vegan"      => new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 22c1.25-1.25 2.5-2.5 6-4C14 16 18 8 18 2c0 0-6 2-9 6-2 2.67-2.5 5-1 8'/><path d='M6 14c.5-3 3-5.5 6.5-7.5'/></svg>"),
+        "vegetarian" => new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z'/><path d='M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12'/></svg>"),
+        "fasting"    => new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 20c-1.8-3.4-1.2-7.1 1.6-9.9C11.3 7.4 15 6.2 20 5c-.8 4.8-2.2 8.4-4.9 11.1C12.3 18.9 10 20 7 20z'/><path d='M4 21c2.3-5.2 6.2-8.8 11.5-11.2'/></svg>"),
+        _            => new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2'/><path d='M7 2v20'/><path d='M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7'/></svg>"),
+    };
+
+    // ── All menu package data preserved exactly ────────────────
+    List<MenuPackage> packages = new()
+    {
+        new MenuPackage("standard-classic","Classic Elegance","standard",85,"A timeless menu featuring premium meats, seasonal sides and indulgent desserts.",new(){new("Starters",new(){new("Bruschetta al Pomodoro","Toasted sourdough, heirloom tomatoes, basil, aged balsamic",new(){"vegetarian"}),new("Prawn Cocktail","Tiger prawns, Marie Rose sauce, lemon, baby gem lettuce",new(){"gf"}),new("Cream of Mushroom Soup","Wild mushroom velouté, truffle oil, chive cream",new(){"vegetarian","gf"})}),new("Main Course",new(){new("Herb-Crusted Chicken","Free-range breast, roasted garlic jus, fondant potato",new(){"gf"}),new("Slow-Roasted Beef Sirloin","28-day aged sirloin, red wine reduction, dauphinoise potato",new(){"gf"}),new("Pan-Seared Salmon","Atlantic salmon, lemon butter, asparagus, new potatoes",new(){"gf"})}),new("Desserts",new(){new("Wedding Cake Slice","Three-tier vanilla sponge, Swiss meringue buttercream",new(){"vegetarian"}),new("Crème Brûlée","Classic vanilla custard, caramelized sugar, fresh berries",new(){"vegetarian","gf"}),new("Chocolate Fondant","Warm dark chocolate cake, vanilla bean ice cream",new(){"vegetarian"})})}),
+        new MenuPackage("standard-premium","Premium Feast","standard",125,"An elevated experience with premium cuts, seafood and artisan desserts.",new(){new("Starters",new(){new("Lobster Bisque","Creamy lobster soup, crème fraîche, chives, cognac",new(){"gf"}),new("Beef Carpaccio","Thinly sliced tenderloin, rocket, parmesan, capers",new(){"gf"}),new("Burrata & Heirloom Tomato","Fresh burrata, heritage tomatoes, basil oil, sea salt",new(){"vegetarian","gf"})}),new("Main Course",new(){new("Filet Mignon","8oz beef tenderloin, truffle butter, pomme purée",new(){"gf"}),new("Butter-Poached Lobster","Whole lobster tail, drawn butter, tarragon, asparagus",new(){"gf"}),new("Duck Confit","Slow-cooked duck leg, cherry jus, roasted root vegetables",new(){"gf"})}),new("Desserts",new(){new("Petit Fours Tower","Macarons, chocolate truffles, miniature fruit tarts",new(){"vegetarian"}),new("Champagne Panna Cotta","Prosecco-set cream, raspberry coulis, gold leaf",new(){"vegetarian","gf"})})}),
+        new MenuPackage("veg-garden","Garden Fresh","vegetarian",75,"Vibrant vegetarian dishes showcasing seasonal produce and bold Mediterranean flavours.",new(){new("Starters",new(){new("Caprese Salad","Burrata, heirloom tomatoes, basil pesto, pine nuts",new(){"vegetarian","gf"}),new("Roasted Red Pepper Soup","Charred peppers, smoked paprika, crème fraîche",new(){"vegetarian","gf"}),new("Cheese & Chutney Board","Artisan cheeses, honeycomb, walnuts, crackers",new(){"vegetarian"})}),new("Main Course",new(){new("Wild Mushroom Risotto","Arborio rice, porcini, parmesan, truffle oil",new(){"vegetarian","gf"}),new("Spinach & Ricotta Cannelloni","Fresh pasta, tomato coulis, parmesan gratin",new(){"vegetarian"}),new("Mediterranean Tart","Roasted vegetables, feta, olive tapenade, shortcrust pastry",new(){"vegetarian"})}),new("Desserts",new(){new("Lemon Posset","Set lemon cream, shortbread, mixed berry compote",new(){"vegetarian","gf"}),new("Tiramisu","Mascarpone, espresso-soaked sponge, cocoa dusting",new(){"vegetarian"})})}),
+        new MenuPackage("veg-premium","Vegetarian Gala","vegetarian",95,"Elegant fine-dining vegetarian experience with refined French and Italian influences.",new(){new("Starters",new(){new("Goat Cheese Mousse","Whipped chèvre, candied walnuts, beet gel, watercress",new(){"vegetarian","gf"}),new("Truffle Arancini","Crispy risotto balls, truffle aioli, aged parmesan",new(){"vegetarian"}),new("Gazpacho Shot","Chilled heirloom tomato, cucumber, green oil",new(){"vegan","gf"})}),new("Main Course",new(){new("Mushroom Wellington","King oyster & portobello, spinach, puff pastry, red wine jus",new(){"vegetarian"}),new("Black Truffle Pasta","Fresh pappardelle, black truffle, pecorino, brown butter",new(){"vegetarian"}),new("Cauliflower Royale","Whole roasted cauliflower, almond cream, herb gremolata",new(){"vegetarian","gf"})}),new("Desserts",new(){new("Chocolate & Hazelnut Tart","Dark chocolate ganache, praline, gold leaf",new(){"vegetarian"}),new("Crème Caramel","Classic French custard, caramel sauce, almond tuile",new(){"vegetarian","gf"})})}),
+        new MenuPackage("vegan-light","Plant Forward","vegan",70,"Colourful whole-food plant-based menu. 100% vegan, every dish gluten-free friendly.",new(){new("Starters",new(){new("Roasted Beet Carpaccio","Golden beets, cashew cream, microgreens, walnut vinaigrette",new(){"vegan","gf"}),new("Gazpacho","Chilled tomato, cucumber, peppers, sourdough croutons",new(){"vegan"}),new("Guacamole & Crudités","Fresh avocado, lime, chilli, seasonal vegetable sticks",new(){"vegan","gf"})}),new("Main Course",new(){new("Lentil & Butternut Tagine","Moroccan spices, chickpeas, preserved lemon, couscous",new(){"vegan"}),new("Grilled Vegetable Stack","Courgette, aubergine, peppers, quinoa, tahini",new(){"vegan","gf"}),new("Jackfruit Wellington","BBQ jackfruit, mushroom duxelles, puff pastry, gravy",new(){"vegan"})}),new("Desserts",new(){new("Coconut Panna Cotta","Coconut cream, passion fruit coulis, toasted coconut",new(){"vegan","gf"}),new("Chocolate Avocado Mousse","Dark chocolate, avocado, maple, vanilla, berry compote",new(){"vegan","gf"})})}),
+        new MenuPackage("vegan-premium","Vegan Luxe","vegan",95,"Sophisticated plant-based fine dining that surprises even the most dedicated omnivore.",new(){new("Starters",new(){new("Smoked Carrot Lox","Cured carrot, capers, cream cheese (vegan), rye crispbread",new(){"vegan"}),new("Avocado Tartare","Diced avocado, mango salsa, lime dressing, sesame",new(){"vegan","gf"}),new("White Truffle Bisque","Celeriac velouté, truffle oil, crispy sage",new(){"vegan","gf"})}),new("Main Course",new(){new("Beetroot Wellington","Roasted beet, walnut filling, puff pastry, jus",new(){"vegan"}),new("Saffron Cauliflower Steak","Whole roasted cauliflower, chimichurri, almond romesco",new(){"vegan","gf"}),new("Truffle Risotto","Arborio, black truffle, cashew parmesan, herb oil",new(){"vegan","gf"})}),new("Desserts",new(){new("Raw Chocolate Torte","Dates, cacao, cashew cream, raspberry, gold dust",new(){"vegan","gf"}),new("Mango Sorbet Trio","Alphonso mango, passion fruit, raspberry — three quenelles",new(){"vegan","gf"})})}),
+        new MenuPackage("fasting-traditional","Fasting Celebration","fasting",68,"A full fasting-friendly menu without meat, dairy or eggs, built around warm traditional dishes.",new(){new("Starters",new(){new("Eggplant Salad Cups","Roasted eggplant spread, tomatoes, parsley, toasted bread",new(){"vegan","fasting"}),new("Bean Pâté Crostini","Creamy white beans, caramelized onion, pickles",new(){"vegan","fasting"}),new("Stuffed Peppers","Rice, mushrooms, herbs and tomato sauce",new(){"vegan","gf","fasting"})}),new("Main Course",new(){new("Mushroom Sarmale","Cabbage rolls with mushroom rice filling and polenta",new(){"vegan","gf","fasting"}),new("Vegetable Pilaf","Seasonal vegetables, rice, herbs and roasted pepper",new(){"vegan","gf","fasting"}),new("Grilled Vegetable Platter","Courgette, aubergine, peppers, potatoes and garlic oil",new(){"vegan","gf","fasting"})}),new("Desserts",new(){new("Apple Strudel","Spiced apples, raisins and crisp pastry",new(){"vegan","fasting"}),new("Dark Chocolate Fruit Cup","Seasonal fruit, dark chocolate and toasted walnuts",new(){"vegan","gf","fasting"})})}),
+        new MenuPackage("fasting-premium","Fasting Feast","fasting",88,"A more refined fasting menu with layered vegetable courses, richer sauces and elegant plated desserts.",new(){new("Starters",new(){new("Marinated Mushroom Salad","Forest mushrooms, garlic oil, dill and pickled onion",new(){"vegan","gf","fasting"}),new("Roasted Pepper Rolls","Sweet peppers filled with walnut cream and herbs",new(){"vegan","gf","fasting"}),new("Cauliflower Cream Soup","Silky cauliflower, crispy leeks and paprika oil",new(){"vegan","gf","fasting"})}),new("Main Course",new(){new("Walnut Mushroom Steak","Pressed mushroom and walnut roast, potato purée, jus",new(){"vegan","fasting"}),new("Fasting Stuffed Cabbage","Rice, mushrooms, smoked paprika and tomato sauce",new(){"vegan","gf","fasting"}),new("Herbed Polenta Plate","Creamy polenta, roasted vegetables, garlic spinach",new(){"vegan","gf","fasting"})}),new("Desserts",new(){new("Pear & Walnut Tart","Caramelized pears, walnuts and cinnamon syrup",new(){"vegan","fasting"}),new("Cocoa Cherry Cake","Dark cocoa sponge, sour cherries and vanilla glaze",new(){"vegan","fasting"})})})
+    };
+
+    protected override void OnInitialized() => State.OnChange += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => State.OnChange -= Refresh;
+}

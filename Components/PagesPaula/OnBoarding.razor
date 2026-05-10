@@ -43,7 +43,7 @@
 
         @if (step == 0)
         {
-            <div class="step-content">
+            <div class="step-content step-anim @(stepDir >= 0 ? "step-forward" : "step-backward")" @key="step">
                 <div class="step-header">
                     <h2>Tell us about your event</h2>
                     <p>What are we celebrating?</p>
@@ -74,7 +74,7 @@
 
         @if (step == 1)
         {
-            <div class="step-content">
+            <div class="step-content step-anim @(stepDir >= 0 ? "step-forward" : "step-backward")" @key="step">
                 <div class="step-header">
                     <h2>When's the big day?</h2>
                     <p>Pick a date for your celebration</p>
@@ -101,7 +101,7 @@
 
         @if (step == 2)
         {
-            <div class="step-content">
+            <div class="step-content step-anim @(stepDir >= 0 ? "step-forward" : "step-backward")" @key="step">
                 <div class="step-header">
                     <h2>How many guests?</h2>
                     <p>An estimate is perfectly fine</p>
@@ -132,7 +132,7 @@
 
         @if (step == 3)
         {
-            <div class="step-content">
+            <div class="step-content step-anim @(stepDir >= 0 ? "step-forward" : "step-backward")" @key="step">
                 <div class="step-header">
                     <h2>Choose a venue</h2>
                     <p>Venues matching your @guestCount guests · or skip and decide later</p>
@@ -220,9 +220,11 @@
 
 @code {
     int step = 0;
+    int stepDir = 1; // 1 = forward, -1 = backward
     string errorMsg = "";
 
     string eventName = "";
+    // eventType is always "Wedding" — app is wedding-only, no field needed
     DateTime? date = null;
     int guestCount = 0;
     int? selectedVenue = null;
@@ -250,6 +252,7 @@
     void Next()
     {
         errorMsg = "";
+        stepDir = 1;
 
         if (step == 0 && string.IsNullOrWhiteSpace(eventName))
         { errorMsg = "Please enter your event name."; return; }
@@ -267,6 +270,7 @@
     void Prev()
     {
         errorMsg = "";
+        stepDir = -1;
         if (step > 0) step--;
     }
 
