@@ -22,7 +22,13 @@ public class VenuesController(ApplicationDbContext context) : ControllerBase
                 Address = v.Address,
                 MinCapacity = v.MinCapacity,
                 MaxCapacity = v.MaxCapacity,
-                EstimatedPrice = v.EstimatedPrice
+                EstimatedPrice = v.EstimatedPrice,
+                Latitude = v.Latitude,
+                Longitude = v.Longitude,
+                Description = v.Description,
+                Rating = v.Rating,
+                Tags = v.Tags,
+                ImagePath = v.ImagePath
             })
             .ToListAsync();
 
@@ -42,7 +48,13 @@ public class VenuesController(ApplicationDbContext context) : ControllerBase
                 Address = v.Address,
                 MinCapacity = v.MinCapacity,
                 MaxCapacity = v.MaxCapacity,
-                EstimatedPrice = v.EstimatedPrice
+                EstimatedPrice = v.EstimatedPrice,
+                Latitude = v.Latitude,
+                Longitude = v.Longitude,
+                Description = v.Description,
+                Rating = v.Rating,
+                Tags = v.Tags,
+                ImagePath = v.ImagePath
             })
             .SingleOrDefaultAsync();
 
@@ -65,7 +77,13 @@ public class VenuesController(ApplicationDbContext context) : ControllerBase
             Address = model.Address,
             MinCapacity = model.MinCapacity,
             MaxCapacity = model.MaxCapacity,
-            EstimatedPrice = model.EstimatedPrice
+            EstimatedPrice = model.EstimatedPrice,
+            Latitude = model.Latitude,
+            Longitude = model.Longitude,
+            Description = model.Description,
+            Rating = model.Rating,
+            Tags = model.Tags,
+            ImagePath = model.ImagePath
         };
 
         context.Venues.Add(entity);
@@ -78,7 +96,13 @@ public class VenuesController(ApplicationDbContext context) : ControllerBase
             Address = entity.Address,
             MinCapacity = entity.MinCapacity,
             MaxCapacity = entity.MaxCapacity,
-            EstimatedPrice = entity.EstimatedPrice
+            EstimatedPrice = entity.EstimatedPrice,
+            Latitude = entity.Latitude,
+            Longitude = entity.Longitude,
+            Description = entity.Description,
+            Rating = entity.Rating,
+            Tags = entity.Tags,
+            ImagePath = entity.ImagePath
         };
 
         return CreatedAtAction(nameof(GetById), new { id = result.VenueId }, result);
@@ -100,6 +124,12 @@ public class VenuesController(ApplicationDbContext context) : ControllerBase
         venue.MinCapacity = model.MinCapacity;
         venue.MaxCapacity = model.MaxCapacity;
         venue.EstimatedPrice = model.EstimatedPrice;
+        venue.Latitude = model.Latitude;
+        venue.Longitude = model.Longitude;
+        venue.Description = model.Description;
+        venue.Rating = model.Rating;
+        venue.Tags = model.Tags;
+        venue.ImagePath = model.ImagePath;
 
         await context.SaveChangesAsync();
 
