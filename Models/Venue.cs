@@ -5,6 +5,33 @@ namespace WeddingPlannerApp.Models;
 
 public enum VenueTag
 {
+    Garden,
+    OpenSpace,
+    Indoor,
+    Outdoor,
+    Ballroom,
+    BanquetHall,
+    Restaurant,
+    Hotel,
+    Barn,
+    Beach,
+    Vineyard,
+    Rooftop,
+    Historic,
+    Luxury,
+    Rustic,
+    Modern,
+    Waterfront,
+    MountainView,
+    Forest,
+    Chapel,
+    Castle,
+    Resort,
+    CountryClub,
+    SmallCapacity,
+    LargeCapacity,
+    BudgetFriendly,
+    Premium
 }
 
 public class Venue

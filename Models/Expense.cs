@@ -11,7 +11,17 @@ public enum PaymentStatus
 
 public enum ExpenseCategory
 {
-    
+    Venue,
+    Catering,
+    Photography,
+    Florals,
+    Music,
+    DressSuit,
+    Decor,
+    Invitations,
+    Transport,
+    Cake,
+    Other
 }
 
 public class Expense
