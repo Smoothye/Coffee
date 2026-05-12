@@ -67,7 +67,10 @@
         <div class="field">
             <label>Category</label>
             <select class="input select-input" @bind="draftSupplier.Category">
-                @foreach (var c in categories) { <option value="@c">@c</option> }
+                @foreach (var c in categories)
+                {
+                    <option value="@c">@c</option>
+                }
             </select>
         </div>
     </div>
@@ -119,7 +122,10 @@
         </div>
         <select class="input select-input filter-select" @bind="filterCat">
             <option value="">All Categories</option>
-            @foreach (var c in categories) { <option value="@c">@c</option> }
+            @foreach (var c in categories)
+            {
+                <option value="@c">@c</option>
+            }
         </select>
         <select class="input select-input filter-select" @bind="filterStatus">
             <option value="all">All Status</option>
@@ -223,24 +229,24 @@
 @code {
     class Supplier
     {
-        public int     Id             { get; set; }
-        public string  Name           { get; set; } = "";
-        public string  Category       { get; set; } = "";
-        public string  Phone          { get; set; } = "";
-        public string  Email          { get; set; } = "";
-        public string  Description    { get; set; } = "";
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Description { get; set; } = "";
         public decimal EstimatedValue { get; set; }
-        public decimal ActualValue    { get; set; }
+        public decimal ActualValue { get; set; }
     }
 
     class EventSupplierLocal
     {
-        public int     SupplierId          { get; set; }
+        public int SupplierId { get; set; }
         public string? CollaborationStatus { get; set; }
-        public string? Notes               { get; set; }
+        public string? Notes { get; set; }
     }
 
-    static readonly string[] categories = { "Cake","Candy Bar","Flowers","Photography","Music/DJ","Catering","Decorations","Rentals","Other" };
+    static readonly string[] categories = { "Cake", "Candy Bar", "Flowers", "Photography", "Music/DJ", "Catering", "Decorations", "Rentals", "Other" };
 
     List<Supplier> allSuppliers = new() {
         new Supplier { Id=1, Name="Sweet Bliss Bakery",    Category="Cake",        Phone="+1 555-0101", Email="info@sweetbliss.com",  Description="Specializes in 3-tier wedding cakes.", EstimatedValue=900,  ActualValue=850 },
@@ -257,12 +263,12 @@
         new EventSupplierLocal { SupplierId=2, CollaborationStatus="pending",   Notes="Waiting for quote" },
     };
 
-    bool   csvGuideOpen     = false;
-    bool   addSupplierOpen  = false;
-    string formError        = "";
-    string importSummary    = "";
-    bool   importHasWarning = false;
-    Supplier draftSupplier  = new() { Category = "Other" };
+    bool csvGuideOpen = false;
+    bool addSupplierOpen = false;
+    string formError = "";
+    string importSummary = "";
+    bool importHasWarning = false;
+    Supplier draftSupplier = new() { Category = "Other" };
 
     string _search = "";
     string search { get => _search; set { _search = value; ApplyFilters(); } }
@@ -287,9 +293,9 @@
             q = _filterStatus switch
             {
                 "confirmed" => q.Where(s => eventSuppliers.Any(e => e.SupplierId == s.Id && e.CollaborationStatus == "confirmed")),
-                "pending"   => q.Where(s => eventSuppliers.Any(e => e.SupplierId == s.Id && e.CollaborationStatus == "pending")),
-                "none"      => q.Where(s => !eventSuppliers.Any(e => e.SupplierId == s.Id)),
-                _           => q
+                "pending" => q.Where(s => eventSuppliers.Any(e => e.SupplierId == s.Id && e.CollaborationStatus == "pending")),
+                "none" => q.Where(s => !eventSuppliers.Any(e => e.SupplierId == s.Id)),
+                _ => q
             };
         }
         filteredSuppliers = q.OrderBy(s => s.Name).ToList();
@@ -297,7 +303,7 @@
 
     protected override void OnInitialized() => ApplyFilters();
 
-    void OpenAddSupplier()  { draftSupplier = new Supplier { Category = "Other" }; formError = ""; addSupplierOpen = true; }
+    void OpenAddSupplier() { draftSupplier = new Supplier { Category = "Other" }; formError = ""; addSupplierOpen = true; }
     void CloseAddSupplier() { addSupplierOpen = false; formError = ""; }
 
     void AddSupplier()
@@ -362,13 +368,14 @@
             if (string.IsNullOrWhiteSpace(name) || allSuppliers.Any(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) { skipped++; continue; }
             allSuppliers.Add(new Supplier
             {
-                Id = nextId + counter++, Name = name,
-                Category      = categories.Contains(c.ElementAtOrDefault(1)?.Trim() ?? "") ? c[1].Trim() : "Other",
-                Phone         = c.ElementAtOrDefault(2)?.Trim() ?? "",
-                Email         = c.ElementAtOrDefault(3)?.Trim() ?? "",
-                Description   = c.ElementAtOrDefault(4)?.Trim() ?? "",
+                Id = nextId + counter++,
+                Name = name,
+                Category = categories.Contains(c.ElementAtOrDefault(1)?.Trim() ?? "") ? c[1].Trim() : "Other",
+                Phone = c.ElementAtOrDefault(2)?.Trim() ?? "",
+                Email = c.ElementAtOrDefault(3)?.Trim() ?? "",
+                Description = c.ElementAtOrDefault(4)?.Trim() ?? "",
                 EstimatedValue = decimal.TryParse(c.ElementAtOrDefault(5), out var est) ? est : 0,
-                ActualValue    = decimal.TryParse(c.ElementAtOrDefault(6), out var act) ? act : 0,
+                ActualValue = decimal.TryParse(c.ElementAtOrDefault(6), out var act) ? act : 0,
             });
             imported++;
         }
