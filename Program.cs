@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WeddingPlannerApp.Components;
 using WeddingPlannerApp.Components.Account;
 using WeddingPlannerApp.Data;
+using WeddingPlannerApp.Services;
 
 namespace WeddingPlannerApp;
 
@@ -48,6 +49,8 @@ public class Program
             .AddDefaultTokenProviders();
 
         builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+        builder.Services.AddScoped<WeddingStateService>();
 
         var app = builder.Build();
 

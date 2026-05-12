@@ -1,0 +1,55 @@
+﻿@implements IDisposable
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="toast @(_isError ? "toast-error" : "toast-success")">
+        @if (_isError)
+        {
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+        }
+        else
+        {
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+        }
+        @_message
+    </div>
+}
+
+@code {
+    string _message = "";
+    bool _isError = false;
+    System.Timers.Timer? _timer;
+
+    /// <summary>Display a toast for 3 seconds.</summary>
+    public void Show(string message, bool isError = false)
+    {
+        _message = message;
+        _isError = isError;
+
+        _timer?.Dispose();
+        _timer = new System.Timers.Timer(3000);
+        _timer.Elapsed += async (_, _) =>
+        {
+            _message = "";
+            _timer?.Dispose();
+            await InvokeAsync(StateHasChanged);
+        };
+        _timer.AutoReset = false;
+        _timer.Start();
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

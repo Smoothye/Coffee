@@ -1,0 +1,216 @@
+﻿@page "/login"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<div class="auth-wrap">
+
+    <!-- Page transition overlay -->
+    <div class="auth-transition-overlay @(transitioning ? "auth-overlay-active" : "")"></div>
+
+    <!-- Background -->
+    <div class="auth-bg">
+        <div class="auth-bg-img"></div>
+        <div class="auth-bg-overlay"></div>
+    </div>
+
+    <!-- Floating blobs -->
+    <div class="auth-blob auth-blob-1"></div>
+    <div class="auth-blob auth-blob-2"></div>
+
+    <!-- Fullscreen curtain — slides in on submit -->
+    @if (transitioning)
+    {
+        <div class="auth-curtain">
+            <div class="auth-curtain-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="white" stroke="none">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+                <span>EverAfter</span>
+            </div>
+        </div>
+    }
+
+    <!-- Card -->
+    <div class="auth-card @(transitioning ? "auth-card-exit" : "")">
+
+        <!-- Logo -->
+        <div class="auth-logo">
+            <div class="auth-logo-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="auth-app-name"><em>Ever</em>After</h1>
+                <p class="auth-app-sub">Plan your perfect celebration</p>
+            </div>
+        </div>
+
+        <!-- Sign In / Create Account toggle -->
+        <div class="auth-mode-toggle @(!isLogin ? "slide-right" : "")">
+            <button class="auth-mode-btn @(isLogin ? "mode-active" : "")"
+                    @onclick='@(() => { isLogin = true; errorMsg = ""; })'>
+                Sign In
+            </button>
+            <button class="auth-mode-btn @(!isLogin ? "mode-active" : "")"
+                    @onclick='@(() => { isLogin = false; errorMsg = ""; })'>
+                Create Account
+            </button>
+        </div>
+
+        <!-- Error -->
+        @if (!string.IsNullOrEmpty(errorMsg))
+        {
+            <div class="error-banner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                @errorMsg
+            </div>
+        }
+
+        <!-- Form -->
+        <div class="auth-form">
+
+            <!-- Name fields (register only) -->
+            @if (!isLogin)
+            {
+                <div class="form-grid-2 auth-field-enter">
+                    <div class="field">
+                        <label class="auth-label">First Name</label>
+                        <div class="auth-input-wrap">
+                            <span class="auth-input-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                    <circle cx="12" cy="7" r="4" />
+                                </svg>
+                            </span>
+                            <input class="input auth-input" placeholder="Maria"
+                                   @bind="firstName" @bind:event="oninput" />
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="auth-label">Last Name</label>
+                        <div class="auth-input-wrap">
+                            <span class="auth-input-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                    <circle cx="12" cy="7" r="4" />
+                                </svg>
+                            </span>
+                            <input class="input auth-input" placeholder="Ionescu"
+                                   @bind="lastName" @bind:event="oninput" />
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Email -->
+            <div class="field">
+                <label class="auth-label">Email</label>
+                <div class="auth-input-wrap">
+                    <span class="auth-input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                            <polyline points="22,6 12,13 2,6" />
+                        </svg>
+                    </span>
+                    <input class="input auth-input" type="email"
+                           placeholder="maria@example.com"
+                           @bind="email" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="field">
+                <label class="auth-label">Password</label>
+                <div class="auth-input-wrap">
+                    <span class="auth-input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                    </span>
+                    <input class="input auth-input" type="password"
+                           placeholder="••••••••"
+                           @bind="password" @bind:event="oninput" />
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <button class="auth-submit" @onclick="async () => await Submit()">
+                <span>@(isLogin ? "Sign In" : "Create Account")</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                </svg>
+            </button>
+
+        </div>
+    </div>
+</div>
+
+@code {
+
+    // ── Admin credentials — move to appsettings/secrets in production ──
+    const string AdminEmail = "admin@everafter.com";
+    const string AdminPassword = "EverAfter2026!";
+
+    bool isLogin = true;
+    bool transitioning = false;
+    string email = "";
+    string password = "";
+    string firstName = "";
+    string lastName = "";
+    string errorMsg = "";
+
+    async Task AnimateAndNavigate(string url)
+    {
+        transitioning = true;
+        StateHasChanged();
+        await Task.Delay(420);
+        Nav.NavigateTo(url);
+    }
+
+    async Task Submit()
+    {
+        errorMsg = "";
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMsg = "Please enter your email and password.";
+            return;
+        }
+
+        // ── Admin detection — same form, invisible to outsiders ──
+        if (email.Trim().Equals(AdminEmail, StringComparison.OrdinalIgnoreCase)
+            && password == AdminPassword)
+        {
+            await AnimateAndNavigate("/admin");
+            return;
+        }
+
+        // ── User login ────────────────────────────────────────────
+        if (isLogin)
+        {
+            // TODO: verify credentials against DB
+            await AnimateAndNavigate("/dashboard");
+            return;
+        }
+
+        // ── User register ─────────────────────────────────────────
+        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
+        { errorMsg = "Please enter your first and last name."; return; }
+
+        if (!email.Contains('@'))
+        { errorMsg = "Please enter a valid email address."; return; }
+
+        if (password.Length < 8)
+        { errorMsg = "Password must be at least 8 characters."; return; }
+
+        // TODO: create account in DB
+        Nav.NavigateTo("/onboarding");
+    }
+}
