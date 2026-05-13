@@ -337,6 +337,10 @@
                         @SvgDownload Export
                     </button>
                 </div>
+                <button class="btn-outline" @onclick="AutoArrangeGuests">
+                    @SvgGrid Auto arrange
+                </button>
+
                 <button class="btn-add"
                         @onclick="AddTable"
                         disabled="@(totalSeats >= totalGuests)">
@@ -510,6 +514,7 @@
         public string Email { get; set; } = "";
         public string Phone { get; set; } = "";
         public int DupIndex { get; set; } = 0;
+        public bool PlusOne { get; set; } = false;
     }
 
     class EventTable
@@ -587,6 +592,75 @@
         pickerSeatIndex = -1;
         pickerSearch = "";
     }
+
+    void AutoArrangeGuests()
+    {
+        var allMovableGuests = pool
+            .OrderBy(g => GroupPriority(g.Group))
+            .ThenBy(g => g.PlusOne)
+            .ThenBy(g => g.LastName)
+            .ThenBy(g => g.FirstName)
+            .ToList();
+
+        if (!allMovableGuests.Any())
+        {
+            ShowToast("No guests in pool to arrange.", error: true);
+            return;
+        }
+
+        pool.Clear();
+
+        foreach (var guest in allMovableGuests)
+        {
+            var placed = TryPlaceGuestNearSimilarGroup(guest);
+
+            if (!placed)
+            {
+                pool.Add(guest);
+            }
+        }
+
+        ShowToast(pool.Count == 0
+            ? "Guests arranged automatically!"
+            : $"Guests arranged. {pool.Count} guest(s) left in pool.",
+            error: pool.Count > 0);
+    }
+
+    bool TryPlaceGuestNearSimilarGroup(TableGuest guest)
+    {
+        var candidateTables = tables
+            .Where(t => !t.IsHeadTable)
+            .Select(t => new
+            {
+                Table = t,
+                EmptySeat = t.Seats.FindIndex(s => s == null),
+                SameGroupCount = t.Seats.Count(s => s?.Group == guest.Group),
+                PlusOneCount = t.Seats.Count(s => s?.PlusOne == true),
+                FilledCount = t.Seats.Count(s => s != null)
+            })
+            .Where(x => x.EmptySeat >= 0)
+            .OrderByDescending(x => x.SameGroupCount)
+            .ThenBy(x => guest.PlusOne ? x.PlusOneCount : 0)
+            .ThenBy(x => x.FilledCount)
+            .ToList();
+
+        var bestTable = candidateTables.FirstOrDefault();
+
+        if (bestTable == null)
+            return false;
+
+        bestTable.Table.Seats[bestTable.EmptySeat] = guest;
+        return true;
+    }
+
+    int GroupPriority(string group) => group switch
+    {
+        "family" => 1,
+        "friends" => 2,
+        "colleagues" => 3,
+        "other" => 4,
+        _ => 5
+    };
 
     void AssignGuestToSeat(TableGuest guest)
     {
@@ -932,12 +1006,14 @@
 
     async Task DownloadTemplate()
     {
-        var csv = "FirstName,LastName,Group,Email,Phone\n" +
-                  "Maria,Ionescu,family,maria@email.com,+40721000001\n" +
-                  "Andrei,Pop,friends,,\n";
+        var csv = "FirstName,LastName,Group,Email,Phone,PlusOne\n" +
+                  "Maria,Ionescu,family,maria@email.com,+40721000001,false\n" +
+                  "Andrei,Pop,friends,,,true\n";
+
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval",
             $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='guests_template.csv';a.click()");
+
         csvGuideOpen = false;
         ShowToast("Template downloaded!");
     }
@@ -945,17 +1021,28 @@
     async Task ExportCSV()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("FirstName,LastName,Group,Email,Phone,Table,Seat");
+        sb.AppendLine("FirstName,LastName,Group,Email,Phone,PlusOne,Table,Seat");
+
         foreach (var t in tables)
+        {
             for (int i = 0; i < t.Seats.Count; i++)
+            {
                 if (t.Seats[i] is { } g)
-                    sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},{t.Name},Seat {i + 1}");
+                {
+                    sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},{g.PlusOne},{t.Name},Seat {i + 1}");
+                }
+            }
+        }
+
         foreach (var g in pool)
-            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},Unassigned,");
+        {
+            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},{g.PlusOne},Unassigned,");
+        }
 
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         await JS.InvokeVoidAsync("eval",
             $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='seating_chart.csv';a.click()");
+
         ShowToast("Seating chart exported!");
     }
 
@@ -976,6 +1063,7 @@
         int colGroup = Array.FindIndex(header, h => h.Trim().Equals("Group", StringComparison.OrdinalIgnoreCase));
         int colEmail = Array.FindIndex(header, h => h.Trim().Equals("Email", StringComparison.OrdinalIgnoreCase));
         int colPhone = Array.FindIndex(header, h => h.Trim().Equals("Phone", StringComparison.OrdinalIgnoreCase));
+        int colPlusOne = Array.FindIndex(header, h => h.Trim().Equals("PlusOne", StringComparison.OrdinalIgnoreCase));
 
         // Fall back to positional defaults if header is missing
         if (colFn < 0) colFn = 0;
@@ -998,6 +1086,11 @@
             var ln = c.ElementAtOrDefault(colLn)?.Trim() ?? "";
             var email = c.ElementAtOrDefault(colEmail)?.Trim() ?? "";
             var phone = c.ElementAtOrDefault(colPhone)?.Trim() ?? "";
+            var plusOneRaw = colPlusOne >= 0
+    ? c.ElementAtOrDefault(colPlusOne)?.Trim().ToLowerInvariant() ?? ""
+    : "";
+
+            var plusOne = plusOneRaw is "yes" or "true" or "1" or "da";
 
             // ── Case-insensitive group matching ───────────────────────────
             var rawGroup = c.ElementAtOrDefault(colGroup)?.Trim().ToLowerInvariant() ?? "";
@@ -1017,6 +1110,7 @@
                 Group = group,
                 Email = email,
                 Phone = phone,
+                PlusOne = plusOne,
             });
             imported++;
         }
