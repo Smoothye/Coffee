@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="UnitTests/UnitTests.csproj" Id="c9c150de-d216-4d1f-b37c-bccca7ed67d9" />
   <Project Path="WeddingPlannerApp.csproj" />
 </Solution>
