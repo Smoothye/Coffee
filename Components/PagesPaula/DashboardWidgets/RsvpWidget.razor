@@ -16,10 +16,12 @@
                 var pct = TotalGuests > 0 ? (double)segment.Count / TotalGuests : 0;
                 var dash = pct * circumference;
                 var gap = circumference - dash;
+                var dashArray = $"{dash:F2} {gap:F2}";
+                var dashOffset = $"{-(segment.Offset * circumference):F2}";
                 <circle cx="@center" cy="@center" r="@radius"
                         fill="none" stroke="@segment.Color" stroke-width="14"
-                        stroke-dasharray="@dash.ToString("F2") @gap.ToString("F2")"
-                        stroke-dashoffset="@(-(segment.Offset * circumference)).ToString("F2")"
+                        stroke-dasharray="@dashArray"
+                        stroke-dashoffset="@dashOffset"
                         transform="rotate(-90 60 60)"
                         style="transition:stroke-dasharray .6s ease;" />
             }

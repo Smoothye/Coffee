@@ -1,36 +1,166 @@
 using System.Net.Http.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.EntityFrameworkCore;
+using WeddingPlannerApp.Data;
 using WeddingPlannerApp.DTOs.Event;
 using WeddingPlannerApp.DTOs.Guest;
 using WeddingPlannerApp.DTOs.Venue;
 using WeddingPlannerApp.Models;
+using EventEntity = WeddingPlannerApp.Models.Event;
 
 namespace WeddingPlannerApp.Services;
 
-public sealed class WeddingApiClient(HttpClient http)
+public sealed class WeddingApiClient(
+    HttpClient http,
+    ApplicationDbContext context,
+    AuthenticationStateProvider authenticationStateProvider)
 {
     public async Task<List<EventDto>> GetEventsAsync() =>
-        await http.GetFromJsonAsync<List<EventDto>>("api/Events") ?? [];
+        await context.Events
+            .Select(e => new EventDto
+            {
+                EventId = e.EventId,
+                VenueId = e.VenueId,
+                MenuIds = e.Menus.Select(m => m.MenuId).ToList(),
+                Name = e.Name,
+                BrideName = e.BrideName,
+                GroomName = e.GroomName,
+                EventDate = e.EventDate,
+                EstimatedGuests = e.EstimatedGuests,
+                TotalBudget = e.TotalBudget,
+                Notes = e.Notes,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt
+            })
+            .ToListAsync();
 
     public async Task<EventDto?> GetEventAsync(int eventId) =>
-        await http.GetFromJsonAsync<EventDto>($"api/Events/{eventId}");
+        await context.Events
+            .Where(e => e.EventId == eventId)
+            .Select(e => new EventDto
+            {
+                EventId = e.EventId,
+                VenueId = e.VenueId,
+                MenuIds = e.Menus.Select(m => m.MenuId).ToList(),
+                Name = e.Name,
+                BrideName = e.BrideName,
+                GroomName = e.GroomName,
+                EventDate = e.EventDate,
+                EstimatedGuests = e.EstimatedGuests,
+                TotalBudget = e.TotalBudget,
+                Notes = e.Notes,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt
+            })
+            .SingleOrDefaultAsync();
 
     public async Task<EventDto?> CreateEventAsync(EventCreateDto eventItem)
     {
-        var response = await http.PostAsJsonAsync("api/Events", eventItem);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EventDto>();
+        var userId = await GetCurrentUserIdAsync();
+
+        var venueExists = await context.Venues.AnyAsync(v => v.VenueId == eventItem.VenueId);
+        if (!venueExists)
+            throw new InvalidOperationException($"Venue with id {eventItem.VenueId} doesn't exist.");
+
+        var userAlreadyHasEvent = await context.UserEvents.AnyAsync(ue => ue.UserId == userId);
+        if (userAlreadyHasEvent)
+            throw new InvalidOperationException("This user already has an event.");
+
+        var entity = new EventEntity
+        {
+            VenueId = eventItem.VenueId,
+            Name = eventItem.Name,
+            BrideName = eventItem.BrideName,
+            GroomName = eventItem.GroomName,
+            EventDate = eventItem.EventDate,
+            EstimatedGuests = eventItem.EstimatedGuests,
+            TotalBudget = eventItem.TotalBudget,
+            Notes = eventItem.Notes
+        };
+
+        var menuIds = eventItem.MenuIds?.Distinct().ToList() ?? [];
+        if (menuIds.Count > 0)
+        {
+            var menus = await context.Menus
+                .Where(m => menuIds.Contains(m.MenuId))
+                .ToListAsync();
+
+            if (menus.Count != menuIds.Count)
+                throw new InvalidOperationException("One or more menu ids do not exist.");
+
+            entity.Menus = menus;
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        context.Events.Add(entity);
+        await context.SaveChangesAsync();
+
+        context.UserEvents.Add(new UserEvent
+        {
+            UserId = userId,
+            EventId = entity.EventId
+        });
+        await context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        return ToEventDto(entity);
     }
 
     public async Task UpdateEventAsync(int eventId, EventUpdateDto eventItem)
     {
-        var response = await http.PutAsJsonAsync($"api/Events/{eventId}", eventItem);
-        response.EnsureSuccessStatusCode();
+        var entity = await context.Events
+            .Include(e => e.Menus)
+            .SingleOrDefaultAsync(e => e.EventId == eventId);
+
+        if (entity is null)
+            throw new InvalidOperationException($"Event with id {eventId} was not found.");
+
+        var venueExists = await context.Venues.AnyAsync(v => v.VenueId == eventItem.VenueId);
+        if (!venueExists)
+            throw new InvalidOperationException($"Venue with id {eventItem.VenueId} was not found.");
+
+        entity.VenueId = eventItem.VenueId;
+        entity.Menus.Clear();
+
+        var menuIds = eventItem.MenuIds?.Distinct().ToList() ?? [];
+        if (menuIds.Count > 0)
+        {
+            var menus = await context.Menus
+                .Where(m => menuIds.Contains(m.MenuId))
+                .ToListAsync();
+
+            if (menus.Count != menuIds.Count)
+                throw new InvalidOperationException("One or more menu ids do not exist.");
+
+            foreach (var menu in menus)
+            {
+                entity.Menus.Add(menu);
+            }
+        }
+
+        entity.Name = eventItem.Name;
+        entity.BrideName = eventItem.BrideName;
+        entity.GroomName = eventItem.GroomName;
+        entity.EventDate = eventItem.EventDate;
+        entity.EstimatedGuests = eventItem.EstimatedGuests;
+        entity.TotalBudget = eventItem.TotalBudget;
+        entity.Notes = eventItem.Notes;
+        entity.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
     }
 
     public async Task DeleteEventAsync(int eventId)
     {
-        var response = await http.DeleteAsync($"api/Events/{eventId}");
-        response.EnsureSuccessStatusCode();
+        var entity = await context.Events.FindAsync(eventId);
+        if (entity is null)
+            return;
+
+        context.Events.Remove(entity);
+        await context.SaveChangesAsync();
     }
 
     public async Task<List<Menu>> GetMenusAsync() =>
@@ -106,5 +236,32 @@ public sealed class WeddingApiClient(HttpClient http)
         HasPlusOne = guest.HasPlusOne,
         SeatNumber = guest.SeatNumber,
         Notes = guest.Notes,
+    };
+
+    async Task<int> GetCurrentUserIdAsync()
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var userIdText = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdText, out var userId))
+            throw new InvalidOperationException("You need to be signed in to create an event.");
+
+        return userId;
+    }
+
+    static EventDto ToEventDto(EventEntity entity) => new()
+    {
+        EventId = entity.EventId,
+        VenueId = entity.VenueId,
+        MenuIds = entity.Menus.Select(m => m.MenuId).ToList(),
+        Name = entity.Name,
+        BrideName = entity.BrideName,
+        GroomName = entity.GroomName,
+        EventDate = entity.EventDate,
+        EstimatedGuests = entity.EstimatedGuests,
+        TotalBudget = entity.TotalBudget,
+        Notes = entity.Notes,
+        CreatedAt = entity.CreatedAt,
+        UpdatedAt = entity.UpdatedAt
     };
 }
