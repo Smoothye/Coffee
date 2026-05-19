@@ -1,9 +1,9 @@
 ﻿namespace WeddingPlannerApp.Services
 {
     /// <summary>
-    /// Singleton service shared across Dashboard, Tasks, Budget and Menu pages.
+    /// Scoped service shared across Dashboard, Tasks, Budget and Menu pages.
     /// Inject via DI — register in Program.cs as:
-    ///     builder.Services.AddSingleton&lt;WeddingStateService&gt;();
+    ///     builder.Services.AddScoped&lt;WeddingStateService&gt;();
     /// </summary>
     public class WeddingStateService
     {
@@ -61,6 +61,39 @@
         {
             var item = _budgetItems.FirstOrDefault(i => i.Id == id);
             if (item != null) { item.Paid = !item.Paid; Notify(); }
+        }
+
+        public void UpsertSupplierBudgetItem(int supplierId, string name, string category, int estimated, int actual, bool paid)
+        {
+            var item = _budgetItems.FirstOrDefault(i => i.SupplierId == supplierId);
+            if (item is null)
+            {
+                if (estimated <= 0 && actual <= 0) return;
+
+                AddBudgetItem(new BudgetItem
+                {
+                    SupplierId = supplierId,
+                    Name = name,
+                    Category = category,
+                    Estimated = estimated,
+                    Actual = actual,
+                    Paid = paid
+                });
+                return;
+            }
+
+            item.Name = name;
+            item.Category = category;
+            item.Estimated = estimated;
+            item.Actual = actual;
+            item.Paid = paid;
+            Notify();
+        }
+
+        public void RemoveSupplierBudgetItem(int supplierId)
+        {
+            var removed = _budgetItems.RemoveAll(i => i.SupplierId == supplierId);
+            if (removed > 0) Notify();
         }
 
         // ── Tasks ─────────────────────────────────────────────
@@ -121,6 +154,7 @@
     public class BudgetItem
     {
         public int Id { get; set; }
+        public int? SupplierId { get; set; }
         public string Name { get; set; } = "";
         public string Category { get; set; } = "Other";
         public int Estimated { get; set; }

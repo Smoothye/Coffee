@@ -1,0 +1,23 @@
+<div class="budget-categories-card">
+    <h3 class="budget-section-title">By category</h3>
+    <div class="budget-cat-list">
+        @foreach (var category in Categories)
+        {
+            <div class="budget-cat-row">
+                <span class="budget-cat-dot" style="background:@category.Color"></span>
+                <span class="budget-cat-name">@category.Name</span>
+                <div class="budget-cat-bar-wrap">
+                    <div class="budget-cat-bar" style="width:@PercentOfSpent(category.Amount)%;background:@category.Color"></div>
+                </div>
+                <span class="budget-cat-amount">$@category.Amount.ToString("N0")</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<BudgetCategoryTotal> Categories { get; set; } = Array.Empty<BudgetCategoryTotal>();
+    [Parameter] public int TotalSpent { get; set; }
+
+    int PercentOfSpent(int amount) => TotalSpent > 0 ? amount * 100 / TotalSpent : 0;
+}

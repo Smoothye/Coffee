@@ -1,0 +1,15 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="stats-grid">
+    <div class="stat-card"><span class="stat-icon">@SvgIcons.Users</span><div><p class="stat-value">@Total</p><p class="stat-label">Total Guests</p></div></div>
+    <div class="stat-card"><span class="stat-icon confirmed-icon">@SvgIcons.UserCheck</span><div><p class="stat-value">@Confirmed</p><p class="stat-label">Confirmed</p></div></div>
+    <div class="stat-card"><span class="stat-icon pending-icon">@SvgIcons.Clock</span><div><p class="stat-value">@Pending</p><p class="stat-label">Pending</p></div></div>
+    <div class="stat-card"><span class="stat-icon declined-icon">@SvgIcons.UserX</span><div><p class="stat-value">@Declined</p><p class="stat-label">Declined</p></div></div>
+</div>
+
+@code {
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Confirmed { get; set; }
+    [Parameter] public int Pending { get; set; }
+    [Parameter] public int Declined { get; set; }
+}

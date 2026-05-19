@@ -1,39 +1,21 @@
 ﻿@page "/guests"
-@layout UserLayout
+@layout PaulaLayout
 @using System.Text
 @rendermode InteractiveServer
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Components.PagesPaula.GuestComponents
 @inject IJSRuntime JS
 
 <PageNav Title="Guest List"
          Subtitle="Manage &amp; track RSVPs"
          IconSvg="@SvgIcons.GuestListNav" />
 
-<ModalShell IsOpen="csvGuideOpen"
-            Title="Import Guests"
-            ExtraClass="csv-guide-box"
-            OnClose="@(() => { csvGuideOpen = false; dragActive = false; })">
-    <div class="csv-two-col">
-        <div class="csv-left">
-            <p class="csv-section-title">Accepted formats</p>
-            <div class="csv-formats">
-                <span class="csv-format-tag">.csv</span>
-                <span class="csv-format-note">Only .csv files are accepted. Excel files must be saved as CSV first.</span>
-            </div>
-            <p class="csv-section-title" style="margin-top:1rem;">Columns</p>
-            <div class="csv-col-table">
-                <div class="csv-col-head"><span>Column</span><span>Req.</span><span>Valid values</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">FirstName</span><span class="csv-req yes">Yes</span><span class="csv-col-vals">Any text</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">LastName</span><span class="csv-req yes">Yes</span><span class="csv-col-vals">Any text</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Email</span><span class="csv-req no">No</span><span class="csv-col-vals">Duplicate check</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Phone</span><span class="csv-req no">No</span><span class="csv-col-vals">Any format</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Age</span><span class="csv-req no">No</span><span class="csv-col-vals">Number</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Gender</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-other">male</span> <span class="csv-tag csv-other">female</span> <span class="csv-tag csv-other">other</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Dietary</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-other">none</span> <span class="csv-tag csv-other">vegan</span> <span class="csv-tag csv-other">vegetarian</span> <span class="csv-tag csv-other">gluten-free</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Group</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-family">family</span> <span class="csv-tag csv-friends">friends</span> <span class="csv-tag csv-colleagues">colleagues</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Status</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-friends">confirmed</span> <span class="csv-tag csv-other">pending</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">PlusOne</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-friends">Yes</span> <span class="csv-tag csv-other">No</span></span></div>
-            </div>
+<CsvGuideModal IsOpen="csvGuideOpen"
+               Title="Import Guests"
+               AcceptedTitle="Accepted formats"
+               Columns="guestCsvColumns"
+               OnClose="@(() => { csvGuideOpen = false; dragActive = false; })">
+    <LeftFooter>
             <div class="csv-rules">
                 <p class="csv-rules-title">@SvgIcons.AlertCircle Duplicate rules</p>
                 <ul class="csv-rules-list">
@@ -44,8 +26,8 @@
             <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
                 @SvgIcons.Download Download blank template
             </button>
-        </div>
-        <div class="csv-right">
+    </LeftFooter>
+    <UploadContent>
             <p class="csv-section-title">Upload file</p>
             <div class="csv-dropzone @(dragActive ? "csv-dropzone-active" : "")"
                  @ondragenter="@((e) => dragActive = true)"
@@ -81,9 +63,8 @@
                     @SvgIcons.Check Done — View Guests
                 </button>
             }
-        </div>
-    </div>
-</ModalShell>
+    </UploadContent>
+</CsvGuideModal>
 
 <ModalShell IsOpen="dialogOpen" Title="Add New Guest" OnClose="CloseDialog">
     @if (!string.IsNullOrEmpty(formError))
@@ -91,15 +72,15 @@
         <div class="error-banner">@SvgIcons.AlertCircle @formError</div>
     }
     <div class="form-grid-2">
-        <div class="field"><label>First Name *</label><input class="input" @bind="newGuest.FirstName" @bind:event="oninput" placeholder="First name" /></div>
-        <div class="field"><label>Last Name *</label><input class="input" @bind="newGuest.LastName" @bind:event="oninput" placeholder="Last name" /></div>
+        <div class="field"><label>First Name *</label><input class="input @(HasGuestError(nameof(newGuest.FirstName)) ? "field-invalid" : "")" @bind="newGuest.FirstName" @bind:event="oninput" placeholder="First name" />@GuestFieldError(nameof(newGuest.FirstName))</div>
+        <div class="field"><label>Last Name *</label><input class="input @(HasGuestError(nameof(newGuest.LastName)) ? "field-invalid" : "")" @bind="newGuest.LastName" @bind:event="oninput" placeholder="Last name" />@GuestFieldError(nameof(newGuest.LastName))</div>
     </div>
     <div class="form-grid-2">
-        <div class="field"><label>Email</label><input class="input" @bind="newGuest.Email" @bind:event="oninput" placeholder="email@example.com" /></div>
-        <div class="field"><label>Phone</label><input class="input" @bind="newGuest.Phone" @bind:event="oninput" placeholder="+1234567890" /></div>
+        <div class="field"><label>Email</label><input class="input @(HasGuestError(nameof(newGuest.Email)) ? "field-invalid" : "")" @bind="newGuest.Email" @bind:event="oninput" placeholder="email@example.com" />@GuestFieldError(nameof(newGuest.Email))</div>
+        <div class="field"><label>Phone</label><input class="input @(HasGuestError(nameof(newGuest.Phone)) ? "field-invalid" : "")" @bind="newGuest.Phone" @bind:event="oninput" placeholder="+1234567890" />@GuestFieldError(nameof(newGuest.Phone))</div>
     </div>
     <div class="form-grid-3">
-        <div class="field"><label>Age</label><input class="input" type="number" min="0" @bind="newGuest.Age" @bind:event="oninput" /></div>
+        <div class="field"><label>Age</label><input class="input @(HasGuestError(nameof(newGuest.Age)) ? "field-invalid" : "")" type="number" min="0" @bind="newGuest.Age" @bind:event="oninput" />@GuestFieldError(nameof(newGuest.Age))</div>
         <div class="field">
             <label>Gender</label>
             <select class="input select-input" @bind="newGuest.Gender">
@@ -146,84 +127,37 @@
     </div>
 }
 
+<ConfirmDialog IsOpen="confirmDeleteOpen"
+               Title="Delete guest?"
+               Message="@confirmDeleteMessage"
+               ConfirmText="Delete guest"
+               OnCancel="@(() => confirmDeleteOpen = false)"
+               OnConfirm="ConfirmRemoveGuest" />
+
 <div class="guests-wrap">
 
-    <div class="stats-grid">
-        <div class="stat-card"><span class="stat-icon">@SvgIcons.Users</span><div><p class="stat-value">@guests.Count</p><p class="stat-label">Total Guests</p></div></div>
-        <div class="stat-card"><span class="stat-icon confirmed-icon">@SvgIcons.UserCheck</span><div><p class="stat-value">@guests.Count(g => g.Status == "confirmed")</p><p class="stat-label">Confirmed</p></div></div>
-        <div class="stat-card"><span class="stat-icon pending-icon">@SvgIcons.Clock</span><div><p class="stat-value">@guests.Count(g => g.Status == "pending")</p><p class="stat-label">Pending</p></div></div>
-        <div class="stat-card"><span class="stat-icon declined-icon">@SvgIcons.UserX</span><div><p class="stat-value">@guests.Count(g => g.Status == "declined")</p><p class="stat-label">Declined</p></div></div>
+    <GuestStats Total="@guests.Count"
+                Confirmed="@guests.Count(g => g.Status == "confirmed")"
+                Pending="@guests.Count(g => g.Status == "pending")"
+                Declined="@guests.Count(g => g.Status == "declined")" />
+
+    <div class="guest-tools-row">
+        <GuestFilters Search="@search"
+                      SearchChanged="@((value) => search = value)"
+                      Group="@filterGroup"
+                      GroupChanged="@((value) => filterGroup = value)" />
+
+        <GuestCommandBar OnCsvGuide="@OpenCsvGuide"
+                         OnImport="HandleImport"
+                         OnExport="ExportCSV"
+                         OnAddGuest="OpenDialog" />
     </div>
 
-    <div class="toolbar guests-filter-toolbar">
-        <div class="search-wrap">
-            <span class="search-icon">@SvgIcons.Search</span>
-            <input class="input search-input" placeholder="Search guests..." @bind="search" @bind:event="oninput" />
-        </div>
-        <select class="input select-input filter-select" @bind="filterGroup">
-            <option value="all">All Groups</option>
-            <option value="family">Family</option><option value="friends">Friends</option>
-            <option value="colleagues">Colleagues</option><option value="other">Other</option>
-        </select>
-    </div>
-
-    <div class="guest-command-bar">
-        <button class="btn-outline" @onclick="@(() => { csvGuideOpen = true; importResult = null; })">@SvgIcons.FileText CSV Guide</button>
-        <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
-            @SvgIcons.Upload Import
-            <InputFile OnChange="HandleImport" accept=".csv" style="display:none;" />
-        </label>
-        <button class="btn-outline" @onclick="ExportCSV">@SvgIcons.Download Export</button>
-        <button class="btn-add" @onclick="OpenDialog">@SvgIcons.Plus Add Guest</button>
-    </div>
-
-    <div class="guest-list">
-        @if (!FilteredGuests.Any())
-        {
-            <div class="empty-state">
-                <span class="empty-state-icon">@SvgIcons.UsersLarge</span>
-                <p>No guests found.</p>
-            </div>
-        }
-        else
-        {
-            @foreach (var guest in FilteredGuests)
-            {
-                var g = guest;
-                <div class="guest-row">
-                    <div class="guest-avatar">@g.FirstName[0]@g.LastName[0]</div>
-                    <div class="guest-info">
-                        <p class="guest-name">@g.FirstName @g.LastName</p>
-                        <div class="guest-meta">
-                            <span>@g.Email</span>
-                            @if (g.IsPlusOne) { <span class="badge plus-one-guest-badge">Plus one</span> }
-                            @if (g.DietaryRequirements != "none") { <span class="badge badge-dietary">@g.DietaryRequirements</span> }
-                        </div>
-                    </div>
-                    <div class="guest-actions">
-                        <span class="badge @GroupBadgeClass(g.Group)">@g.Group</span>
-                        <select class="input select-input guest-menu-select" @bind="g.MenuType">
-                            @foreach (var m in MenuOptions) { <option value="@m.Value">@m.Label</option> }
-                        </select>
-                        @if (!g.IsPlusOne)
-                        {
-                            <button type="button"
-                                    class="plus-one-toggle-row @(g.PlusOne ? "plus-one-active" : "")"
-                                    @onclick="@(() => TogglePlusOne(g.Id))">
-                                @(g.PlusOne ? "Remove +1" : "Add +1")
-                            </button>
-                        }
-                        <div class="rsvp-btns">
-                            <button class="rsvp-btn rsvp-confirmed @(g.Status == "confirmed" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => SetStatus(g.Id, "confirmed"))">@SvgIcons.Check</button>
-                            <button class="rsvp-btn rsvp-pending @(g.Status == "pending" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => SetStatus(g.Id, "pending"))">@SvgIcons.ClockSmall</button>
-                            <button class="rsvp-btn rsvp-declined @(g.Status == "declined" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => SetStatus(g.Id, "declined"))">@SvgIcons.XSmall</button>
-                        </div>
-                        <button class="delete-btn" @onclick="@(() => RemoveGuest(g.Id))">@SvgIcons.Trash</button>
-                    </div>
-                </div>
-            }
-        }
-    </div>
+    <GuestList Guests="FilteredGuests.ToList()"
+               MenuOptions="MenuOptions"
+               OnTogglePlusOne="TogglePlusOne"
+               OnSetStatus="SetStatus"
+               OnRemove="RemoveGuest" />
 </div>
 
 @code {
@@ -236,54 +170,50 @@
     bool   importHasWarning = false;
     bool   csvGuideOpen    = false;
     bool   dragActive      = false;
+    bool   confirmDeleteOpen = false;
+    int    pendingDeleteGuestId;
+    string confirmDeleteMessage = "Delete this guest? This cannot be undone.";
     ImportResult? importResult = null;
+    Dictionary<string, string> guestFieldErrors = new();
 
-    record ImportResult(string Message, bool HasWarning);
+    static readonly CsvGuideColumn[] guestCsvColumns =
+    {
+        new() { Name = "FirstName", Required = true, ValidValues = "Any text" },
+        new() { Name = "LastName", Required = true, ValidValues = "Any text" },
+        new() { Name = "Email", ValidValues = "Duplicate check" },
+        new() { Name = "Phone", ValidValues = "Any format" },
+        new() { Name = "Age", ValidValues = "Number" },
+        new() { Name = "Gender", ValidValues = "male, female, other" },
+        new() { Name = "Dietary", ValidValues = "none, vegan, vegetarian, gluten-free" },
+        new() { Name = "Group", ValidValues = "family, friends, colleagues" },
+        new() { Name = "Status", ValidValues = "confirmed, pending" },
+        new() { Name = "PlusOne", ValidValues = "Yes, No" },
+    };
 
-    record DietaryOption(string Value, string Label);
     static readonly DietaryOption[] DietaryOptions =
     {
         new("none","None"), new("vegan","Vegan"), new("vegetarian","Vegetarian"),
         new("gluten-free","Gluten-Free"), new("halal","Halal"), new("kosher","Kosher"), new("other","Other"),
     };
 
-    record MenuOption(string Value, string Label);
     static readonly MenuOption[] MenuOptions =
     {
         new("casual","Casual"), new("vegetarian","Vegetarian"),
         new("vegan","Vegan"), new("fasting","Fasting"), new("kids","Kids"),
     };
 
-    class Guest
+    List<GuestModel> guests = new()
     {
-        public int     Id { get; set; }
-        public string  FirstName { get; set; } = "";
-        public string  LastName  { get; set; } = "";
-        public string  Email     { get; set; } = "";
-        public string  Phone     { get; set; } = "";
-        public int?    Age       { get; set; }
-        public string  Gender    { get; set; } = "";
-        public string  DietaryRequirements { get; set; } = "none";
-        public string  MenuType  { get; set; } = "casual";
-        public string  Group     { get; set; } = "friends";
-        public string  Status    { get; set; } = "pending";
-        public bool    PlusOne   { get; set; }
-        public bool    IsPlusOne { get; set; }
-        public int?    PlusOneForId { get; set; }
-    }
-
-    List<Guest> guests = new()
-    {
-        new Guest { Id=1, FirstName="Emma",   LastName="Johnson",  Email="emma@email.com",   Phone="+1234567890", Age=28, Gender="female", DietaryRequirements="none",        MenuType="casual",     Group="family",     Status="confirmed" },
-        new Guest { Id=2, FirstName="Liam",   LastName="Smith",    Email="liam@email.com",   Phone="+1234567891", Age=30, Gender="male",   DietaryRequirements="vegetarian",  MenuType="vegetarian", Group="friends",    Status="pending"   },
-        new Guest { Id=3, FirstName="Sophia", LastName="Williams", Email="sophia@email.com", Phone="+1234567892", Age=26, Gender="female", DietaryRequirements="gluten-free", MenuType="casual",     Group="colleagues", Status="confirmed" },
-        new Guest { Id=4, FirstName="Oliver", LastName="Brown",    Email="oliver@email.com", Phone="+1234567893", Age=35, Gender="male",   DietaryRequirements="none",        MenuType="casual",     Group="family",     Status="declined"  },
-        new Guest { Id=5, FirstName="Mia",    LastName="Davis",    Email="mia@email.com",    Phone="+1234567894", Age=24, Gender="female", DietaryRequirements="vegan",       MenuType="vegan",      Group="friends",    Status="pending"   },
+        new GuestModel { Id=1, FirstName="Emma",   LastName="Johnson",  Email="emma@email.com",   Phone="+1234567890", Age=28, Gender="female", DietaryRequirements="none",        MenuType="casual",     Group="family",     Status="confirmed" },
+        new GuestModel { Id=2, FirstName="Liam",   LastName="Smith",    Email="liam@email.com",   Phone="+1234567891", Age=30, Gender="male",   DietaryRequirements="vegetarian",  MenuType="vegetarian", Group="friends",    Status="pending"   },
+        new GuestModel { Id=3, FirstName="Sophia", LastName="Williams", Email="sophia@email.com", Phone="+1234567892", Age=26, Gender="female", DietaryRequirements="gluten-free", MenuType="casual",     Group="colleagues", Status="confirmed" },
+        new GuestModel { Id=4, FirstName="Oliver", LastName="Brown",    Email="oliver@email.com", Phone="+1234567893", Age=35, Gender="male",   DietaryRequirements="none",        MenuType="casual",     Group="family",     Status="declined"  },
+        new GuestModel { Id=5, FirstName="Mia",    LastName="Davis",    Email="mia@email.com",    Phone="+1234567894", Age=24, Gender="female", DietaryRequirements="vegan",       MenuType="vegan",      Group="friends",    Status="pending"   },
     };
 
-    Guest newGuest = new();
+    GuestModel newGuest = new();
 
-    IEnumerable<Guest> FilteredGuests => guests.Where(g =>
+    IEnumerable<GuestModel> FilteredGuests => guests.Where(g =>
     {
         var name = $"{g.FirstName} {g.LastName}".ToLower();
         var matchSearch = string.IsNullOrEmpty(search) || name.Contains(search.ToLower()) || g.Email.Contains(search, StringComparison.OrdinalIgnoreCase);
@@ -291,8 +221,8 @@
         return matchSearch && matchGroup;
     });
 
-    void OpenDialog()  { newGuest = new Guest { Group = "friends", DietaryRequirements = "none", MenuType = "casual" }; formError = ""; dialogOpen = true; }
-    void CloseDialog() { dialogOpen = false; formError = ""; }
+    void OpenDialog()  { newGuest = new GuestModel { Group = "friends", DietaryRequirements = "none", MenuType = "casual" }; formError = ""; guestFieldErrors.Clear(); dialogOpen = true; }
+    void CloseDialog() { dialogOpen = false; formError = ""; guestFieldErrors.Clear(); }
 
     bool IsDuplicate(string fn, string ln, string email, string phone) =>
         guests.Any(g =>
@@ -302,10 +232,26 @@
 
     void AddGuest()
     {
+        formError = "";
+        guestFieldErrors.Clear();
         if (string.IsNullOrWhiteSpace(newGuest.FirstName) || string.IsNullOrWhiteSpace(newGuest.LastName))
-        { formError = "Please enter first and last name."; return; }
-        if (IsDuplicate(newGuest.FirstName, newGuest.LastName, newGuest.Email, newGuest.Phone))
-        { formError = "A guest with the same name, email or phone already exists."; return; }
+        {
+            if (string.IsNullOrWhiteSpace(newGuest.FirstName)) guestFieldErrors[nameof(newGuest.FirstName)] = "First name is required.";
+            if (string.IsNullOrWhiteSpace(newGuest.LastName)) guestFieldErrors[nameof(newGuest.LastName)] = "Last name is required.";
+        }
+        if (!string.IsNullOrWhiteSpace(newGuest.Email) && !newGuest.Email.Contains('@'))
+            guestFieldErrors[nameof(newGuest.Email)] = "Enter a valid email address.";
+        if (newGuest.Age is < 0)
+            guestFieldErrors[nameof(newGuest.Age)] = "Age cannot be negative.";
+        if (!string.IsNullOrWhiteSpace(newGuest.Email) && guests.Any(g => g.Email.Trim().Equals(newGuest.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
+            guestFieldErrors[nameof(newGuest.Email)] = "A guest with this email already exists.";
+        if (!string.IsNullOrWhiteSpace(newGuest.Phone) && guests.Any(g => g.Phone.Trim() == newGuest.Phone.Trim()))
+            guestFieldErrors[nameof(newGuest.Phone)] = "A guest with this phone already exists.";
+        if (!string.IsNullOrWhiteSpace(newGuest.FirstName) &&
+            !string.IsNullOrWhiteSpace(newGuest.LastName) &&
+            guests.Any(g => $"{g.FirstName.ToLower()} {g.LastName.ToLower()}" == $"{newGuest.FirstName.Trim().ToLower()} {newGuest.LastName.Trim().ToLower()}"))
+            guestFieldErrors[nameof(newGuest.FirstName)] = "A guest with this full name already exists.";
+        if (guestFieldErrors.Count > 0) { formError = "Please fix the highlighted fields."; return; }
         newGuest.Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue);
         newGuest.Status = "pending";
         guests.Add(newGuest);
@@ -314,6 +260,7 @@
     }
 
     void SetStatus(int id, string status) { var g = guests.FirstOrDefault(x => x.Id == id); if (g != null) g.Status = status; }
+    void SetStatus((int Id, string Status) change) => SetStatus(change.Id, change.Status);
 
     void TogglePlusOne(int id)
     {
@@ -323,10 +270,10 @@
         else           { g.PlusOne = true; AddPlusOneGuest(g); }
     }
 
-    void AddPlusOneGuest(Guest guest)
+    void AddPlusOneGuest(GuestModel guest)
     {
         if (guests.Any(g => g.PlusOneForId == guest.Id)) return;
-        guests.Add(new Guest
+        guests.Add(new GuestModel
         {
             Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + guests.Count + 1,
             FirstName = $"{guest.FirstName}'s", LastName = "+1",
@@ -339,12 +286,24 @@
     void RemoveGuest(int id)
     {
         var g = guests.FirstOrDefault(x => x.Id == id);
+        confirmDeleteMessage = g?.PlusOne == true
+            ? "Delete this guest and their plus one? This cannot be undone."
+            : "Delete this guest? This cannot be undone.";
+        pendingDeleteGuestId = id;
+        confirmDeleteOpen = true;
+    }
+
+    void ConfirmRemoveGuest()
+    {
+        var id = pendingDeleteGuestId;
+        var g = guests.FirstOrDefault(x => x.Id == id);
         if (g?.PlusOneForId is int ownerId)
         {
             var owner = guests.FirstOrDefault(x => x.Id == ownerId);
             if (owner != null) owner.PlusOne = false;
         }
         guests.RemoveAll(g => g.Id == id || g.PlusOneForId == id);
+        confirmDeleteOpen = false;
     }
 
     async Task ExportCSV()
@@ -386,7 +345,7 @@
             var plusOne   = c.ElementAtOrDefault(10)?.Trim().ToLower() ?? "";
             if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName)) { skipped++; continue; }
             if (IsDuplicate(firstName, lastName, email, phone)) { skipped++; continue; }
-            var imported_guest = new Guest
+            var imported_guest = new GuestModel
             {
                 Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + counter++,
                 FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
@@ -418,6 +377,23 @@
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='guests_template.csv';a.click()");
     }
+
+    void OpenCsvGuide()
+    {
+        csvGuideOpen = true;
+        importResult = null;
+    }
+
+    bool HasGuestError(string field) => guestFieldErrors.ContainsKey(field);
+
+    RenderFragment GuestFieldError(string field) => builder =>
+    {
+        if (!guestFieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
 
     static string GroupBadgeClass(string group) => group switch
     {

@@ -51,6 +51,7 @@ public class Program
         builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
         builder.Services.AddScoped<WeddingStateService>();
+        builder.Services.AddSingleton<VenueCatalogService>();
 
         var app = builder.Build();
 

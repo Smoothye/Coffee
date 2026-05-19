@@ -1,0 +1,14 @@
+<div class="group-legend">
+    @foreach (var kv in Groups)
+    {
+        <div class="legend-item">
+            <span class="legend-dot" style="background:@kv.Value.DotColor;"></span>
+            <span class="legend-label">@kv.Key</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyDictionary<string, GroupColors> Groups { get; set; } =
+        new Dictionary<string, GroupColors>();
+}

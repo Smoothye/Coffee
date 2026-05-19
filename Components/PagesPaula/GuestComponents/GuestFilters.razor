@@ -1,0 +1,32 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="toolbar guests-filter-toolbar">
+    <div class="search-wrap">
+        <span class="search-icon">@SvgIcons.Search</span>
+        <input class="input search-input" placeholder="Search guests..."
+               value="@Search"
+               @oninput="HandleSearch" />
+    </div>
+    <label class="budget-filter-field guests-filter-field">
+        <span>Group</span>
+        <select class="input select-input filter-select"
+                value="@Group"
+                @onchange="HandleGroup">
+            <option value="all">All</option>
+            <option value="family">Family</option>
+            <option value="friends">Friends</option>
+            <option value="colleagues">Colleagues</option>
+            <option value="other">Other</option>
+        </select>
+    </label>
+</div>
+
+@code {
+    [Parameter] public string Search { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+    [Parameter] public string Group { get; set; } = "all";
+    [Parameter] public EventCallback<string> GroupChanged { get; set; }
+
+    Task HandleSearch(ChangeEventArgs e) => SearchChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task HandleGroup(ChangeEventArgs e) => GroupChanged.InvokeAsync(e.Value?.ToString() ?? "all");
+}

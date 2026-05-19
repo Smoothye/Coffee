@@ -1,4 +1,6 @@
-﻿<nav class="tables-nav">
+@inject NavigationManager Nav
+
+<nav class="tables-nav">
     <div class="tables-nav-brand">
         <div class="tables-nav-icon">
             @((MarkupString)IconSvg)
@@ -12,7 +14,7 @@
     @if (ShowSignOut)
     {
         <div class="tables-nav-actions">
-            <button class="btn-signout" @onclick="OnSignOut">
+            <button class="btn-signout" @onclick="HandleSignOut">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
                      fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round">
@@ -25,7 +27,6 @@
         </div>
     }
 
-    @* Slot for any extra right-side content (badges, counters, etc.) *@
     @if (RightContent is not null)
     {
         <div class="tables-nav-actions">
@@ -38,7 +39,18 @@
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public string Subtitle { get; set; } = "";
     [Parameter] public string IconSvg { get; set; } = "";
-    [Parameter] public bool ShowSignOut { get; set; } = false;
+    [Parameter] public bool ShowSignOut { get; set; } = true;
     [Parameter] public EventCallback OnSignOut { get; set; }
     [Parameter] public RenderFragment? RightContent { get; set; }
+
+    async Task HandleSignOut()
+    {
+        if (OnSignOut.HasDelegate)
+        {
+            await OnSignOut.InvokeAsync();
+            return;
+        }
+
+        Nav.NavigateTo("/");
+    }
 }

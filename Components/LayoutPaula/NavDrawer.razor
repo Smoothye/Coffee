@@ -1,0 +1,86 @@
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<HeadContent>
+    <link rel="stylesheet" href="styles/NavDrawer.css" />
+</HeadContent>
+
+<button class="drawer-fab" @onclick="ToggleDrawer" title="Menu">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+</button>
+
+@if (drawerOpen)
+{
+    <div class="drawer-overlay" @onclick="CloseDrawer"></div>
+}
+
+<div class="drawer-panel @(drawerOpen ? "drawer-open" : "")">
+    <div class="drawer-header">
+        <div class="drawer-brand">
+            <div class="drawer-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+            </div>
+            <div>
+                <span class="drawer-app-name"><em>Ever</em>After</span>
+                <span class="drawer-app-sub">Wedding Planner</span>
+            </div>
+        </div>
+        <button class="drawer-close" @onclick="CloseDrawer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
+    </div>
+
+    <nav class="drawer-nav">
+        @foreach (var item in navItems)
+        {
+            var i = item;
+            var isActive = Nav.Uri.TrimEnd('/').EndsWith(i.Href.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+            <a href="@i.Href"
+               class="drawer-link @(isActive ? "drawer-link-active" : "")"
+               @onclick="CloseDrawer">
+                <span class="drawer-link-icon">@((MarkupString)i.Svg)</span>
+                <span class="drawer-link-label">@i.Label</span>
+            </a>
+        }
+    </nav>
+
+    <div class="drawer-footer">
+        <div class="countdown-pill" style="width:100%;justify-content:center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </svg>
+            @daysUntilWedding days to your wedding
+        </div>
+    </div>
+</div>
+
+@code {
+    bool drawerOpen = false;
+    void ToggleDrawer() => drawerOpen = !drawerOpen;
+    void CloseDrawer() => drawerOpen = false;
+
+    DateTime weddingDate = new DateTime(2026, 9, 12);
+    int daysUntilWedding => Math.Max(0, (weddingDate - DateTime.Today).Days);
+
+    record NavItem(string Label, string Href, string Svg);
+
+    List<NavItem> navItems = new()
+    {
+        new("Dashboard", "/dashboard", SvgIcons.AdminNav),
+        new("Venues", "/venues", SvgIcons.VenuesNav),
+        new("Guests", "/guests", SvgIcons.GuestListNav),
+        new("Tables", "/tables", SvgIcons.TablesNav),
+        new("Menu", "/menu", SvgIcons.MenuNav),
+        new("Suppliers", "/vendors", SvgIcons.VendorsNav),
+        new("Budget", "/budget", SvgIcons.BudgetNav),
+        new("Tasks", "/tasks", SvgIcons.TasksNav),
+    };
+}

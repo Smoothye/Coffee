@@ -1,0 +1,45 @@
+<div class="budget-summary-grid">
+    <div class="budget-stat-card bsc-total">
+        <div class="bsc-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+        </div>
+        <div>
+            <p class="bsc-value">$@Total.ToString("N0")</p>
+            <p class="bsc-label">Total Budget</p>
+        </div>
+    </div>
+    <div class="budget-stat-card bsc-spent">
+        <div class="bsc-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+        </div>
+        <div>
+            <p class="bsc-value">$@Spent.ToString("N0")</p>
+            <p class="bsc-label">Spent</p>
+        </div>
+    </div>
+    <div class="budget-stat-card bsc-paid">
+        <div class="bsc-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+        </div>
+        <div>
+            <p class="bsc-value">$@Paid.ToString("N0")</p>
+            <p class="bsc-label">Paid</p>
+        </div>
+    </div>
+    <div class="budget-stat-card @(Remaining >= 0 ? "bsc-remaining" : "bsc-over")">
+        <div class="bsc-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+        </div>
+        <div>
+            <p class="bsc-value">$@Math.Abs(Remaining).ToString("N0")</p>
+            <p class="bsc-label">@(Remaining >= 0 ? "Remaining" : "Over budget")</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Spent { get; set; }
+    [Parameter] public int Paid { get; set; }
+    [Parameter] public int Remaining { get; set; }
+}

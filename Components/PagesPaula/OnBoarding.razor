@@ -1,8 +1,13 @@
 ﻿@page "/onboarding"
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
+@inject WeddingPlannerApp.Services.VenueCatalogService VenueCatalog
+@using WeddingPlannerApp.Components.PagesPaula.OnboardingComponents
 
 <div class="page-center">
+    <GreenHeartfall Class="onboarding-heartfall" />
+
     <div class="progress-steps">
         @for (int i = 0; i < steps.Length; i++)
         {
@@ -51,10 +56,11 @@
 
                 <div class="field">
                     <label>Event Name</label>
-                    <input class="input"
+                    <input class="input @(HasFieldError(nameof(eventName)) ? "field-invalid" : "")"
                            placeholder="e.g. Sarah & Tom's Wedding"
                            @bind="eventName"
                            @bind:event="oninput" />
+                    @FieldError(nameof(eventName))
                 </div>
 
                 <div class="field">
@@ -82,9 +88,10 @@
 
                 <div class="field centered">
                     <input type="date"
-                           class="input date-input"
+                           class="input date-input @(HasFieldError(nameof(date)) ? "field-invalid" : "")"
                            min="@DateTime.Today.ToString("yyyy-MM-dd")"
                            @bind="date" />
+                    @FieldError(nameof(date))
                 </div>
 
                 @if (date.HasValue)
@@ -109,11 +116,12 @@
 
                 <div class="field centered">
                     <input type="number"
-                           class="input number-input"
+                           class="input number-input @(HasFieldError(nameof(guestCount)) ? "field-invalid" : "")"
                            min="1"
                            placeholder="Number of guests"
                            @bind-value="guestCount"
                            @bind-value:event="oninput" />
+                    @FieldError(nameof(guestCount))
                 </div>
 
                 <div class="quick-picks">
@@ -214,22 +222,17 @@
     </div>
 </div>
 
-@using System.Collections.Generic
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.EntityFrameworkCore
-
 @code {
     int step = 0;
     int stepDir = 1; // 1 = forward, -1 = backward
     string errorMsg = "";
+    Dictionary<string, string> fieldErrors = new();
 
     string eventName = "";
     // eventType is always "Wedding" — app is wedding-only, no field needed
     DateTime? date = null;
     int guestCount = 0;
     int? selectedVenue = null;
-
-    record StepMeta(MarkupString SvgIcon, string Label);
     StepMeta[] steps = new[]
     {
         new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/></svg>"), "Event Details"),
@@ -238,30 +241,46 @@
         new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>"), "Choose Venue"),
     };
 
-    List<Venue> venues = new()
+    List<OnboardingVenueModel> venues => VenueCatalog.Venues.Select(v => new OnboardingVenueModel
     {
-        new Venue { Id = 1, Name = "Rosewood Gardens",  Image = "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=400&q=80", MinCapacity = 50,  MaxCapacity = 200, Type = "Garden"     },
-        new Venue { Id = 2, Name = "The Grand Ballroom", Image = "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400&q=80", MinCapacity = 100, MaxCapacity = 500, Type = "Indoor"     },
-        new Venue { Id = 3, Name = "Lakeside Pavilion",  Image = "https://images.unsplash.com/photo-1478146059778-26028b07395a?w=400&q=80", MinCapacity = 30,  MaxCapacity = 150, Type = "Waterfront" },
-        new Venue { Id = 4, Name = "Vineyard Estate",    Image = "https://images.unsplash.com/photo-1510076857177-7470076d4098?w=400&q=80", MinCapacity = 80,  MaxCapacity = 300, Type = "Countryside"},
-    };
+        Id = v.Id,
+        Name = v.Name,
+        Image = v.Images.FirstOrDefault()
+                ?? (!string.IsNullOrWhiteSpace(v.ImagePath) ? v.ImagePath : "/images/venues/placeholder.svg"),
+        MinCapacity = v.MinCapacity,
+        MaxCapacity = v.MaxCapacity,
+        Type = v.Type
+    }).ToList();
 
-    List<Venue> filteredVenues => venues.Where(v => guestCount >= v.MinCapacity && guestCount <= v.MaxCapacity).ToList();
-    List<Venue> unavailableVenues => venues.Where(v => guestCount < v.MinCapacity || guestCount > v.MaxCapacity).ToList();
+    List<OnboardingVenueModel> filteredVenues => venues.Where(v => guestCount >= v.MinCapacity && guestCount <= v.MaxCapacity).ToList();
+    List<OnboardingVenueModel> unavailableVenues => venues.Where(v => guestCount < v.MinCapacity || guestCount > v.MaxCapacity).ToList();
 
     void Next()
     {
         errorMsg = "";
+        fieldErrors.Clear();
         stepDir = 1;
 
         if (step == 0 && string.IsNullOrWhiteSpace(eventName))
-        { errorMsg = "Please enter your event name."; return; }
+        {
+            fieldErrors[nameof(eventName)] = "Event name is required.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
 
         if (step == 1 && date == null)
-        { errorMsg = "Please select a date."; return; }
+        {
+            fieldErrors[nameof(date)] = "Date is required.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
 
         if (step == 2 && guestCount <= 0)
-        { errorMsg = "Please enter the number of guests."; return; }
+        {
+            fieldErrors[nameof(guestCount)] = "Guest count must be greater than 0.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
 
         if (step < 3) { step++; }
         else { Nav.NavigateTo("/dashboard"); }
@@ -270,18 +289,21 @@
     void Prev()
     {
         errorMsg = "";
+        fieldErrors.Clear();
         stepDir = -1;
         if (step > 0) step--;
     }
 
-    class Venue
+    bool HasFieldError(string field) => fieldErrors.ContainsKey(field);
+
+    RenderFragment FieldError(string field) => builder =>
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Image { get; set; } = "";
-        public string Type { get; set; } = "";
-        public int MinCapacity { get; set; }
-        public int MaxCapacity { get; set; }
-    }
+        if (!fieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+
 }
 

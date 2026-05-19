@@ -1,8 +1,9 @@
 ﻿@page "/menu"
-@layout UserLayout
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject WeddingPlannerApp.Services.WeddingStateService State
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Components.PagesPaula.MenuComponents
 @implements IDisposable
 
 <PageNav Title="Menu"
@@ -168,10 +169,6 @@
 
 @code {
 
-    record Dish(string Name, string Description, List<string> DietaryTags);
-    record Course(string Label, List<Dish> Items);
-    record MenuPackage(string Id, string Name, string DietaryType, int PricePerPerson, string Description, List<Course> Courses);
-
     string        dietFilter    = "all";
     MenuPackage?  activePackage = null;
     int           activeCourse  = 0;
@@ -191,7 +188,6 @@
         State.SelectMenu(string.Join(",", selectedByType.Values), string.Join(" + ", names));
     }
 
-    record DietFilter(string Key, string Label);
     List<DietFilter> dietaryFilters = new()
     {
         new("all","All packages"), new("standard","Casual"),

@@ -1,0 +1,55 @@
+<div class="widget widget-budget">
+    <div class="widget-head">
+        <div class="widget-head-left">
+            <div class="widget-icon wicon-green">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+            </div>
+            <h3 class="widget-title">Budget</h3>
+        </div>
+        <span class="widget-badge wbadge-green">@BudgetPercent% used</span>
+    </div>
+
+    <div class="budget-amounts">
+        <div><p class="budget-spent">$@BudgetSpent.ToString("N0")</p><p class="budget-label">spent</p></div>
+        <div class="budget-divider"></div>
+        <div><p class="budget-total">$@BudgetTotal.ToString("N0")</p><p class="budget-label">total</p></div>
+        <div class="budget-divider"></div>
+        <div>
+            <p class="budget-remaining" style="color:@(BudgetRemaining > 0 ? "#16a34a" : "#dc2626")">$@Math.Abs(BudgetRemaining).ToString("N0")</p>
+            <p class="budget-label">@(BudgetRemaining >= 0 ? "remaining" : "over budget")</p>
+        </div>
+    </div>
+
+    <div class="budget-bar-wrap">
+        <div class="budget-bar">
+            <div class="budget-bar-fill @(BudgetPercent > 90 ? "bar-danger" : BudgetPercent > 70 ? "bar-warn" : "bar-ok")"
+                 style="width:@Math.Min(BudgetPercent, 100)%"></div>
+        </div>
+        <span class="budget-bar-pct">@BudgetPercent%</span>
+    </div>
+
+    <div class="budget-categories">
+        @foreach (var cat in Categories)
+        {
+            var c = cat;
+            <div class="bcat-row">
+                <div class="bcat-dot" style="background:@c.Color"></div>
+                <span class="bcat-name">@c.Name</span>
+                <div class="bcat-bar-wrap">
+                    <div class="bcat-bar" style="width:@CategoryPercent(c.Amount)%;background:@c.Color;opacity:.7;"></div>
+                </div>
+                <span class="bcat-amount">$@c.Amount.ToString("N0")</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int BudgetTotal { get; set; }
+    [Parameter] public int BudgetSpent { get; set; }
+    [Parameter] public IReadOnlyList<DashboardBudgetCategory> Categories { get; set; } = [];
+
+    int BudgetRemaining => BudgetTotal - BudgetSpent;
+    int BudgetPercent => BudgetTotal > 0 ? BudgetSpent * 100 / BudgetTotal : 0;
+    int CategoryPercent(int amount) => BudgetTotal > 0 ? (int)((double)amount / BudgetTotal * 100) : 0;
+}

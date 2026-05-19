@@ -1,0 +1,16 @@
+<div class="budget-progress-card">
+    <div class="budget-progress-top">
+        <span class="budget-progress-label">Budget used</span>
+        <span class="budget-progress-pct @(Percent > 100 ? "pct-danger" : Percent > 80 ? "pct-warn" : "pct-ok")">
+            @Percent%
+        </span>
+    </div>
+    <div class="budget-bar-outer">
+        <div class="budget-bar-fill @(Percent > 100 ? "bar-danger" : Percent > 80 ? "bar-warn" : "bar-ok")"
+             style="width:@Math.Min(Percent, 100)%"></div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Percent { get; set; }
+}

@@ -1,4 +1,5 @@
 ﻿@page "/login"
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 
@@ -49,11 +50,11 @@
         <!-- Sign In / Create Account toggle -->
         <div class="auth-mode-toggle @(!isLogin ? "slide-right" : "")">
             <button class="auth-mode-btn @(isLogin ? "mode-active" : "")"
-                    @onclick='@(() => { isLogin = true; errorMsg = ""; })'>
+                    @onclick='@(() => SetMode(true))'>
                 Sign In
             </button>
             <button class="auth-mode-btn @(!isLogin ? "mode-active" : "")"
-                    @onclick='@(() => { isLogin = false; errorMsg = ""; })'>
+                    @onclick='@(() => SetMode(false))'>
                 Create Account
             </button>
         </div>
@@ -87,9 +88,10 @@
                                     <circle cx="12" cy="7" r="4" />
                                 </svg>
                             </span>
-                            <input class="input auth-input" placeholder="Maria"
+                            <input class="input auth-input @(HasFieldError(nameof(firstName)) ? "field-invalid" : "")" placeholder="Maria"
                                    @bind="firstName" @bind:event="oninput" />
                         </div>
+                        @FieldError(nameof(firstName))
                     </div>
                     <div class="field">
                         <label class="auth-label">Last Name</label>
@@ -100,9 +102,10 @@
                                     <circle cx="12" cy="7" r="4" />
                                 </svg>
                             </span>
-                            <input class="input auth-input" placeholder="Ionescu"
+                            <input class="input auth-input @(HasFieldError(nameof(lastName)) ? "field-invalid" : "")" placeholder="Ionescu"
                                    @bind="lastName" @bind:event="oninput" />
                         </div>
+                        @FieldError(nameof(lastName))
                     </div>
                 </div>
             }
@@ -117,10 +120,11 @@
                             <polyline points="22,6 12,13 2,6" />
                         </svg>
                     </span>
-                    <input class="input auth-input" type="email"
+                    <input class="input auth-input @(HasFieldError(nameof(email)) ? "field-invalid" : "")" type="email"
                            placeholder="maria@example.com"
                            @bind="email" @bind:event="oninput" />
                 </div>
+                @FieldError(nameof(email))
             </div>
 
             <!-- Password -->
@@ -133,10 +137,11 @@
                             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                         </svg>
                     </span>
-                    <input class="input auth-input" type="password"
+                    <input class="input auth-input @(HasFieldError(nameof(password)) ? "field-invalid" : "")" type="password"
                            placeholder="••••••••"
                            @bind="password" @bind:event="oninput" />
                 </div>
+                @FieldError(nameof(password))
             </div>
 
             <!-- Submit -->
@@ -165,6 +170,14 @@
     string firstName = "";
     string lastName = "";
     string errorMsg = "";
+    Dictionary<string, string> fieldErrors = new();
+
+    void SetMode(bool loginMode)
+    {
+        isLogin = loginMode;
+        errorMsg = "";
+        fieldErrors.Clear();
+    }
 
     async Task AnimateAndNavigate(string url)
     {
@@ -177,12 +190,21 @@
     async Task Submit()
     {
         errorMsg = "";
+        fieldErrors.Clear();
 
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        if (!isLogin)
         {
-            errorMsg = "Please enter your email and password.";
-            return;
+            if (string.IsNullOrWhiteSpace(firstName)) fieldErrors[nameof(firstName)] = "First name is required.";
+            if (string.IsNullOrWhiteSpace(lastName)) fieldErrors[nameof(lastName)] = "Last name is required.";
         }
+
+        if (string.IsNullOrWhiteSpace(email)) fieldErrors[nameof(email)] = "Email is required.";
+        else if (!email.Contains('@')) fieldErrors[nameof(email)] = "Enter a valid email address.";
+
+        if (string.IsNullOrWhiteSpace(password)) fieldErrors[nameof(password)] = "Password is required.";
+        else if (!isLogin && password.Length < 8) fieldErrors[nameof(password)] = "Password must be at least 8 characters.";
+
+        if (fieldErrors.Count > 0) { errorMsg = "Please fix the highlighted fields."; return; }
 
         // ── Admin detection — same form, invisible to outsiders ──
         if (email.Trim().Equals(AdminEmail, StringComparison.OrdinalIgnoreCase)
@@ -201,16 +223,18 @@
         }
 
         // ── User register ─────────────────────────────────────────
-        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
-        { errorMsg = "Please enter your first and last name."; return; }
-
-        if (!email.Contains('@'))
-        { errorMsg = "Please enter a valid email address."; return; }
-
-        if (password.Length < 8)
-        { errorMsg = "Password must be at least 8 characters."; return; }
-
         // TODO: create account in DB
         Nav.NavigateTo("/onboarding");
     }
+
+    bool HasFieldError(string field) => fieldErrors.ContainsKey(field);
+
+    RenderFragment FieldError(string field) => builder =>
+    {
+        if (!fieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
 }
