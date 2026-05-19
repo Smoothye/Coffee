@@ -51,10 +51,130 @@
                     <p class="csv-drop-title">Drag &amp; drop your .csv here</p>
                     <p class="csv-drop-sub">or</p>
                 }
-                else
-                {
-                    <div class="csv-drop-icon @(csvImportResult.HasWarning ? "icon-warn" : "icon-ok")">
-                        @(csvImportResult.HasWarning ? SvgIcons.AlertCircle : SvgIcons.CheckCircle)
+                <button class="btn-outline" @onclick="OpenHeadConfig">
+                    @SvgSettings Configure Head Table
+                </button>
+                <div class="toolbar-actions">
+                    <button class="btn-outline" @onclick="@(() => { csvGuideOpen = true; csvImportResult = null; })">
+                        @SvgFileText CSV Guide
+                    </button>
+                    <label class="btn-outline" style="cursor:pointer;">
+                        @SvgUpload Import
+                        <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
+                    </label>
+                    <button class="btn-outline" @onclick="ExportCSV">
+                        @SvgDownload Export
+                    </button>
+                </div>
+                <button class="btn-outline" @onclick="AutoArrangeGuests">
+                    @SvgGrid Auto arrange
+                </button>
+
+                <button class="btn-add"
+                        @onclick="AddTable"
+                        disabled="@(totalSeats >= totalGuests)">
+                    @SvgPlus Add Table
+                </button>
+            </div>
+        </div>
+
+        <div class="group-legend">
+            @foreach (var kv in GroupDefs)
+            {
+                <div class="legend-item">
+                    <span class="legend-dot" style="background:@kv.Value.DotColor;"></span>
+                    <span class="legend-label">@kv.Key</span>
+                </div>
+            }
+        </div>
+
+        <div class="tables-grid">
+
+            @{
+                var head = tables.FirstOrDefault(t => t.IsHeadTable);
+            }
+            @if (head != null)
+            {
+                var headFilled = head.Seats.Count(s => s != null);
+                <div class="head-table-card">
+                    <div class="head-table-header">
+                        <div>
+                            <h4 class="head-table-title">
+                                @SvgRings
+                                Head Table
+                            </h4>
+                            <p class="head-table-sub">@brideName, @groomName &amp; @godparentCouples godparent couple@(godparentCouples > 1 ? "s" : "")</p>
+                        </div>
+                        <span class="seat-count-badge @(headFilled >= head.Capacity ? "badge-full" : "badge-ok")">
+                            @headFilled/@head.Capacity
+                        </span>
+                    </div>
+
+                    <div class="head-surface-wrap">
+                        <div class="head-surface">Head Table</div>
+                        <div class="head-seats-row">
+                            @for (int i = 0; i < head.Seats.Count; i++)
+                            {
+                                var idx = i;
+                                var label = HeadLabels().ElementAtOrDefault(idx) ?? $"Seat {idx + 1}";
+                                <div class="head-seat-col">
+                                    @RenderSeat(head.Seats[idx], head, idx, label)
+                                    <span class="head-seat-label">@label</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="progress-bar-wrap">
+                        <div class="progress-bar" style="width:@((headFilled * 100 / Math.Max(head.Capacity, 1)))%;background:@(headFilled >= head.Capacity ? "#f87171" : "var(--sage)");"></div>
+                    </div>
+                </div>
+            }
+
+            @foreach (var table in tables.Where(t => !t.IsHeadTable))
+            {
+                var t = table;
+                var filled = t.Seats.Count(s => s != null);
+                var seatPositions = GetSeatPositions(t.Capacity, 85);
+                <div class="round-table-card">
+                    <button class="icon-btn delete round-table-del" title="Remove table" @onclick="@(() => RemoveTable(t.Id))">
+                        @SvgTrash
+                    </button>
+                    <div class="round-table-header">
+                        <h4 class="round-table-name">@t.Name</h4>
+                        <div class="table-cap-controls">
+                            <button class="cap-btn" title="Remove seat"
+                                    disabled="@(t.Capacity <= 2 || filled >= t.Capacity)"
+                                    @onclick="@(() => ResizeTable(t.Id, -1))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                            </button>
+                            <span class="seat-count-badge @(filled >= t.Capacity ? "badge-full" : "badge-ok")">@filled/@t.Capacity</span>
+                            <button class="cap-btn" title="Add seat"
+                                    disabled="@(t.Capacity >= 10)"
+                                    @onclick="@(() => ResizeTable(t.Id, +1))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="round-table-wrap"
+                         @ondragover:preventDefault="true"
+                         @ondragover="@((e) => { })"
+                         @ondrop="@((e) => { })">
+                        @for (int i = 0; i < t.Seats.Count; i++)
+                        {
+                            var idx = i;
+                            var pos = seatPositions[idx];
+                            <div class="seat-pos"
+                                 style="left:@((110 + pos.X).ToString("F0"))px;top:@((110 + pos.Y).ToString("F0"))px;">
+                                @RenderSeat(t.Seats[idx], t, idx, null)
+                            </div>
+                        }
+                        <div class="round-surface">@t.Name</div>
+                    </div>
+
+                    <div class="progress-bar-wrap">
+                        <div class="progress-bar" style="width:@((filled * 100 / Math.Max(t.Capacity, 1)))%;background:@(filled >= t.Capacity ? "#f87171" : "var(--sage)");"></div>
                     </div>
                     <p class="csv-drop-title">@csvImportResult.Message</p>
                     <p class="csv-drop-sub">Upload another file?</p>
@@ -145,7 +265,18 @@
                     OnDrop="DropOnPool"
                     OnRemove="RemoveFromPool" />
 
-</div>
+@code {
+    class TableGuest
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Group { get; set; } = "other";
+        public string Email { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public int DupIndex { get; set; } = 0;
+        public bool PlusOne { get; set; } = false;
+    }
 
 <ConfirmDialog IsOpen="confirmDeleteOpen"
                Title="@confirmDeleteTitle"
@@ -264,6 +395,75 @@
         pickerSeatIndex = -1;
         pickerSearch = "";
     }
+
+    void AutoArrangeGuests()
+    {
+        var allMovableGuests = pool
+            .OrderBy(g => GroupPriority(g.Group))
+            .ThenBy(g => g.PlusOne)
+            .ThenBy(g => g.LastName)
+            .ThenBy(g => g.FirstName)
+            .ToList();
+
+        if (!allMovableGuests.Any())
+        {
+            ShowToast("No guests in pool to arrange.", error: true);
+            return;
+        }
+
+        pool.Clear();
+
+        foreach (var guest in allMovableGuests)
+        {
+            var placed = TryPlaceGuestNearSimilarGroup(guest);
+
+            if (!placed)
+            {
+                pool.Add(guest);
+            }
+        }
+
+        ShowToast(pool.Count == 0
+            ? "Guests arranged automatically!"
+            : $"Guests arranged. {pool.Count} guest(s) left in pool.",
+            error: pool.Count > 0);
+    }
+
+    bool TryPlaceGuestNearSimilarGroup(TableGuest guest)
+    {
+        var candidateTables = tables
+            .Where(t => !t.IsHeadTable)
+            .Select(t => new
+            {
+                Table = t,
+                EmptySeat = t.Seats.FindIndex(s => s == null),
+                SameGroupCount = t.Seats.Count(s => s?.Group == guest.Group),
+                PlusOneCount = t.Seats.Count(s => s?.PlusOne == true),
+                FilledCount = t.Seats.Count(s => s != null)
+            })
+            .Where(x => x.EmptySeat >= 0)
+            .OrderByDescending(x => x.SameGroupCount)
+            .ThenBy(x => guest.PlusOne ? x.PlusOneCount : 0)
+            .ThenBy(x => x.FilledCount)
+            .ToList();
+
+        var bestTable = candidateTables.FirstOrDefault();
+
+        if (bestTable == null)
+            return false;
+
+        bestTable.Table.Seats[bestTable.EmptySeat] = guest;
+        return true;
+    }
+
+    int GroupPriority(string group) => group switch
+    {
+        "family" => 1,
+        "friends" => 2,
+        "colleagues" => 3,
+        "other" => 4,
+        _ => 5
+    };
 
     void AssignGuestToSeat(TableGuest guest)
     {
@@ -685,12 +885,14 @@
 
     async Task DownloadTemplate()
     {
-        var csv = "FirstName,LastName,Group,Email,Phone\n" +
-                  "Maria,Ionescu,family,maria@email.com,+40721000001\n" +
-                  "Andrei,Pop,friends,,\n";
+        var csv = "FirstName,LastName,Group,Email,Phone,PlusOne\n" +
+                  "Maria,Ionescu,family,maria@email.com,+40721000001,false\n" +
+                  "Andrei,Pop,friends,,,true\n";
+
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval",
             $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='guests_template.csv';a.click()");
+
         csvGuideOpen = false;
         ShowToast("Template downloaded!");
     }
@@ -698,17 +900,28 @@
     async Task ExportCSV()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("FirstName,LastName,Group,Email,Phone,Table,Seat");
+        sb.AppendLine("FirstName,LastName,Group,Email,Phone,PlusOne,Table,Seat");
+
         foreach (var t in tables)
+        {
             for (int i = 0; i < t.Seats.Count; i++)
+            {
                 if (t.Seats[i] is { } g)
-                    sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},{t.Name},Seat {i + 1}");
+                {
+                    sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},{g.PlusOne},{t.Name},Seat {i + 1}");
+                }
+            }
+        }
+
         foreach (var g in pool)
-            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},Unassigned,");
+        {
+            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Group},{g.Email},{g.Phone},{g.PlusOne},Unassigned,");
+        }
 
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         await JS.InvokeVoidAsync("eval",
             $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='seating_chart.csv';a.click()");
+
         ShowToast("Seating chart exported!");
     }
 
@@ -717,18 +930,68 @@
         using var reader = new System.IO.StreamReader(e.File.OpenReadStream());
         var content = await reader.ReadToEndAsync();
 
-        var result = TableCsvImport.Parse(content, AllGuests());
-        pool.AddRange(result.Guests);
-        csvImportResult = new CsvImportResult(result.Message, result.HasWarning);
-        dragActive = false;
-        ShowToast(result.Message, error: result.Skipped > 0 && result.Imported == 0);
-    }
+        var lines = content.Split('\n');
+        if (lines.Length == 0) return;
+
+        // ── Detect column layout from header row ──────────────────────────
+        // Supports both the Tables template (FirstName,LastName,Group,Email,Phone)
+        // and the Guests export  (FirstName,LastName,Email,Phone,Age,Gender,Dietary,Menu,Group,Status,PlusOne)
+        var header = lines[0].TrimEnd('\r').Split(',');
+        int colFn = Array.FindIndex(header, h => h.Trim().Equals("FirstName", StringComparison.OrdinalIgnoreCase));
+        int colLn = Array.FindIndex(header, h => h.Trim().Equals("LastName", StringComparison.OrdinalIgnoreCase));
+        int colGroup = Array.FindIndex(header, h => h.Trim().Equals("Group", StringComparison.OrdinalIgnoreCase));
+        int colEmail = Array.FindIndex(header, h => h.Trim().Equals("Email", StringComparison.OrdinalIgnoreCase));
+        int colPhone = Array.FindIndex(header, h => h.Trim().Equals("Phone", StringComparison.OrdinalIgnoreCase));
+        int colPlusOne = Array.FindIndex(header, h => h.Trim().Equals("PlusOne", StringComparison.OrdinalIgnoreCase));
+
+        // Fall back to positional defaults if header is missing
+        if (colFn < 0) colFn = 0;
+        if (colLn < 0) colLn = 1;
+        if (colGroup < 0) colGroup = 2;
+        if (colEmail < 0) colEmail = 3;
+        if (colPhone < 0) colPhone = 4;
+
+        var validGroups = new[] { "family", "friends", "colleagues", "other" };
+
+        var allGuests = pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>())).ToList();
+        int imported = 0, skipped = 0, counter = 0;
+
+        foreach (var line in lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        {
+            var c = line.TrimEnd('\r').Split(',');
+            if (c.Length < 2) continue;
+
+            var fn = c.ElementAtOrDefault(colFn)?.Trim() ?? "";
+            var ln = c.ElementAtOrDefault(colLn)?.Trim() ?? "";
+            var email = c.ElementAtOrDefault(colEmail)?.Trim() ?? "";
+            var phone = c.ElementAtOrDefault(colPhone)?.Trim() ?? "";
+            var plusOneRaw = colPlusOne >= 0
+    ? c.ElementAtOrDefault(colPlusOne)?.Trim().ToLowerInvariant() ?? ""
+    : "";
+
+            var plusOne = plusOneRaw is "yes" or "true" or "1" or "da";
+
+            // ── Case-insensitive group matching ───────────────────────────
+            var rawGroup = c.ElementAtOrDefault(colGroup)?.Trim().ToLowerInvariant() ?? "";
+            var group = validGroups.Contains(rawGroup) ? rawGroup : "other";
+
+            if (string.IsNullOrWhiteSpace(fn) && string.IsNullOrWhiteSpace(ln)) { skipped++; continue; }
 
     IEnumerable<TableGuest> AllGuests() =>
         pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>()));
 
-    static bool IsLockedHeadGuest(TableGuest? guest) =>
-        guest?.Id is -1 or -2;
+            pool.Add(new TableGuest
+            {
+                Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + counter++,
+                FirstName = fn,
+                LastName = ln,
+                Group = group,
+                Email = email,
+                Phone = phone,
+                PlusOne = plusOne,
+            });
+            imported++;
+        }
 
     static bool IsLockedHeadSeat(EventTable table, int seatIndex) =>
         table.IsHeadTable && seatIndex is 0 or 1;

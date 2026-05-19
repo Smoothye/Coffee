@@ -122,8 +122,12 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             SeatNumber = entity.SeatNumber,
             Notes = entity.Notes
         };
-        
-        return CreatedAtAction(nameof(GetById), new {id = result.EventId}, result);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { eventId = result.EventId, guestId = result.GuestId },
+            result
+        );
     }
     
     // POST api/Events/{eventId}/Guests/bulk
