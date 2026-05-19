@@ -1,9 +1,14 @@
-﻿@page "/tables"
+@page "/tables"
+@page "/tables/{EventId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using System.Text
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Components.PagesPaula.TableComponents
 @implements IDisposable
 
@@ -51,130 +56,10 @@
                     <p class="csv-drop-title">Drag &amp; drop your .csv here</p>
                     <p class="csv-drop-sub">or</p>
                 }
-                <button class="btn-outline" @onclick="OpenHeadConfig">
-                    @SvgSettings Configure Head Table
-                </button>
-                <div class="toolbar-actions">
-                    <button class="btn-outline" @onclick="@(() => { csvGuideOpen = true; csvImportResult = null; })">
-                        @SvgFileText CSV Guide
-                    </button>
-                    <label class="btn-outline" style="cursor:pointer;">
-                        @SvgUpload Import
-                        <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
-                    </label>
-                    <button class="btn-outline" @onclick="ExportCSV">
-                        @SvgDownload Export
-                    </button>
-                </div>
-                <button class="btn-outline" @onclick="AutoArrangeGuests">
-                    @SvgGrid Auto arrange
-                </button>
-
-                <button class="btn-add"
-                        @onclick="AddTable"
-                        disabled="@(totalSeats >= totalGuests)">
-                    @SvgPlus Add Table
-                </button>
-            </div>
-        </div>
-
-        <div class="group-legend">
-            @foreach (var kv in GroupDefs)
-            {
-                <div class="legend-item">
-                    <span class="legend-dot" style="background:@kv.Value.DotColor;"></span>
-                    <span class="legend-label">@kv.Key</span>
-                </div>
-            }
-        </div>
-
-        <div class="tables-grid">
-
-            @{
-                var head = tables.FirstOrDefault(t => t.IsHeadTable);
-            }
-            @if (head != null)
-            {
-                var headFilled = head.Seats.Count(s => s != null);
-                <div class="head-table-card">
-                    <div class="head-table-header">
-                        <div>
-                            <h4 class="head-table-title">
-                                @SvgRings
-                                Head Table
-                            </h4>
-                            <p class="head-table-sub">@brideName, @groomName &amp; @godparentCouples godparent couple@(godparentCouples > 1 ? "s" : "")</p>
-                        </div>
-                        <span class="seat-count-badge @(headFilled >= head.Capacity ? "badge-full" : "badge-ok")">
-                            @headFilled/@head.Capacity
-                        </span>
-                    </div>
-
-                    <div class="head-surface-wrap">
-                        <div class="head-surface">Head Table</div>
-                        <div class="head-seats-row">
-                            @for (int i = 0; i < head.Seats.Count; i++)
-                            {
-                                var idx = i;
-                                var label = HeadLabels().ElementAtOrDefault(idx) ?? $"Seat {idx + 1}";
-                                <div class="head-seat-col">
-                                    @RenderSeat(head.Seats[idx], head, idx, label)
-                                    <span class="head-seat-label">@label</span>
-                                </div>
-                            }
-                        </div>
-                    </div>
-
-                    <div class="progress-bar-wrap">
-                        <div class="progress-bar" style="width:@((headFilled * 100 / Math.Max(head.Capacity, 1)))%;background:@(headFilled >= head.Capacity ? "#f87171" : "var(--sage)");"></div>
-                    </div>
-                </div>
-            }
-
-            @foreach (var table in tables.Where(t => !t.IsHeadTable))
-            {
-                var t = table;
-                var filled = t.Seats.Count(s => s != null);
-                var seatPositions = GetSeatPositions(t.Capacity, 85);
-                <div class="round-table-card">
-                    <button class="icon-btn delete round-table-del" title="Remove table" @onclick="@(() => RemoveTable(t.Id))">
-                        @SvgTrash
-                    </button>
-                    <div class="round-table-header">
-                        <h4 class="round-table-name">@t.Name</h4>
-                        <div class="table-cap-controls">
-                            <button class="cap-btn" title="Remove seat"
-                                    disabled="@(t.Capacity <= 2 || filled >= t.Capacity)"
-                                    @onclick="@(() => ResizeTable(t.Id, -1))">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                            </button>
-                            <span class="seat-count-badge @(filled >= t.Capacity ? "badge-full" : "badge-ok")">@filled/@t.Capacity</span>
-                            <button class="cap-btn" title="Add seat"
-                                    disabled="@(t.Capacity >= 10)"
-                                    @onclick="@(() => ResizeTable(t.Id, +1))">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="round-table-wrap"
-                         @ondragover:preventDefault="true"
-                         @ondragover="@((e) => { })"
-                         @ondrop="@((e) => { })">
-                        @for (int i = 0; i < t.Seats.Count; i++)
-                        {
-                            var idx = i;
-                            var pos = seatPositions[idx];
-                            <div class="seat-pos"
-                                 style="left:@((110 + pos.X).ToString("F0"))px;top:@((110 + pos.Y).ToString("F0"))px;">
-                                @RenderSeat(t.Seats[idx], t, idx, null)
-                            </div>
-                        }
-                        <div class="round-surface">@t.Name</div>
-                    </div>
-
-                    <div class="progress-bar-wrap">
-                        <div class="progress-bar" style="width:@((filled * 100 / Math.Max(t.Capacity, 1)))%;background:@(filled >= t.Capacity ? "#f87171" : "var(--sage)");"></div>
+                else
+                {
+                    <div class="csv-drop-icon @(csvImportResult.HasWarning ? "icon-warn" : "icon-ok")">
+                        @(csvImportResult.HasWarning ? SvgIcons.AlertCircle : SvgIcons.CheckCircle)
                     </div>
                     <p class="csv-drop-title">@csvImportResult.Message</p>
                     <p class="csv-drop-sub">Upload another file?</p>
@@ -265,18 +150,7 @@
                     OnDrop="DropOnPool"
                     OnRemove="RemoveFromPool" />
 
-@code {
-    class TableGuest
-    {
-        public int Id { get; set; }
-        public string FirstName { get; set; } = "";
-        public string LastName { get; set; } = "";
-        public string Group { get; set; } = "other";
-        public string Email { get; set; } = "";
-        public string Phone { get; set; } = "";
-        public int DupIndex { get; set; } = 0;
-        public bool PlusOne { get; set; } = false;
-    }
+</div>
 
 <ConfirmDialog IsOpen="confirmDeleteOpen"
                Title="@confirmDeleteTitle"
@@ -286,6 +160,8 @@
                OnConfirm="ConfirmDelete" />
 
 @code {
+    [Parameter] public int EventId { get; set; }
+
     static readonly CsvGuideColumn[] tableCsvColumns =
     {
         new() { Name = "FirstName", Required = true, ValidValues = "Any text" },
@@ -339,8 +215,7 @@
     string confirmDeleteText = "Delete";
     string pendingDeleteType = "";
     int pendingDeleteId;
-
-    // Seat picker popover
+    string loadError = "";
     bool seatPickerOpen = false;
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
@@ -396,7 +271,7 @@
         pickerSearch = "";
     }
 
-    void AutoArrangeGuests()
+    async Task AutoArrangeGuests()
     {
         var allMovableGuests = pool
             .OrderBy(g => GroupPriority(g.Group))
@@ -420,6 +295,10 @@
             if (!placed)
             {
                 pool.Add(guest);
+            }
+            else
+            {
+                await PersistGuestPlacement(guest, guest.TableId, guest.SeatNumber);
             }
         }
 
@@ -453,6 +332,8 @@
             return false;
 
         bestTable.Table.Seats[bestTable.EmptySeat] = guest;
+        guest.TableId = bestTable.Table.Id;
+        guest.SeatNumber = bestTable.EmptySeat + 1;
         return true;
     }
 
@@ -465,7 +346,7 @@
         _ => 5
     };
 
-    void AssignGuestToSeat(TableGuest guest)
+    async Task AssignGuestToSeat(TableGuest guest)
     {
         if (pickerTable == null || pickerSeatIndex < 0) return;
         if (IsLockedHeadSeat(pickerTable, pickerSeatIndex))
@@ -474,8 +355,6 @@
             CloseSeatPicker();
             return;
         }
-
-        // If guest is currently seated somewhere else, free that seat
         foreach (var t in tables)
         {
             for (int i = 0; i < t.Seats.Count; i++)
@@ -487,13 +366,30 @@
                 }
             }
         }
-        // Otherwise remove from pool
         pool.RemoveAll(g => g.Id == guest.Id);
 
     found:
         pickerTable.Seats[pickerSeatIndex] = guest;
+        await PersistGuestPlacement(guest, pickerTable.Id, pickerSeatIndex + 1);
         ShowToast($"{guest.FirstName} {guest.LastName} seated!");
         CloseSeatPicker();
+    }
+
+    async Task PersistGuestPlacement(TableGuest guest, int? tableId, int? seatNumber)
+    {
+        if (guest.Id <= 0) return;
+
+        guest.TableId = tableId;
+        guest.SeatNumber = seatNumber;
+
+        try
+        {
+            await Api.UpdateGuestAsync(EventId, guest.Id, ToUpdateDto(guest, tableId, seatNumber));
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not save seat assignment: {ex.Message}", error: true);
+        }
     }
 
     IEnumerable<TableGuest> PickerGuests()
@@ -512,7 +408,7 @@
         return all;
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         BuildHeadTable();
         tables.AddRange(new[]
@@ -522,6 +418,63 @@
             MakeTable(3, "Table 3", 8),
         });
         pool = new List<TableGuest>();
+        await EnsureEventAndLoadGuests();
+    }
+
+    async Task EnsureEventAndLoadGuests()
+    {
+        try
+        {
+            if (EventId <= 0)
+            {
+                var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
+                if (firstEvent is null)
+                {
+                    loadError = "No event exists yet. Create an event first, then plan tables.";
+                    ShowToast(loadError, error: true);
+                    return;
+                }
+
+                EventId = firstEvent.EventId;
+                Nav.NavigateTo($"/tables/{EventId}", replace: true);
+            }
+
+            var guests = await Api.GetGuestsAsync(EventId);
+            LoadGuestsIntoPlan(guests);
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load table guests: {ex.Message}";
+            ShowToast(loadError, error: true);
+        }
+    }
+
+    void LoadGuestsIntoPlan(IEnumerable<GuestDto> guestDtos)
+    {
+        pool.Clear();
+        foreach (var table in tables.Where(t => !t.IsHeadTable))
+        {
+            for (var i = 0; i < table.Seats.Count; i++)
+                table.Seats[i] = null;
+        }
+
+        foreach (var dto in guestDtos)
+        {
+            var guest = ToTableGuest(dto);
+            var table = dto.TableId.HasValue
+                ? tables.FirstOrDefault(t => t.Id == dto.TableId.Value && !t.IsHeadTable)
+                : null;
+            var seatIndex = dto.SeatNumber.GetValueOrDefault() - 1;
+
+            if (table != null && seatIndex >= 0 && seatIndex < table.Seats.Count && table.Seats[seatIndex] == null)
+            {
+                table.Seats[seatIndex] = guest;
+            }
+            else
+            {
+                pool.Add(guest);
+            }
+        }
     }
 
     void BuildHeadTable()
@@ -566,6 +519,100 @@
     static TableGuest MakeGuest(int id, string fn, string ln, string group) =>
         new() { Id = id, FirstName = fn, LastName = ln, Group = group };
 
+    static TableGuest ToTableGuest(GuestDto dto) => new()
+    {
+        Id = dto.GuestId,
+        FirstName = dto.FirstName,
+        LastName = dto.LastName,
+        Group = dto.Group.ToString().ToLowerInvariant(),
+        Email = dto.Email,
+        Phone = dto.Phone ?? "",
+        Age = dto.Age,
+        Gender = dto.Gender?.ToString().ToLowerInvariant() ?? "",
+        PlusOne = dto.HasPlusOne,
+        TableId = dto.TableId,
+        SeatNumber = dto.SeatNumber,
+        Status = dto.RsvpStatus.ToString().ToLowerInvariant(),
+        DietaryRequirements = ToDietaryValue(dto.DietaryRequirements),
+    };
+
+    static GuestCreateDto ToCreateDto(TableGuest guest) => new()
+    {
+        TableId = guest.TableId,
+        FirstName = guest.FirstName.Trim(),
+        LastName = guest.LastName.Trim(),
+        Age = guest.Age,
+        Email = guest.Email.Trim(),
+        Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+        Gender = ToGender(guest.Gender),
+        RsvpStatus = ToRsvpStatus(guest.Status),
+        Group = ToGroup(guest.Group),
+        DietaryRequirements = ToDietary(guest.DietaryRequirements),
+        HasPlusOne = guest.PlusOne,
+        SeatNumber = guest.SeatNumber,
+    };
+
+    static GuestUpdateDto ToUpdateDto(TableGuest guest, int? tableId, int? seatNumber) => new()
+    {
+        TableId = tableId,
+        FirstName = guest.FirstName.Trim(),
+        LastName = guest.LastName.Trim(),
+        Age = guest.Age,
+        Email = guest.Email.Trim(),
+        Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+        Gender = ToGender(guest.Gender),
+        RsvpStatus = ToRsvpStatus(guest.Status),
+        Group = ToGroup(guest.Group),
+        DietaryRequirements = ToDietary(guest.DietaryRequirements),
+        HasPlusOne = guest.PlusOne,
+        SeatNumber = seatNumber,
+    };
+
+    static Gender? ToGender(string value) => value switch
+    {
+        "male" => Gender.Male,
+        "female" => Gender.Female,
+        "other" => Gender.Other,
+        _ => null,
+    };
+
+    static RsvpStatus ToRsvpStatus(string value) => value switch
+    {
+        "confirmed" => RsvpStatus.Confirmed,
+        "declined" => RsvpStatus.Declined,
+        _ => RsvpStatus.Pending,
+    };
+
+    static Group ToGroup(string value) => value switch
+    {
+        "family" => Group.Family,
+        "friends" => Group.Friends,
+        "colleagues" => Group.Colleagues,
+        _ => Group.Other,
+    };
+
+    static DietaryRequirements ToDietary(string value) => value switch
+    {
+        "vegan" => DietaryRequirements.Vegan,
+        "vegetarian" => DietaryRequirements.Vegetarian,
+        "gluten-free" => DietaryRequirements.GlutenFree,
+        "halal" => DietaryRequirements.Halal,
+        "kosher" => DietaryRequirements.Kosher,
+        "other" => DietaryRequirements.Other,
+        _ => DietaryRequirements.None,
+    };
+
+    static string ToDietaryValue(DietaryRequirements value) => value switch
+    {
+        DietaryRequirements.Vegan => "vegan",
+        DietaryRequirements.Vegetarian => "vegetarian",
+        DietaryRequirements.GlutenFree => "gluten-free",
+        DietaryRequirements.Halal => "halal",
+        DietaryRequirements.Kosher => "kosher",
+        DietaryRequirements.Other => "other",
+        _ => "none",
+    };
+
     List<string> HeadLabels()
     {
         var labels = new List<string> { brideName, groomName };
@@ -592,7 +639,7 @@
         groomName = string.IsNullOrWhiteSpace(pendingGroomName) ? "Groom" : pendingGroomName.Trim();
         BuildHeadTable();
         headConfigOpen = false;
-        ShowToast($"Head table updated — {2 + godparentCouples * 2} seats total.");
+        ShowToast($"Head table updated � {2 + godparentCouples * 2} seats total.");
     }
 
     void StartDrag(TableGuest guest, DragSource source)
@@ -611,7 +658,7 @@
     void StartPoolDrag(TableGuest guest) =>
         StartDrag(guest, new DragSource { Type = "pool" });
 
-    void DropOnSeat(EventTable targetTable, int seatIndex)
+    async Task DropOnSeat(EventTable targetTable, int seatIndex)
     {
         if (draggedGuest == null || dragSource == null) return;
         dragOverSeat = null;
@@ -640,11 +687,18 @@
         }
 
         targetTable.Seats[seatIndex] = draggedGuest;
+        await PersistGuestPlacement(draggedGuest, targetTable.Id, seatIndex + 1);
+        if (existing != null)
+        {
+            var existingTableId = dragSource.Type == "table" ? (int?)dragSource.TableId : null;
+            var existingSeatNumber = dragSource.Type == "table" ? (int?)dragSource.SeatIndex + 1 : null;
+            await PersistGuestPlacement(existing, existingTableId, existingSeatNumber);
+        }
         draggedGuest = null;
         dragSource = null;
     }
 
-    void DropOnPool()
+    async Task DropOnPool()
     {
         dragOverPool = false;
         if (draggedGuest == null || dragSource == null) return;
@@ -664,11 +718,13 @@
         if (!pool.Any(g => g.Id == draggedGuest.Id))
             pool.Add(draggedGuest);
 
+        await PersistGuestPlacement(draggedGuest, null, null);
+
         draggedGuest = null;
         dragSource = null;
     }
 
-    void RemoveFromSeat(EventTable table, int idx)
+    async Task RemoveFromSeat(EventTable table, int idx)
     {
         var g = table.Seats[idx];
         if (g == null) return;
@@ -679,6 +735,7 @@
         }
         table.Seats[idx] = null;
         pool.Add(g);
+        await PersistGuestPlacement(g, null, null);
     }
 
     void CloseAddGuest()
@@ -692,7 +749,7 @@
         ng_AssignTo = "pool";
     }
 
-    void AddGuest()
+    async Task AddGuest()
     {
         addGuestError = "";
         addGuestFieldErrors.Clear();
@@ -736,7 +793,6 @@
 
         var guest = new TableGuest
         {
-            Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue),
             FirstName = ng_FirstName.Trim(),
             LastName = ng_LastName.Trim(),
             Group = ng_Group,
@@ -747,16 +803,61 @@
 
         if (ng_AssignTo == "pool")
         {
-            pool.Add(guest);
+            guest.TableId = null;
+            guest.SeatNumber = null;
         }
         else if (int.TryParse(ng_AssignTo, out var tableId))
         {
             var tgt = tables.FirstOrDefault(t => t.Id == tableId);
             var firstEmpty = tgt?.Seats.FindIndex(s => s == null) ?? -1;
             if (firstEmpty >= 0)
-                tgt!.Seats[firstEmpty] = guest;
+            {
+                guest.TableId = tableId;
+                guest.SeatNumber = firstEmpty + 1;
+            }
             else
-            { pool.Add(guest); ShowToast("Table full — added to pool instead.", error: true); }
+            {
+                guest.TableId = null;
+                guest.SeatNumber = null;
+                ShowToast("Table full - added to pool instead.", error: true);
+            }
+        }
+
+        var desiredTableId = guest.TableId;
+        var desiredSeatNumber = guest.SeatNumber;
+        guest.TableId = null;
+        guest.SeatNumber = null;
+
+        try
+        {
+            var created = await Api.CreateGuestAsync(EventId, ToCreateDto(guest));
+            if (created != null)
+                guest = ToTableGuest(created);
+        }
+        catch (Exception ex)
+        {
+            addGuestError = $"Could not add guest: {ex.Message}";
+            return;
+        }
+
+        guest.TableId = desiredTableId;
+        guest.SeatNumber = desiredSeatNumber;
+
+        if (guest.TableId.HasValue)
+        {
+            var tgt = tables.FirstOrDefault(t => t.Id == guest.TableId.Value);
+            var seatIndex = guest.SeatNumber.GetValueOrDefault() - 1;
+            if (tgt != null && seatIndex >= 0 && seatIndex < tgt.Seats.Count && tgt.Seats[seatIndex] == null)
+            {
+                tgt.Seats[seatIndex] = guest;
+                await PersistGuestPlacement(guest, guest.TableId, guest.SeatNumber);
+            }
+            else
+                pool.Add(guest);
+        }
+        else
+        {
+            pool.Add(guest);
         }
 
         if (string.IsNullOrEmpty(dupWarning))
@@ -813,7 +914,7 @@
         }
 
         tables.Add(MakeTable(newId, $"Table {newCount}", idealCap));
-        ShowToast($"Table added — {newCount} tables, ~{idealCap} seats each.");
+        ShowToast($"Table added � {newCount} tables, ~{idealCap} seats each.");
     }
 
     void ResizeTable(int id, int delta)
@@ -858,19 +959,31 @@
         confirmDeleteOpen = true;
     }
 
-    void ConfirmDelete()
+    async Task ConfirmDelete()
     {
         if (pendingDeleteType == "pool")
         {
-            pool.RemoveAll(g => g.Id == pendingDeleteId);
-            ShowToast("Guest removed.");
+            try
+            {
+                await Api.DeleteGuestAsync(EventId, pendingDeleteId);
+                pool.RemoveAll(g => g.Id == pendingDeleteId);
+                ShowToast("Guest removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not remove guest: {ex.Message}", error: true);
+            }
         }
         else if (pendingDeleteType == "table")
         {
             var tbl = tables.FirstOrDefault(t => t.Id == pendingDeleteId);
             if (tbl != null && !tbl.IsHeadTable)
             {
-                pool.AddRange(tbl.Seats.Where(s => s != null).Cast<TableGuest>());
+                var seatedGuests = tbl.Seats.Where(s => s != null).Cast<TableGuest>().ToList();
+                foreach (var guest in seatedGuests)
+                    await PersistGuestPlacement(guest, null, null);
+
+                pool.AddRange(seatedGuests);
                 tables.Remove(tbl);
                 ShowToast("Table removed, guests returned to pool.");
             }
@@ -930,68 +1043,31 @@
         using var reader = new System.IO.StreamReader(e.File.OpenReadStream());
         var content = await reader.ReadToEndAsync();
 
-        var lines = content.Split('\n');
-        if (lines.Length == 0) return;
-
-        // ── Detect column layout from header row ──────────────────────────
-        // Supports both the Tables template (FirstName,LastName,Group,Email,Phone)
-        // and the Guests export  (FirstName,LastName,Email,Phone,Age,Gender,Dietary,Menu,Group,Status,PlusOne)
-        var header = lines[0].TrimEnd('\r').Split(',');
-        int colFn = Array.FindIndex(header, h => h.Trim().Equals("FirstName", StringComparison.OrdinalIgnoreCase));
-        int colLn = Array.FindIndex(header, h => h.Trim().Equals("LastName", StringComparison.OrdinalIgnoreCase));
-        int colGroup = Array.FindIndex(header, h => h.Trim().Equals("Group", StringComparison.OrdinalIgnoreCase));
-        int colEmail = Array.FindIndex(header, h => h.Trim().Equals("Email", StringComparison.OrdinalIgnoreCase));
-        int colPhone = Array.FindIndex(header, h => h.Trim().Equals("Phone", StringComparison.OrdinalIgnoreCase));
-        int colPlusOne = Array.FindIndex(header, h => h.Trim().Equals("PlusOne", StringComparison.OrdinalIgnoreCase));
-
-        // Fall back to positional defaults if header is missing
-        if (colFn < 0) colFn = 0;
-        if (colLn < 0) colLn = 1;
-        if (colGroup < 0) colGroup = 2;
-        if (colEmail < 0) colEmail = 3;
-        if (colPhone < 0) colPhone = 4;
-
-        var validGroups = new[] { "family", "friends", "colleagues", "other" };
-
-        var allGuests = pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>())).ToList();
-        int imported = 0, skipped = 0, counter = 0;
-
-        foreach (var line in lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        var result = TableCsvImport.Parse(content, AllGuests());
+        try
         {
-            var c = line.TrimEnd('\r').Split(',');
-            if (c.Length < 2) continue;
+            var created = await Api.CreateGuestsBulkAsync(EventId, result.Guests.Select(ToCreateDto));
+            if (created != null)
+                pool.AddRange(created.Guests.Select(ToTableGuest));
+        }
+        catch (Exception ex)
+        {
+            csvImportResult = new CsvImportResult($"Could not import guests: {ex.Message}", true);
+            dragActive = false;
+            ShowToast(csvImportResult.Message, error: true);
+            return;
+        }
 
-            var fn = c.ElementAtOrDefault(colFn)?.Trim() ?? "";
-            var ln = c.ElementAtOrDefault(colLn)?.Trim() ?? "";
-            var email = c.ElementAtOrDefault(colEmail)?.Trim() ?? "";
-            var phone = c.ElementAtOrDefault(colPhone)?.Trim() ?? "";
-            var plusOneRaw = colPlusOne >= 0
-    ? c.ElementAtOrDefault(colPlusOne)?.Trim().ToLowerInvariant() ?? ""
-    : "";
-
-            var plusOne = plusOneRaw is "yes" or "true" or "1" or "da";
-
-            // ── Case-insensitive group matching ───────────────────────────
-            var rawGroup = c.ElementAtOrDefault(colGroup)?.Trim().ToLowerInvariant() ?? "";
-            var group = validGroups.Contains(rawGroup) ? rawGroup : "other";
-
-            if (string.IsNullOrWhiteSpace(fn) && string.IsNullOrWhiteSpace(ln)) { skipped++; continue; }
+        csvImportResult = new CsvImportResult(result.Message, result.HasWarning);
+        dragActive = false;
+        ShowToast(result.Message, error: result.Skipped > 0 && result.Imported == 0);
+    }
 
     IEnumerable<TableGuest> AllGuests() =>
         pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>()));
 
-            pool.Add(new TableGuest
-            {
-                Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + counter++,
-                FirstName = fn,
-                LastName = ln,
-                Group = group,
-                Email = email,
-                Phone = phone,
-                PlusOne = plusOne,
-            });
-            imported++;
-        }
+    static bool IsLockedHeadGuest(TableGuest? guest) =>
+        guest?.Id is -1 or -2;
 
     static bool IsLockedHeadSeat(EventTable table, int seatIndex) =>
         table.IsHeadTable && seatIndex is 0 or 1;
@@ -1001,13 +1077,13 @@
           @ondragover:preventDefault="@(!IsLockedHeadSeat(table, idx))"
           @ondragover="@((e) => { if (!IsLockedHeadSeat(table, idx)) dragOverSeat = $"{table.Id}-{idx}"; })"
           @ondragleave="@((e) => dragOverSeat = null)"
-          @ondrop="@((e) => { DropOnSeat(table, idx); dragOverSeat = null; })">
+          @ondrop="@(async (e) => { await DropOnSeat(table, idx); dragOverSeat = null; })">
         @if (guest != null)
         {
             var g = guest;
             var isLocked = IsLockedHeadGuest(g);
             var col = GroupDefs[g.Group];
-            var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} — {label ?? $"Seat {idx + 1}"}";
+            var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} � {label ?? $"Seat {idx + 1}"}";
             <div class="seat-guest @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
                  style="background:linear-gradient(135deg,@col.SeatFrom,@col.SeatTo);box-shadow:0 2px 8px rgba(0,0,0,.2);"
                  title="@title"
@@ -1033,7 +1109,7 @@
         {
             var isLockedSeat = IsLockedHeadSeat(table, idx);
             <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") @(isLockedSeat ? "seat-empty-locked" : "seat-empty-clickable")"
-                 title="@(label != null ? label : $"Seat {idx + 1}") — click to assign or drop a guest"
+                 title="@(label != null ? label : $"Seat {idx + 1}") � click to assign or drop a guest"
                  @onclick="@(() => { if (!isLockedSeat) OpenSeatPicker(table, idx); })"
                  @onclick:stopPropagation="true">
                 <span class="seat-empty-num">@(label != null ? label.Split(' ').Select(w => w[0].ToString()).Aggregate((a, b) => a + b) : (idx + 1).ToString())</span>

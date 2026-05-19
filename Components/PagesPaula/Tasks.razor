@@ -1,4 +1,5 @@
-﻿@page "/tasks"
+@page "/tasks"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject WeddingPlannerApp.Services.WeddingStateService State
@@ -7,7 +8,7 @@
 @implements IDisposable
 
 <PageNav Title="Tasks"
-         Subtitle="@($"{State.Tasks.Count(t => !t.Done)} remaining · {State.Tasks.Count(t => t.Done)} done")"
+         Subtitle="@($"{State.Tasks.Count(t => !t.Done)} remaining � {State.Tasks.Count(t => t.Done)} done")"
          IconSvg="@SvgIcons.TasksNav" />
 
 <div class="tasks-page">
@@ -74,6 +75,12 @@
         </label>
 
         <div class="toolbar-actions">
+            @if (HasActiveFilters)
+            {
+                <button class="btn-outline" @onclick="ResetFilters">
+                    Clear filters
+                </button>
+            }
             <button class="btn-add" @onclick="@(() => addOpen = true)">
                 @SvgIcons.Plus Add Task
             </button>
@@ -113,7 +120,7 @@
                         @if (t.IsOverdue)
                         {
                             <span class="task-date-tag tag-overdue">
-                                Overdue · @t.DueDate.ToString("MMM d")
+                                Overdue � @t.DueDate.ToString("MMM d")
                             </span>
                         }
                         else
@@ -144,7 +151,11 @@
         {
             <div class="tasks-empty">
                 @SvgIcons.UsersLarge
-                <p>No tasks here. Add one!</p>
+                <p>@(HasActiveFilters ? "No tasks match these filters." : "No tasks here. Add one!")</p>
+                @if (HasActiveFilters)
+                {
+                    <button class="btn-outline" @onclick="ResetFilters">Clear filters</button>
+                }
             </div>
         }
 
@@ -187,9 +198,9 @@
             <label>Priority</label>
 
             <select class="input select-input" @bind="newPriority">
-                <option value="high">🔴 High</option>
-                <option value="medium">🟡 Medium</option>
-                <option value="low">🟢 Low</option>
+                <option value="high">?? High</option>
+                <option value="medium">?? Medium</option>
+                <option value="low">?? Low</option>
             </select>
         </div>
 
@@ -293,6 +304,11 @@
         ? doneCount * 100 / totalCount
         : 0;
 
+    bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(searchQuery) ||
+        !string.IsNullOrWhiteSpace(activeCat) ||
+        activeStatus != "all";
+
     bool addOpen = false;
     bool confirmDeleteOpen = false;
     int pendingDeleteTaskId;
@@ -328,6 +344,19 @@
         {
             addFieldErrors[nameof(newTitle)] = "Task title is required.";
         }
+        else if (newTitle.Trim().Length > 120)
+        {
+            addFieldErrors[nameof(newTitle)] = "Task title must be 120 characters or less.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(newTitle) &&
+            State.Tasks.Any(t =>
+                t.Title.Trim().Equals(newTitle.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                t.Category == newCategory &&
+                t.DueDate.Date == newDueDate.Date))
+        {
+            addFieldErrors[nameof(newTitle)] = "This task already exists for the selected date and category.";
+        }
 
         if (newDueDate.Date < DateTime.Today)
         {
@@ -361,6 +390,13 @@
     {
         State.RemoveTask(pendingDeleteTaskId);
         confirmDeleteOpen = false;
+    }
+
+    void ResetFilters()
+    {
+        searchQuery = "";
+        activeCat = "";
+        activeStatus = "all";
     }
 
     protected override void OnInitialized()

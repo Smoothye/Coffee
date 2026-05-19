@@ -1,0 +1,80 @@
+<div class="panel">
+    <div class="panel-head">
+        <div class="panel-head-left">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
+                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                <path d="M7 2v20" />
+                <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
+            </svg>
+            <h2>Menus</h2>
+        </div>
+        <button class="btn-add" @onclick="@(() => OnAddMenu.InvokeAsync())">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add Menu
+        </button>
+    </div>
+
+    <div class="admin-menu-list @(!Menus.Any() ? "admin-menu-list-empty" : "")">
+        @if (!Menus.Any())
+        {
+            <div class="admin-empty admin-menu-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                    <path d="M7 2v20" />
+                    <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" />
+                </svg>
+                <p>No menus added yet.</p>
+            </div>
+        }
+
+        @foreach (var item in Menus)
+        {
+            var menu = item;
+            <div class="admin-menu-card">
+                <div class="admin-menu-card-main">
+                    <div>
+                        <span class="menu-pkg-diet-badge diet-@menu.DietaryType">@DietLabel(menu.DietaryType)</span>
+                        <h4>@menu.Name</h4>
+                        <p>@menu.Description</p>
+                    </div>
+                    <div class="admin-menu-side">
+                        <strong>$@menu.PricePerPerson</strong>
+                        <span>@menu.Courses.Count courses</span>
+                        <button class="icon-btn delete" title="Remove menu" @onclick="@(() => OnDeleteMenu.InvokeAsync(menu.Id))">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                                <path d="M9 6V4h6v2" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="admin-menu-courses">
+                    @foreach (var course in menu.Courses)
+                    {
+                        <span>@course.Label <strong>@course.Items.Count</strong></span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<AdminMenuModel> Menus { get; set; } = [];
+    [Parameter] public EventCallback OnAddMenu { get; set; }
+    [Parameter] public EventCallback<int> OnDeleteMenu { get; set; }
+
+    static string DietLabel(string type) => type switch
+    {
+        "vegan" => "Vegan",
+        "vegetarian" => "Vegetarian",
+        "fasting" => "Fasting",
+        _ => "Casual"
+    };
+}

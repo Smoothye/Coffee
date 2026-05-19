@@ -1,5 +1,7 @@
 @rendermode InteractiveServer
+@implements IDisposable
 @inject NavigationManager Nav
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
 
 <HeadContent>
     <link rel="stylesheet" href="styles/NavDrawer.css" />
@@ -41,8 +43,9 @@
         @foreach (var item in navItems)
         {
             var i = item;
-            var isActive = Nav.Uri.TrimEnd('/').EndsWith(i.Href.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
-            <a href="@i.Href"
+            var href = HrefFor(i);
+            var isActive = IsActive(i);
+            <a href="@href"
                class="drawer-link @(isActive ? "drawer-link-active" : "")"
                @onclick="CloseDrawer">
                 <span class="drawer-link-icon">@((MarkupString)i.Svg)</span>
@@ -57,7 +60,14 @@
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
             </svg>
-            @daysUntilWedding days to your wedding
+            @if (weddingDate.HasValue)
+            {
+                <span>@daysUntilWedding days to your wedding</span>
+            }
+            else
+            {
+                <span>Wedding date not set</span>
+            }
         </div>
     </div>
 </div>
@@ -67,8 +77,100 @@
     void ToggleDrawer() => drawerOpen = !drawerOpen;
     void CloseDrawer() => drawerOpen = false;
 
-    DateTime weddingDate = new DateTime(2026, 9, 12);
-    int daysUntilWedding => Math.Max(0, (weddingDate - DateTime.Today).Days);
+    int? currentEventId;
+    DateTime? weddingDate;
+    int daysUntilWedding => weddingDate.HasValue ? Math.Max(0, (weddingDate.Value.Date - DateTime.Today).Days) : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += HandleLocationChanged;
+        await LoadCurrentEventDateAsync();
+    }
+
+    async void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadCurrentEventDateAsync();
+            StateHasChanged();
+        });
+    }
+
+    async Task LoadCurrentEventDateAsync()
+    {
+        try
+        {
+            var eventId = EventIdFromUri();
+            if (eventId is null)
+            {
+                var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
+                eventId = firstEvent?.EventId;
+                weddingDate = firstEvent?.EventDate;
+            }
+            else
+            {
+                var eventItem = await Api.GetEventAsync(eventId.Value);
+                weddingDate = eventItem?.EventDate;
+            }
+
+            currentEventId = eventId;
+        }
+        catch
+        {
+            currentEventId = null;
+            weddingDate = null;
+        }
+    }
+
+    int? EventIdFromUri()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.Trim('/');
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length >= 3 &&
+            segments[0].Equals("venues", StringComparison.OrdinalIgnoreCase) &&
+            segments[1].Equals("event", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(segments[2], out var venueEventId))
+            return venueEventId;
+
+        if (segments.Length >= 2 &&
+            IsEventPage(segments[0]) &&
+            int.TryParse(segments[1], out var eventId))
+            return eventId;
+
+        return null;
+    }
+
+    static bool IsEventPage(string segment) =>
+        segment.Equals("dashboard", StringComparison.OrdinalIgnoreCase) ||
+        segment.Equals("guests", StringComparison.OrdinalIgnoreCase) ||
+        segment.Equals("tables", StringComparison.OrdinalIgnoreCase) ||
+        segment.Equals("menu", StringComparison.OrdinalIgnoreCase);
+
+    string HrefFor(NavItem item)
+    {
+        if (currentEventId is not int eventId)
+            return item.Href;
+
+        return item.Label switch
+        {
+            "Dashboard" => $"/dashboard/{eventId}",
+            "Venues" => $"/venues/event/{eventId}",
+            "Guests" => $"/guests/{eventId}",
+            "Tables" => $"/tables/{eventId}",
+            "Menu" => $"/menu/{eventId}",
+            _ => item.Href
+        };
+    }
+
+    bool IsActive(NavItem item)
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
+        var basePath = item.Href.Trim('/').ToLowerInvariant();
+        return path == basePath || path.StartsWith($"{basePath}/", StringComparison.OrdinalIgnoreCase);
+    }
 
     record NavItem(string Label, string Href, string Svg);
 
@@ -83,4 +185,9 @@
         new("Budget", "/budget", SvgIcons.BudgetNav),
         new("Tasks", "/tasks", SvgIcons.TasksNav),
     };
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= HandleLocationChanged;
+    }
 }

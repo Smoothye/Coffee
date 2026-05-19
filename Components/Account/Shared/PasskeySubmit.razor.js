@@ -1,4 +1,4 @@
-﻿const browserSupportsPasskeys =
+const browserSupportsPasskeys =
     typeof navigator.credentials !== 'undefined' &&
     typeof window.PublicKeyCredential !== 'undefined' &&
     typeof window.PublicKeyCredential.parseCreationOptionsFromJSON === 'function' &&
@@ -97,13 +97,10 @@ customElements.define('passkey-submit', class extends HTMLElement {
             formData.append(`${this.attrs.name}.CredentialJson`, credentialJson);
         } catch (error) {
             if (error.name === 'AbortError') {
-                // The user explicitly canceled the operation - return without error.
                 return;
             }
             console.error(error);
             if (useConditionalMediation) {
-                // An error occurred during conditional mediation, which is not user-initiated.
-                // We log the error in the console but do not relay it to the user.
                 return;
             }
             const errorMessage = error.name === 'NotAllowedError'
@@ -117,7 +114,7 @@ customElements.define('passkey-submit', class extends HTMLElement {
 
     async tryAutofillPasskey() {
         if (browserSupportsPasskeys && this.attrs.operation === 'Request' && await PublicKeyCredential.isConditionalMediationAvailable?.()) {
-            await this.obtainAndSubmitCredential(/* useConditionalMediation */ true);
+            await this.obtainAndSubmitCredential( true);
         }
     }
 });

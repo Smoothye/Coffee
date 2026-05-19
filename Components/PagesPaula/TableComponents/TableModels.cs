@@ -8,10 +8,16 @@ public sealed class TableGuest
     public string Group { get; set; } = "other";
     public string Email { get; set; } = "";
     public string Phone { get; set; } = "";
+    public int? Age { get; set; }
+    public string Gender { get; set; } = "";
     public int DupIndex { get; set; }
     public bool PlusOne { get; set; }
     public bool IsPlusOne { get; set; }
     public int? PlusOneForId { get; set; }
+    public int? TableId { get; set; }
+    public int? SeatNumber { get; set; }
+    public string Status { get; set; } = "pending";
+    public string DietaryRequirements { get; set; } = "none";
 }
 
 public sealed class EventTable

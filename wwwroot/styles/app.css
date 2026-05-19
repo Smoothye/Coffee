@@ -1,8 +1,3 @@
-﻿/* ═══════════════════════════════════════════════════════════════
-   app.css  —  WeddingPlannerApp global styles
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── GLOBAL RESET ────────────────────────────────────────────── */
 *, *::before, *::after {
     box-sizing: border-box;
 }
@@ -26,12 +21,10 @@ body:has(.admin-body) {
     background: var(--page-glow), var(--page-bg);
 }
 
-/* Blazor mounts inside #app — make it stretch full height too */
 #app, [blazor-ssr-component], .blazor-error-boundary {
     height: 100%;
 }
 
-/* ── TOKENS ─────────────────────────────────────────────────── */
 :root {
     --sage: #7d9b76;
     --sage-dark: #4f6b4a;
@@ -50,12 +43,6 @@ body:has(.admin-body) {
     --error: #c0392b;
 }
 
-
-/* ══════════════════════════════════════════════════════════════
-   SHARED UTILITIES  (used by multiple pages)
-   ══════════════════════════════════════════════════════════════ */
-
-/* glass card — used on Onboarding AND as stat cards on Guests */
 .glass-card {
     background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
@@ -66,7 +53,6 @@ body:has(.admin-body) {
     padding: 2.5rem;
 }
 
-/* shared input */
 .input {
     width: 100%;
     padding: .65rem .9rem;
@@ -114,7 +100,6 @@ body:has(.admin-body) {
     line-height: 1.25;
 }
 
-/* shared field wrapper */
 .field {
     margin-bottom: 1.25rem;
 }
@@ -128,7 +113,6 @@ body:has(.admin-body) {
         letter-spacing: .02em;
     }
 
-/* shared error banner */
 .error-banner {
     background: rgba(192,57,43,.12);
     border: 1px solid rgba(192,57,43,.35);
@@ -142,7 +126,6 @@ body:has(.admin-body) {
     gap: .4rem;
 }
 
-/* shared select styling */
 .select-input {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7c67' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
@@ -151,13 +134,6 @@ body:has(.admin-body) {
     padding-right: 2rem;
     cursor: pointer;
 }
-
-
-/* ══════════════════════════════════════════════════════════════
-   ONBOARDING PAGE
-   ══════════════════════════════════════════════════════════════ */
-
-
 
 .page-center::before {
     content: '';
@@ -168,7 +144,6 @@ body:has(.admin-body) {
     pointer-events: none;
 }
 
-/* progress steps */
 .progress-steps {
     position: relative;
     z-index: 3;
@@ -217,7 +192,6 @@ body:has(.admin-body) {
         background: var(--sage-dark);
     }
 
-/* onboarding card — overrides the shared glass-card for full-page layout */
 .page-center .glass-card {
     position: relative;
     z-index: 3;
@@ -238,13 +212,19 @@ body:has(.admin-body) {
     top: -12vh;
     left: var(--x);
     color: #d8ead5;
-    font-family: Georgia, 'Times New Roman', serif;
     font-size: var(--size);
     line-height: 1;
     opacity: var(--opacity);
     text-shadow: 0 8px 22px rgba(26,47,24,.22);
     animation: greenHeartFall var(--duration) linear infinite;
     animation-delay: var(--delay);
+}
+
+.green-heartfall svg {
+    display: block;
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
 }
 
 .splash-heartfall {
@@ -298,7 +278,6 @@ body:has(.admin-body) {
     }
 }
 
-/* step header */
 .step-header {
     text-align: center;
     margin-bottom: 1.75rem;
@@ -317,7 +296,6 @@ body:has(.admin-body) {
         font-size: .95rem;
     }
 
-/* centered field helper */
 .field.centered {
     display: flex;
     justify-content: center;
@@ -333,7 +311,6 @@ body:has(.admin-body) {
     font-size: 1.15rem;
 }
 
-/* event type buttons */
 .type-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -363,7 +340,6 @@ body:has(.admin-body) {
     font-weight: 600;
 }
 
-/* quick picks */
 .quick-picks {
     display: flex;
     justify-content: center;
@@ -388,7 +364,6 @@ body:has(.admin-body) {
         border-color: var(--sage);
     }
 
-/* date display */
 .date-display {
     text-align: center;
     color: var(--sage-dark);
@@ -396,7 +371,6 @@ body:has(.admin-body) {
     margin-top: .75rem;
 }
 
-/* venue grid */
 .venue-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -511,7 +485,6 @@ body:has(.admin-body) {
     font-size: .9rem;
 }
 
-/* nav row */
 .nav-row {
     display: flex;
     justify-content: space-between;
@@ -557,11 +530,6 @@ body:has(.admin-body) {
         transform: translateY(-1px);
     }
 
-
-/* ══════════════════════════════════════════════════════════════
-   GUESTS PAGE
-   ══════════════════════════════════════════════════════════════ */
-
 .guests-page {
     max-width: 900px;
     margin: 0 auto;
@@ -571,7 +539,6 @@ body:has(.admin-body) {
     gap: 1.5rem;
 }
 
-/* stat cards */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -625,7 +592,6 @@ body:has(.admin-body) {
     margin: .15rem 0 0;
 }
 
-/* toolbar */
 .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -698,7 +664,6 @@ body:has(.admin-body) {
         transform: translateY(-1px);
     }
 
-/* guest list */
 .guest-list {
     display: flex;
     flex-direction: column;
@@ -771,7 +736,6 @@ body:has(.admin-body) {
     justify-content: flex-end;
 }
 
-/* badges */
 .badge {
     display: inline-flex;
     align-items: center;
@@ -813,7 +777,6 @@ body:has(.admin-body) {
     border-color: #fcd34d;
 }
 
-/* status button */
 .status-btn {
     width: 2rem;
     height: 2rem;
@@ -867,7 +830,6 @@ body:has(.admin-body) {
         color: #dc2626;
     }
 
-/* empty state */
 .empty-state {
     text-align: center;
     padding: 3rem 0;
@@ -886,7 +848,6 @@ body:has(.admin-body) {
     margin: 0;
 }
 
-/* modal */
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -923,7 +884,6 @@ body:has(.admin-body) {
     margin-bottom: 1rem;
 }
 
-/* ── Seat picker modal ───────────────────────────────────── */
 .seat-picker-box {
     max-width: 380px;
     padding-bottom: 0;
@@ -1062,11 +1022,6 @@ body:has(.admin-body) {
         background: #15803d;
     }
 
-
-/* ══════════════════════════════════════════════════════════════
-   RESPONSIVE
-   ══════════════════════════════════════════════════════════════ */
-
 @media (max-width: 640px) {
     .stats-grid {
         grid-template-columns: 1fr 1fr;
@@ -1107,18 +1062,12 @@ body:has(.admin-body) {
     }
 }
 
-
-/* ══════════════════════════════════════════════════════════════
-   ADMIN PAGE
-   ══════════════════════════════════════════════════════════════ */
-
 .admin-wrap {
     min-height: 100dvh;
     background: linear-gradient(135deg, rgba(200,219,197,.25) 0%, rgba(255,255,255,.0) 50%, rgba(200,219,197,.18) 100%), #f7f9f6;
     font-family: inherit;
 }
 
-/* ── Header ─────────────────────────────────────────────── */
 .admin-header {
     background: rgba(255,255,255,.7);
     backdrop-filter: blur(18px);
@@ -1184,7 +1133,6 @@ body:has(.admin-body) {
         border-color: transparent;
     }
 
-/* ── Body / Stats ────────────────────────────────────────── */
 .admin-body {
     max-width: 1100px;
     margin: 0 auto;
@@ -1258,7 +1206,6 @@ body:has(.admin-body) {
     margin: .15rem 0 0;
 }
 
-/* ── Section panels ──────────────────────────────────────── */
 .panel {
     background: rgba(255,255,255,.65);
     backdrop-filter: blur(14px);
@@ -1291,7 +1238,6 @@ body:has(.admin-body) {
     gap: .6rem;
 }
 
-/* ── Filter pills ────────────────────────────────────────── */
 .filter-pills {
     display: flex;
     gap: .4rem;
@@ -1320,7 +1266,6 @@ body:has(.admin-body) {
     border-color: var(--sage-dark) !important;
 }
 
-/* ── Event list & cards ──────────────────────────────────── */
 .event-list {
     padding: .75rem 1rem;
     display: flex;
@@ -1401,7 +1346,6 @@ body:has(.admin-body) {
     flex-shrink: 0;
 }
 
-/* ── Status badges ───────────────────────────────────────── */
 .status-badge {
     display: inline-flex;
     align-items: center;
@@ -1433,7 +1377,6 @@ body:has(.admin-body) {
     color: #64748b;
 }
 
-/* ── Icon action buttons ─────────────────────────────────── */
 .icon-btn {
     width: 2.1rem;
     height: 2.1rem;
@@ -1477,7 +1420,6 @@ body:has(.admin-body) {
         color: var(--sage-dark);
     }
 
-/* ── Expanded detail row ─────────────────────────────────── */
 .event-detail {
     border-top: 1px solid rgba(200,219,197,.4);
     padding: 1rem 1rem 1rem 4.5rem;
@@ -1513,7 +1455,6 @@ body:has(.admin-body) {
         font-style: italic;
     }
 
-/* ── Venues panel ────────────────────────────────────────── */
 .venue-list {
     padding: .75rem 1rem;
     display: grid;
@@ -1583,7 +1524,6 @@ body:has(.admin-body) {
     margin-top: .1rem;
 }
 
-/* image preview inside Add Venue modal */
 .venue-img-preview {
     margin-top: .5rem;
     border-radius: .6rem;
@@ -1599,7 +1539,6 @@ body:has(.admin-body) {
         display: block;
     }
 
-/* ── Admin empty state ───────────────────────────────────── */
 .admin-empty {
     text-align: center;
     padding: 3rem 1rem;
@@ -1617,7 +1556,6 @@ body:has(.admin-body) {
         margin: 0;
     }
 
-/* ── Toast ───────────────────────────────────────────────── */
 .toast {
     position: fixed;
     bottom: 1.5rem;
@@ -1675,12 +1613,6 @@ body:has(.admin-body) {
     }
 }
 
-
-/* ══════════════════════════════════════════════════════════════
-   SPLASH / LANDING PAGE  (Index.razor → "/" )
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── Layout ──────────────────────────────────────────────── */
 .splash-wrap {
     position: relative;
     min-height: 100dvh;
@@ -1691,7 +1623,6 @@ body:has(.admin-body) {
     font-family: inherit;
 }
 
-/* ── Background layers ───────────────────────────────────── */
 .splash-bg {
     position: absolute;
     inset: 0;
@@ -1730,7 +1661,6 @@ body:has(.admin-body) {
     background: radial-gradient(ellipse at center, transparent 40%, rgba(15,22,14,.65) 100%);
 }
 
-/* ── Floating petals ─────────────────────────────────────── */
 .petals {
     position: absolute;
     inset: 0;
@@ -1748,7 +1678,6 @@ body:has(.admin-body) {
     animation: petalFall linear infinite;
 }
 
-/* individual petal positions & timings */
 .petal-1 {
     left: 8%;
     width: .6rem;
@@ -1877,7 +1806,6 @@ body:has(.admin-body) {
     }
 }
 
-/* ── Content ─────────────────────────────────────────────── */
 .splash-content {
     position: relative;
     z-index: 3;
@@ -1889,7 +1817,6 @@ body:has(.admin-body) {
     gap: 0;
 }
 
-/* ── Animated ring icon ──────────────────────────────────── */
 .ring-wrap {
     position: relative;
     width: 5.5rem;
@@ -1947,7 +1874,6 @@ body:has(.admin-body) {
     }
 }
 
-/* ── Eyebrow ─────────────────────────────────────────────── */
 .splash-eyebrow {
     font-size: .8rem;
     letter-spacing: .22em;
@@ -1959,7 +1885,6 @@ body:has(.admin-body) {
     opacity: 0;
 }
 
-/* ── Title ───────────────────────────────────────────────── */
 .splash-title {
     font-family: 'Georgia', 'Times New Roman', serif;
     font-size: clamp(3.5rem, 9vw, 6.5rem);
@@ -1982,7 +1907,6 @@ body:has(.admin-body) {
     font-style: normal;
 }
 
-/* ── Divider ─────────────────────────────────────────────── */
 .splash-divider {
     display: flex;
     align-items: center;
@@ -2006,7 +1930,6 @@ body:has(.admin-body) {
     transform: rotate(45deg);
 }
 
-/* ── Motto ───────────────────────────────────────────────── */
 .splash-motto {
     font-family: Georgia, serif;
     font-size: clamp(1rem, 2.5vw, 1.25rem);
@@ -2020,7 +1943,6 @@ body:has(.admin-body) {
     opacity: 0;
 }
 
-/* ── CTA button ──────────────────────────────────────────── */
 .splash-btn {
     display: inline-flex;
     align-items: center;
@@ -2065,7 +1987,6 @@ body:has(.admin-body) {
     transform: translateX(4px);
 }
 
-/* ── Footer note ─────────────────────────────────────────── */
 .splash-footer {
     margin: 2rem 0 0;
     font-size: .72rem;
@@ -2077,7 +1998,6 @@ body:has(.admin-body) {
     opacity: 0;
 }
 
-/* ── Shared keyframes ────────────────────────────────────── */
 @keyframes fadeDown {
     from {
         opacity: 0;
@@ -2112,7 +2032,6 @@ body:has(.admin-body) {
     }
 }
 
-/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 480px) {
     .splash-content {
         padding: 2rem 1.25rem;
@@ -2128,13 +2047,6 @@ body:has(.admin-body) {
     }
 }
 
-
-/* ══════════════════════════════════════════════════════════════
-   TABLES PAGE  (/tables)
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── Navbar ──────────────────────────────────────────────── */
-/* ── Drawer FAB (fixed heart button) ────────────────────── */
 .drawer-fab {
     position: fixed;
     left: 1rem;
@@ -2160,7 +2072,6 @@ body:has(.admin-body) {
         box-shadow: 0 6px 20px rgba(79,107,74,.45);
     }
 
-/* ── Drawer overlay ──────────────────────────────────────── */
 .drawer-overlay {
     position: fixed;
     inset: 0;
@@ -2170,7 +2081,6 @@ body:has(.admin-body) {
     animation: fadeIn .2s ease;
 }
 
-/* ── Drawer panel ────────────────────────────────────────── */
 .drawer-panel {
     position: fixed;
     left: 0;
@@ -2310,8 +2220,6 @@ body:has(.admin-body) {
     gap: .65rem;
 }
 
-/* ── Navbar — no nav links, just brand + pill ────────────── */
-
 .tables-nav {
     background: rgba(255,255,255,.72);
     backdrop-filter: blur(18px);
@@ -2398,7 +2306,6 @@ body:has(.admin-body) {
     flex-shrink: 0;
 }
 
-/* ── Page layout ─────────────────────────────────────────── */
 .tables-page {
     display: flex;
     gap: 1.25rem;
@@ -2408,7 +2315,6 @@ body:has(.admin-body) {
     background: transparent;
 }
 
-/* ── Canvas (left) ───────────────────────────────────────── */
 .tables-canvas {
     flex: 1;
     min-width: 0;
@@ -2459,7 +2365,6 @@ body:has(.admin-body) {
     font-weight: 600;
 }
 
-/* ── Group legend ────────────────────────────────────────── */
 .group-legend {
     display: flex;
     gap: 1rem;
@@ -2487,7 +2392,6 @@ body:has(.admin-body) {
     text-transform: capitalize;
 }
 
-/* ── Tables grid ─────────────────────────────────────────── */
 .tables-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -2497,7 +2401,6 @@ body:has(.admin-body) {
     align-content: start;
 }
 
-/* ── Head table card ─────────────────────────────────────── */
 .head-table-card {
     grid-column: 1 / -1;
     background: rgba(255,255,255,.7);
@@ -2578,7 +2481,6 @@ body:has(.admin-body) {
     line-height: 1.2;
 }
 
-/* ── Seat count badges ───────────────────────────────────── */
 .seat-count-badge {
     font-size: .72rem;
     font-weight: 700;
@@ -2596,7 +2498,6 @@ body:has(.admin-body) {
     color: #dc2626;
 }
 
-/* ── Progress bar ────────────────────────────────────────── */
 .progress-bar-wrap {
     margin-top: .85rem;
     height: 5px;
@@ -2611,7 +2512,6 @@ body:has(.admin-body) {
     transition: width .4s ease;
 }
 
-/* ── Round table card ────────────────────────────────────── */
 .round-table-card {
     background: rgba(255,255,255,.7);
     backdrop-filter: blur(14px);
@@ -2647,7 +2547,6 @@ body:has(.admin-body) {
     margin: 0;
 }
 
-/* Round table circle container */
 .round-table-wrap {
     position: relative;
     width: 220px;
@@ -2670,7 +2569,6 @@ body:has(.admin-body) {
     text-align: center;
 }
 
-/* Individual seat position */
 .seat-pos {
     position: absolute;
     width: 2.5rem;
@@ -2678,7 +2576,6 @@ body:has(.admin-body) {
     transform: translate(-50%, -50%);
 }
 
-/* ── Seat components ─────────────────────────────────────── */
 .seat-wrap {
     position: relative;
     width: 2.5rem;
@@ -2750,7 +2647,6 @@ body:has(.admin-body) {
     line-height: 1;
 }
 
-/* Clickable empty seat — opens guest picker */
 .seat-empty-clickable {
     cursor: pointer;
     position: relative;
@@ -2803,7 +2699,6 @@ body:has(.admin-body) {
     opacity: 1;
 }
 
-/* Duplicate index badge on seat */
 .dup-badge {
     position: absolute;
     bottom: -.25rem;
@@ -2817,7 +2712,6 @@ body:has(.admin-body) {
     line-height: 1.4;
 }
 
-/* ── Guest Pool sidebar ──────────────────────────────────── */
 .pool-sidebar {
     width: 17rem;
     flex-shrink: 0;
@@ -2971,7 +2865,6 @@ body:has(.admin-body) {
         font-style: italic;
     }
 
-/* ── Head config modal extras ────────────────────────────── */
 .couple-picker {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -3012,7 +2905,6 @@ body:has(.admin-body) {
     opacity: .7;
 }
 
-/* ── Duplicate warning banner ────────────────────────────── */
 .dup-warning {
     display: flex;
     align-items: flex-start;
@@ -3027,7 +2919,6 @@ body:has(.admin-body) {
     line-height: 1.45;
 }
 
-/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
     .tables-page {
         flex-direction: column;
@@ -3049,12 +2940,6 @@ body:has(.admin-body) {
     }
 }
 
-
-/* ══════════════════════════════════════════════════════════════
-   GUESTS PAGE — additions & fixes
-   ══════════════════════════════════════════════════════════════ */
-
-/* guests-wrap — same layout as tables-page */
 .guests-wrap {
     max-width: 1180px;
     margin: 0 auto;
@@ -3064,7 +2949,6 @@ body:has(.admin-body) {
     gap: 1.25rem;
 }
 
-/* Full-page background for Guests — identical palette to Tables */
 body:has(.guests-wrap) {
     background: var(--page-glow), var(--page-bg);
 }
@@ -3073,7 +2957,6 @@ body:has(.guests-wrap) {
     content: none;
 }
 
-/* ── RSVP button group ───────────────────────────────────────── */
 .rsvp-btns {
     display: flex;
     align-items: center;
@@ -3121,7 +3004,6 @@ body:has(.guests-wrap) {
         transform: scale(1.08);
     }
 
-/* ── Plus One badge ──────────────────────────────────────────── */
 .plus-one-badge {
     display: inline-flex;
     align-items: center;
@@ -3136,7 +3018,6 @@ body:has(.guests-wrap) {
     white-space: nowrap;
 }
 
-/* ── Plus One toggle (Add Guest modal) ───────────────────────── */
 .field-label {
     display: block;
     font-size: .85rem;
@@ -3188,7 +3069,6 @@ body:has(.guests-wrap) {
     border-color: #fca5a5;
 }
 
-/* ── Import toast ────────────────────────────────────────────── */
 .import-toast {
     position: fixed;
     bottom: 1.5rem;
@@ -3224,10 +3104,6 @@ body:has(.guests-wrap) {
     display: flex;
     align-items: center;
 }
-
-/* ══════════════════════════════════════════════════════════════
-   CSV GUIDE MODAL  (shared — Tables + Guests)
-   ══════════════════════════════════════════════════════════════ */
 
 .csv-guide-box {
     max-width: 780px;
@@ -3468,7 +3344,6 @@ body:has(.guests-wrap) {
     margin: .4rem 0 0;
 }
 
-/* ── Seat tooltip (Tables page) ──────────────────────────────── */
 .seat-guest-wrap {
     position: relative;
     width: 2.5rem;
@@ -3525,7 +3400,6 @@ body:has(.guests-wrap) {
     opacity: 1;
 }
 
-/* ── Responsive additions ────────────────────────────────────── */
 @media (max-width: 700px) {
     .csv-two-col {
         grid-template-columns: 1fr;
@@ -3536,7 +3410,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Toolbar actions group (Guests + Tables) ─────────────────── */
 .toolbar-actions {
     display: flex;
     align-items: center;
@@ -3544,27 +3417,45 @@ body:has(.guests-wrap) {
     margin-left: auto;
 }
 
-.guests-filter-toolbar .search-wrap {
-    flex: 1 1 24rem;
-}
-
 .guest-tools-row {
     display: flex;
     align-items: center;
-    gap: .75rem;
+    gap: .5rem;
     flex-wrap: wrap;
 }
 
+.guest-toolbar-shell {
+    padding: .65rem .75rem .5rem;
+    background: rgba(255,255,255,.72);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.65);
+    border-radius: .9rem;
+    box-shadow: 0 2px 8px rgba(79,107,74,.06);
+}
+
 .guest-tools-row .guests-filter-toolbar {
-    flex: 1 1 34rem;
+    flex: 1 1 20rem;
+    gap: .45rem;
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
+.guests-filter-toolbar .search-wrap {
+    flex: 1 1 10rem;
+    min-width: 8rem;
 }
 
 .guests-filter-toolbar .guests-filter-field {
     flex: 0 0 auto;
+    gap: .3rem;
 }
 
 .guests-filter-toolbar .filter-select {
-    width: 10rem;
+    width: 6.75rem;
+}
+
+.guests-filter-toolbar .budget-filter-field span {
+    font-size: .66rem;
 }
 
 .guest-command-bar {
@@ -3576,16 +3467,18 @@ body:has(.guests-wrap) {
     margin-left: auto;
 }
 
+.guest-command-bar .btn-outline,
+.guest-command-bar .btn-add {
+    padding: .5rem .7rem;
+    font-size: .82rem;
+}
+
 @media (max-width: 640px) {
     .toolbar-actions {
         width: 100%;
         justify-content: flex-end;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
-   ADMIN — venue image upload zone
-   ══════════════════════════════════════════════════════════════ */
 
 .venue-upload-zone {
     border: 2px dashed rgba(200,219,197,.7);
@@ -3655,13 +3548,11 @@ body:has(.guests-wrap) {
         background: rgba(220,38,38,.8);
     }
 
-/* Admin body uses same background as other pages */
 .admin-wrap {
     min-height: 100dvh;
     background: #f7f9f6;
 }
 
-/* ── Wedding badge (Onboarding — type is fixed) ──────────────── */
 .wedding-badge {
     display: flex;
     align-items: center;
@@ -3681,12 +3572,6 @@ body:has(.guests-wrap) {
     box-sizing: border-box;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   DASHBOARD  (/dashboard)
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── Navbar ──────────────────────────────────────────────── */
-/* ── Drawer FAB (fixed heart button) ────────────────────── */
 .drawer-fab {
     position: fixed;
     left: 1rem;
@@ -3712,7 +3597,6 @@ body:has(.guests-wrap) {
         box-shadow: 0 6px 20px rgba(79,107,74,.45);
     }
 
-/* ── Drawer overlay ──────────────────────────────────────── */
 .drawer-overlay {
     position: fixed;
     inset: 0;
@@ -3722,7 +3606,6 @@ body:has(.guests-wrap) {
     animation: fadeIn .2s ease;
 }
 
-/* ── Drawer panel ────────────────────────────────────────── */
 .drawer-panel {
     position: fixed;
     left: 0;
@@ -3859,8 +3742,6 @@ body:has(.guests-wrap) {
     border-top: 1px solid rgba(200,219,197,.3);
 }
 
-/* ── Navbar — no nav links, just brand + pill ────────────── */
-
 .dash-navbar {
     position: sticky;
     top: 0;
@@ -3877,7 +3758,6 @@ body:has(.guests-wrap) {
     gap: 1.5rem;
 }
 
-/* Brand */
 .dash-navbar-brand {
     display: flex;
     align-items: center;
@@ -3917,7 +3797,6 @@ body:has(.guests-wrap) {
     letter-spacing: .04em;
 }
 
-/* Nav links — centrate */
 .dash-navbar-links {
     display: flex;
     align-items: center;
@@ -3956,7 +3835,6 @@ body:has(.guests-wrap) {
     font-weight: 600;
 }
 
-/* ── Dashboard body ──────────────────────────────────────── */
 .dash-body {
     min-height: calc(100vh - 3.75rem);
     background: transparent;
@@ -3966,7 +3844,6 @@ body:has(.guests-wrap) {
     gap: .85rem;
 }
 
-/* ── Greeting header ─────────────────────────────────────── */
 .dash-header {
     display: flex;
     flex-direction: column;
@@ -4110,7 +3987,6 @@ body:has(.guests-wrap) {
     text-transform: uppercase;
 }
 
-/* ── Countdown pill ──────────────────────────────────────── */
 .countdown-pill {
     display: inline-flex;
     align-items: center;
@@ -4125,14 +4001,12 @@ body:has(.guests-wrap) {
     flex-shrink: 0;
 }
 
-/* ── Widget grid ─────────────────────────────────────────── */
 .dash-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: .75rem;
 }
 
-/* ── Widget base ─────────────────────────────────────────── */
 .widget {
     background: rgba(255,255,255,.72);
     backdrop-filter: blur(14px);
@@ -4225,7 +4099,6 @@ body:has(.guests-wrap) {
         opacity: .7;
     }
 
-/* ── Budget ──────────────────────────────────────────────── */
 .budget-amounts {
     display: flex;
     align-items: center;
@@ -4363,7 +4236,6 @@ body:has(.guests-wrap) {
     flex-shrink: 0;
 }
 
-/* ── RSVP donut ──────────────────────────────────────────── */
 .rsvp-donut-wrap {
     display: flex;
     align-items: center;
@@ -4423,7 +4295,6 @@ body:has(.guests-wrap) {
     text-align: right;
 }
 
-/* ── Tasks ───────────────────────────────────────────────── */
 .task-list {
     display: flex;
     flex-direction: column;
@@ -4560,7 +4431,6 @@ body:has(.guests-wrap) {
     flex-shrink: 0;
 }
 
-/* ── Menu & details ──────────────────────────────────────── */
 .menu-selected {
     display: flex;
     align-items: center;
@@ -4660,7 +4530,6 @@ body:has(.guests-wrap) {
     color: #d97706 !important;
 }
 
-/* ── Page slide transition (Blazor enhanced navigation) ──── */
 ::view-transition-old(root) {
     animation: slideOut .22s ease forwards;
 }
@@ -4693,7 +4562,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 900px) {
     .dash-grid {
         grid-template-columns: 1fr;
@@ -4731,8 +4599,6 @@ body:has(.guests-wrap) {
     }
 }
 
-
-/* ── Table capacity controls (+/-) ──────────────────────── */
 .table-cap-controls {
     display: flex;
     align-items: center;
@@ -4764,10 +4630,6 @@ body:has(.guests-wrap) {
         cursor: not-allowed;
     }
 
-/* ══════════════════════════════════════════════════════════════
-   VENUES PAGE  (/venues)
-   ══════════════════════════════════════════════════════════════ */
-
 .venues-page {
     min-height: calc(100vh - 3.75rem);
     background: transparent;
@@ -4776,14 +4638,9 @@ body:has(.guests-wrap) {
     padding: 0;
 }
 
-
-
-/* ── List view ───────────────────────────────────────────── */
 .venue-list-header {
     margin-bottom: 1.25rem;
 }
-
-
 
 .venue-cards-grid {
     display: grid;
@@ -4898,12 +4755,6 @@ body:has(.guests-wrap) {
     color: var(--sage-dark);
 }
 
-/* ── Selected venue hero ─────────────────────────────────── */
-
-/* ══════════════════════════════════════════════════════════════
-   VENUES PAGE — selected hero + carousel
-   ══════════════════════════════════════════════════════════════ */
-
 .venues-page {
     min-height: calc(100vh - 3.75rem);
     background: transparent;
@@ -4911,7 +4762,6 @@ body:has(.guests-wrap) {
     flex-direction: column;
 }
 
-/* ── Hero ─────────────────────────────────────────────────── */
 .venue-selected-hero {
     position: relative;
     width: 100%;
@@ -5169,7 +5019,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Carousel section ─────────────────────────────────────── */
 .venues-bottom {
     padding: 1.25rem 1.75rem 2rem;
     background: #f7f9f6;
@@ -5334,7 +5183,6 @@ body:has(.guests-wrap) {
     color: #d97706;
 }
 
-/* ── Detail view ─────────────────────────────────────────── */
 .venue-detail-wrap {
     display: flex;
     flex-direction: column;
@@ -5707,7 +5555,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Detail view — two-column layout ────────────────────── */
 .venue-hero-full {
     position: relative;
     width: 100%;
@@ -5730,7 +5577,6 @@ body:has(.guests-wrap) {
     min-width: 0;
 }
 
-/* Back button inside hero overlay */
 .venue-back-hero {
     display: inline-flex;
     align-items: center;
@@ -5751,7 +5597,6 @@ body:has(.guests-wrap) {
         background: rgba(255,255,255,.22);
     }
 
-/* RIGHT sidebar */
 .venue-col-sidebar {
     display: flex;
     flex-direction: column;
@@ -5930,7 +5775,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Venue book button + booked badge ───────────────────── */
 .venue-book-btn {
     display: inline-flex;
     align-items: center;
@@ -5966,7 +5810,6 @@ body:has(.guests-wrap) {
     font-weight: 700;
 }
 
-/* ── Book confirm modal ──────────────────────────────────── */
 .book-confirm-venue {
     display: flex;
     gap: .85rem;
@@ -5986,7 +5829,6 @@ body:has(.guests-wrap) {
     display: block;
 }
 
-/* ── Venue change request card ───────────────────────────── */
 .vreq-venues {
     display: flex;
     align-items: center;
@@ -6038,251 +5880,6 @@ body:has(.guests-wrap) {
     align-items: center;
     flex-shrink: 0;
 }
-
-/* ══════════════════════════════════════════════════════════════
-   LOGIN / AUTH PAGE
-   ══════════════════════════════════════════════════════════════ */
-
-.auth-page {
-    position: relative;
-    min-height: 100dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    padding: 1rem;
-}
-
-.auth-bg {
-    position: absolute;
-    inset: 0;
-    background-image: url('https://images.unsplash.com/photo-1519741497674-611481863552?w=1920&q=80');
-    background-size: cover;
-    background-position: center;
-}
-
-.auth-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient( 135deg, rgba(79,107,74,.82) 0%, rgba(30,50,28,.72) 50%, rgba(79,107,74,.78) 100% );
-    backdrop-filter: blur(3px);
-}
-
-/* Floating blobs */
-.auth-blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(40px);
-    pointer-events: none;
-    animation: blobFloat 6s ease-in-out infinite;
-}
-
-.auth-blob-1 {
-    width: 12rem;
-    height: 12rem;
-    background: rgba(200,219,197,.25);
-    top: 5rem;
-    left: 5rem;
-}
-
-.auth-blob-2 {
-    width: 16rem;
-    height: 16rem;
-    background: rgba(125,155,118,.2);
-    bottom: 5rem;
-    right: 5rem;
-    animation-delay: -3s;
-    animation-duration: 8s;
-}
-
-@keyframes blobFloat {
-    0%, 100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-20px);
-    }
-}
-
-/* ── Auth card ───────────────────────────────────────────── */
-.auth-card {
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    max-width: 26rem;
-    background: rgba(255,255,255,.82);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255,255,255,.7);
-    border-radius: 1.5rem;
-    box-shadow: 0 20px 60px rgba(0,0,0,.2);
-    padding: 2.25rem 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-/* ── Logo ────────────────────────────────────────────────── */
-.auth-logo-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: .4rem;
-    margin-bottom: .25rem;
-}
-
-.auth-logo-icon {
-    width: 4rem;
-    height: 4rem;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--sage-muted), rgba(200,219,197,.6));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--sage-dark);
-    margin-bottom: .25rem;
-    box-shadow: 0 4px 16px rgba(79,107,74,.2);
-}
-
-.auth-app-name {
-    font-family: Georgia, serif;
-    font-size: 1.75rem;
-    color: var(--sage-dark);
-    margin: 0;
-    font-weight: 400;
-}
-
-    .auth-app-name em {
-        font-style: italic;
-    }
-
-.auth-app-sub {
-    font-size: .83rem;
-    color: var(--muted);
-    margin: 0;
-}
-
-/* ── Toggle pills ────────────────────────────────────────── */
-.auth-toggle-wrap {
-    display: flex;
-    background: rgba(200,219,197,.3);
-    border-radius: .85rem;
-    padding: .25rem;
-    gap: .2rem;
-}
-
-.auth-toggle-btn {
-    flex: 1;
-    padding: .55rem .5rem;
-    font-size: .82rem;
-    font-weight: 500;
-    border: none;
-    border-radius: .6rem;
-    background: transparent;
-    color: var(--muted);
-    cursor: pointer;
-    transition: background .18s, color .18s, box-shadow .18s;
-    white-space: nowrap;
-}
-
-    .auth-toggle-btn:hover {
-        color: var(--sage-dark);
-    }
-
-.auth-toggle-active {
-    background: #fff !important;
-    color: var(--sage-dark) !important;
-    font-weight: 700;
-    box-shadow: 0 2px 8px rgba(0,0,0,.1);
-}
-
-/* ── Admin note ──────────────────────────────────────────── */
-.auth-admin-note {
-    font-size: .78rem;
-    color: var(--muted);
-    text-align: center;
-    margin: -.25rem 0;
-    padding: .5rem .75rem;
-    background: var(--sage-muted);
-    border-radius: .6rem;
-    border: 1px solid var(--sage-light);
-}
-
-/* ── Form ────────────────────────────────────────────────── */
-.auth-form {
-    display: flex;
-    flex-direction: column;
-    gap: .85rem;
-}
-
-.auth-input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.auth-input-icon {
-    position: absolute;
-    left: .85rem;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    pointer-events: none;
-}
-
-.auth-input {
-    width: 100%;
-    padding-left: 2.5rem !important;
-    background: rgba(255,255,255,.6) !important;
-    border-color: rgba(200,219,197,.6) !important;
-    transition: border-color .18s, box-shadow .18s;
-}
-
-    .auth-input:focus {
-        border-color: var(--sage) !important;
-        box-shadow: 0 0 0 3px rgba(125,155,118,.15) !important;
-        background: rgba(255,255,255,.85) !important;
-    }
-
-/* input without icon */
-.auth-input-wrap input:only-child {
-    padding-left: .85rem !important;
-}
-
-/* ── Submit button ───────────────────────────────────────── */
-.auth-submit {
-    width: 100%;
-    height: 3rem;
-    background: linear-gradient(135deg, var(--sage), var(--sage-dark));
-    color: #fff;
-    border: none;
-    border-radius: .85rem;
-    font-size: .95rem;
-    font-weight: 700;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
-    box-shadow: 0 4px 16px rgba(79,107,74,.35);
-    transition: opacity .18s, transform .15s, box-shadow .18s;
-    margin-top: .25rem;
-}
-
-    .auth-submit:hover {
-        opacity: .9;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(79,107,74,.45);
-    }
-
-    .auth-submit:active {
-        transform: translateY(0);
-    }
-
-/* ══════════════════════════════════════════════════════════════
-   LOGIN / AUTH PAGE  (/login)
-   ══════════════════════════════════════════════════════════════ */
 
 .auth-wrap {
     min-height: 100dvh;
@@ -6361,7 +5958,15 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Card */
+.login-heartfall {
+    z-index: 1;
+}
+
+.login-heartfall span {
+    color: rgba(255,255,255,.82);
+    text-shadow: 0 10px 26px rgba(20,40,18,.34);
+}
+
 .auth-card {
     position: relative;
     z-index: 10;
@@ -6377,7 +5982,6 @@ body:has(.guests-wrap) {
     display: flex;
     flex-direction: column;
     gap: 1.1rem;
-    /* card entrance */
     animation: authCardIn .55s cubic-bezier(.22,1,.36,1) both;
 }
 
@@ -6393,7 +5997,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Logo */
 .auth-logo {
     display: flex;
     align-items: center;
@@ -6434,8 +6037,6 @@ body:has(.guests-wrap) {
     margin: 0;
 }
 
-/* ── Toggle shared styles ─────────────────────────────────── */
-/* Pill indicator that slides smoothly */
 .auth-role-toggle,
 .auth-mode-toggle {
     display: grid;
@@ -6447,7 +6048,6 @@ body:has(.guests-wrap) {
     position: relative;
 }
 
-    /* Sliding pill behind active button */
     .auth-role-toggle::before,
     .auth-mode-toggle::before {
         content: '';
@@ -6462,7 +6062,6 @@ body:has(.guests-wrap) {
         pointer-events: none;
     }
 
-    /* Pill slides right when second button is active */
     .auth-role-toggle.slide-right::before,
     .auth-mode-toggle.slide-right::before {
         transform: translateX(calc(100% + .25rem));
@@ -6497,7 +6096,6 @@ body:has(.guests-wrap) {
     color: var(--sage-dark) !important;
 }
 
-/* ── Form fields with slide-in animation ─────────────────── */
 .auth-form {
     display: flex;
     flex-direction: column;
@@ -6505,56 +6103,27 @@ body:has(.guests-wrap) {
     overflow: hidden;
 }
 
-.auth-field-enter {
-    animation: fieldSlideIn .3s cubic-bezier(.22,1,.36,1) both;
+.auth-register-fields {
+    overflow: hidden;
+    max-height: 8rem;
+    opacity: 1;
+    transform: translateY(0);
+    transition: max-height .28s cubic-bezier(.22,1,.36,1), opacity .2s ease, transform .28s cubic-bezier(.22,1,.36,1), margin .28s ease;
 }
 
-.auth-field-exit {
-    animation: fieldSlideOut .22s ease forwards;
+.auth-register-hidden {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: -.85rem;
+    pointer-events: none;
+    transform: translateY(-.45rem);
 }
 
-@keyframes fieldSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-        max-height: 0;
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-        max-height: 8rem;
-    }
+.auth-register-visible {
+    max-height: 8rem;
+    opacity: 1;
 }
 
-@keyframes fieldSlideOut {
-    from {
-        opacity: 1;
-        transform: translateY(0);
-        max-height: 8rem;
-    }
-
-    to {
-        opacity: 0;
-        transform: translateY(-8px);
-        max-height: 0;
-    }
-}
-
-/* Admin note */
-.auth-admin-note {
-    font-size: .8rem;
-    color: var(--muted);
-    margin: 0;
-    text-align: center;
-    padding: .5rem .75rem;
-    background: var(--sage-muted);
-    border-radius: .65rem;
-    border: 1px solid var(--sage-light);
-    animation: fieldSlideIn .28s cubic-bezier(.22,1,.36,1) both;
-}
-
-/* Label */
 .auth-label {
     display: block;
     font-size: .82rem;
@@ -6563,7 +6132,6 @@ body:has(.guests-wrap) {
     margin-bottom: .35rem;
 }
 
-/* Input */
 .auth-input-wrap {
     position: relative;
 }
@@ -6593,7 +6161,6 @@ body:has(.guests-wrap) {
         outline: none;
     }
 
-/* Submit */
 .auth-submit {
     display: flex;
     align-items: center;
@@ -6614,7 +6181,6 @@ body:has(.guests-wrap) {
     letter-spacing: .02em;
 }
 
-
     .auth-submit:hover {
         opacity: .9;
         transform: translateY(-1px);
@@ -6625,31 +6191,17 @@ body:has(.guests-wrap) {
         transform: translateY(0);
     }
 
-/* ── Page transition overlay ──────────────────────────────── */
-.auth-transition-overlay {
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(135deg, var(--sage-dark), rgba(10,20,10,1));
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity .4s cubic-bezier(.4,0,.2,1);
-}
-
-.auth-overlay-active {
-    opacity: 1 !important;
-    pointer-events: all;
-}
-
-/* Button loading state when transitioning */
 .auth-submit:disabled {
     opacity: .7;
     cursor: wait;
 }
 
-/* Error */
-.auth-error-slide {
-    animation: fieldSlideIn .25s ease both;
+.auth-error-hidden {
+    display: none !important;
+}
+
+.auth-form-loading {
+    opacity: .92;
 }
 
 @media (max-width: 480px) {
@@ -6658,10 +6210,6 @@ body:has(.guests-wrap) {
         border-radius: 1.25rem;
     }
 }
-
-/* ══════════════════════════════════════════════════════════════
-   ONBOARDING — same background as Login
-   ══════════════════════════════════════════════════════════════ */
 
 .page-center {
     min-height: 100dvh;
@@ -6674,7 +6222,6 @@ body:has(.guests-wrap) {
     overflow: hidden;
 }
 
-    /* Reuse auth background */
     .page-center::before {
         content: '';
         position: fixed;
@@ -6693,11 +6240,6 @@ body:has(.guests-wrap) {
         backdrop-filter: blur(3px);
         z-index: -1;
     }
-
-/* ── Step transition animations ──────────────────────────── */
-.step-content {
-    /* no transform here — let step-anim handle it */
-}
 
 .step-anim {
     animation-duration: .38s;
@@ -6737,17 +6279,14 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Progress line transition */
 .step-line {
     transition: background .4s ease;
 }
 
-/* Step circle transition */
 .step-circle {
     transition: background .3s ease, border-color .3s ease, color .3s ease;
 }
 
-/* Button transitions */
 .btn-next,
 .btn-back {
     transition: background .2s, color .2s, opacity .2s, transform .15s;
@@ -6765,7 +6304,7 @@ body:has(.guests-wrap) {
     .btn-back:active {
         transform: translateX(0);
     }
-/* ── Page enter animation (after login transition) ───────── */
+
 .dash-body,
 .page-center,
 .venues-page,
@@ -6787,79 +6326,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Login submit transition ─────────────────────────────── */
-
-/* Card shrinks + fades out on submit */
-.auth-card-exit {
-    animation: authCardExit .4s cubic-bezier(.55,0,1,.45) forwards;
-    pointer-events: none;
-}
-
-@keyframes authCardExit {
-    0% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-
-    100% {
-        opacity: 0;
-        transform: translateY(-16px) scale(.95);
-    }
-}
-
-/* Full-screen curtain that sweeps in from bottom */
-.auth-curtain {
-    position: fixed;
-    inset: 0;
-    z-index: 999;
-    background: linear-gradient(160deg, var(--sage-dark) 0%, #1e3320 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: curtainSweep .45s cubic-bezier(.22,1,.36,1) forwards;
-}
-
-@keyframes curtainSweep {
-    from {
-        clip-path: inset(100% 0 0 0);
-    }
-
-    to {
-        clip-path: inset(0% 0 0 0);
-    }
-}
-
-.auth-curtain-logo {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: .85rem;
-    color: #fff;
-    font-family: Georgia, serif;
-    font-size: 1.75rem;
-    font-style: italic;
-    font-weight: 700;
-    opacity: 0;
-    animation: curtainLogoIn .3s ease .25s forwards;
-}
-
-@keyframes curtainLogoIn {
-    from {
-        opacity: 0;
-        transform: translateY(12px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   GLOBAL PAGE & ELEMENT TRANSITIONS
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── Page entrance — every page fades + slides in ────────── */
 .dash-body,
 .guests-wrap,
 .tables-page,
@@ -6881,7 +6347,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Navbar slides in from top */
 .tables-nav,
 .dash-navbar {
     animation: navSlideIn .35s cubic-bezier(.22,1,.36,1) both;
@@ -6899,7 +6364,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Venues — staggered card entrance ────────────────────── */
 .venue-selected-hero {
     animation: heroReveal .55s cubic-bezier(.22,1,.36,1) both;
 }
@@ -6920,7 +6384,6 @@ body:has(.guests-wrap) {
     animation: pageEnter .45s cubic-bezier(.22,1,.36,1) .15s both;
 }
 
-/* Carousel cards stagger */
 .carousel-card:nth-child(1) {
     animation: cardStagger .4s cubic-bezier(.22,1,.36,1) .1s both;
 }
@@ -6949,7 +6412,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Venue detail two-column entrance */
 .venue-two-col {
     animation: pageEnter .4s cubic-bezier(.22,1,.36,1) .08s both;
 }
@@ -6958,7 +6420,6 @@ body:has(.guests-wrap) {
     animation: pageEnter .45s cubic-bezier(.22,1,.36,1) .2s both;
 }
 
-/* Sidebar venue cards stagger */
 .sidebar-venue-card:nth-child(1) {
     animation: cardStaggerUp .38s cubic-bezier(.22,1,.36,1) .22s both;
 }
@@ -6983,7 +6444,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Info cards in detail view */
 .vinfo-card:nth-child(1) {
     animation: cardStaggerUp .35s cubic-bezier(.22,1,.36,1) .12s both;
 }
@@ -7000,7 +6460,6 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .35s cubic-bezier(.22,1,.36,1) .30s both;
 }
 
-/* Sections stagger */
 .venue-section:nth-child(1) {
     animation: cardStaggerUp .38s cubic-bezier(.22,1,.36,1) .18s both;
 }
@@ -7021,7 +6480,6 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .38s cubic-bezier(.22,1,.36,1) .42s both;
 }
 
-/* ── Dashboard widgets stagger ───────────────────────────── */
 .widget:nth-child(1) {
     animation: cardStaggerUp .4s cubic-bezier(.22,1,.36,1) .08s both;
 }
@@ -7038,7 +6496,6 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .4s cubic-bezier(.22,1,.36,1) .32s both;
 }
 
-/* ── Guests — stat cards + rows ──────────────────────────── */
 .stat-card:nth-child(1) {
     animation: cardStaggerUp .35s cubic-bezier(.22,1,.36,1) .06s both;
 }
@@ -7055,7 +6512,6 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .35s cubic-bezier(.22,1,.36,1) .24s both;
 }
 
-/* ── Tables — round table cards stagger ──────────────────── */
 .round-table-card:nth-child(1) {
     animation: cardStaggerUp .38s cubic-bezier(.22,1,.36,1) .08s both;
 }
@@ -7076,17 +6532,14 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .38s cubic-bezier(.22,1,.36,1) .36s both;
 }
 
-/* Head table */
 .head-table-card {
     animation: cardStaggerUp .42s cubic-bezier(.22,1,.36,1) .04s both;
 }
 
-/* ── Pool sidebar ────────────────────────────────────────── */
 .pool-sidebar {
     animation: pageEnter .4s cubic-bezier(.22,1,.36,1) .12s both;
 }
 
-/* ── Admin panels ────────────────────────────────────────── */
 .panel:nth-child(1) {
     animation: cardStaggerUp .4s cubic-bezier(.22,1,.36,1) .1s both;
 }
@@ -7099,7 +6552,6 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .4s cubic-bezier(.22,1,.36,1) .3s both;
 }
 
-/* ── Modal entrance ──────────────────────────────────────── */
 .modal-box {
     animation: modalIn .32s cubic-bezier(.34,1.56,.64,1) both;
 }
@@ -7130,7 +6582,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Drawer ──────────────────────────────────────────────── */
 .drawer-panel {
     transition: transform .28s cubic-bezier(.32,0,.67,0);
 }
@@ -7139,7 +6590,6 @@ body:has(.guests-wrap) {
     transition: transform .32s cubic-bezier(.22,1,.36,1) !important;
 }
 
-/* ── Toast entrance ──────────────────────────────────────── */
 .toast {
     animation: toastIn .35s cubic-bezier(.34,1.56,.64,1) both;
 }
@@ -7156,7 +6606,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Hover micro-interactions ────────────────────────────── */
 .btn-add,
 .btn-outline,
 .btn-add-guest {
@@ -7177,7 +6626,6 @@ body:has(.guests-wrap) {
         box-shadow: 0 4px 14px rgba(79,107,74,.3);
     }
 
-/* ── Reduced motion ──────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: .01ms !important;
@@ -7185,7 +6633,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Venue detail — re-triggered on each venue open ─────── */
 .venue-hero-full {
     animation: heroReveal .5s cubic-bezier(.22,1,.36,1) both;
 }
@@ -7194,7 +6641,6 @@ body:has(.guests-wrap) {
         transition: transform .5s ease;
     }
 
-/* Overlay text slides up when hero loads */
 .venue-selected-bottom {
     animation: overlayTextIn .55s cubic-bezier(.22,1,.36,1) .1s both;
 }
@@ -7219,14 +6665,9 @@ body:has(.guests-wrap) {
     }
 }
 
-/* Thumbnail strip slides in */
 .venue-thumbs {
     animation: overlayTextIn .4s cubic-bezier(.22,1,.36,1) .25s both;
 }
-
-/* ══════════════════════════════════════════════════════════════
-   TASKS PAGE  (/tasks)
-   ══════════════════════════════════════════════════════════════ */
 
 .tasks-page {
     max-width: 860px;
@@ -7237,7 +6678,6 @@ body:has(.guests-wrap) {
     gap: 1rem;
 }
 
-/* Progress card */
 .tasks-progress-card {
     background: rgba(255,255,255,.72);
     backdrop-filter: blur(14px);
@@ -7373,7 +6813,6 @@ body:has(.guests-wrap) {
     background: #22c55e;
 }
 
-/* Filter bar */
 .tasks-filter-bar {
     display: flex;
     gap: .35rem;
@@ -7415,7 +6854,6 @@ body:has(.guests-wrap) {
     font-size: .72rem;
 }
 
-/* Task list */
 .task-list-wrap {
     display: flex;
     flex-direction: column;
@@ -7605,10 +7043,6 @@ body:has(.guests-wrap) {
     color: var(--muted);
     font-size: .88rem;
 }
-
-/* ══════════════════════════════════════════════════════════════
-   BUDGET PAGE  (/budget)
-   ══════════════════════════════════════════════════════════════ */
 
 .budget-page {
     max-width: 960px;
@@ -7819,7 +7253,6 @@ body:has(.guests-wrap) {
     flex-shrink: 0;
 }
 
-/* Table */
 .budget-table-card {
     background: rgba(255,255,255,.72);
     backdrop-filter: blur(14px);
@@ -8006,10 +7439,6 @@ body:has(.guests-wrap) {
     color: var(--sage-dark);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MENU PAGE  (/menu)
-   ══════════════════════════════════════════════════════════════ */
-
 .menu-page {
     max-width: 960px;
     margin: 0 auto;
@@ -8019,7 +7448,6 @@ body:has(.guests-wrap) {
     gap: 1.1rem;
 }
 
-/* Dietary filter bar */
 .menu-filter-bar {
     display: flex;
     align-items: center;
@@ -8057,7 +7485,6 @@ body:has(.guests-wrap) {
     border-color: var(--sage) !important;
 }
 
-/* Package grid */
 .menu-packages-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -8105,7 +7532,6 @@ body:has(.guests-wrap) {
     font-weight: 700;
 }
 
-/* Dietary type badges */
 .menu-pkg-diet-badge {
     display: inline-flex;
     align-items: center;
@@ -8238,7 +7664,6 @@ body:has(.guests-wrap) {
     border: 1.5px solid var(--sage-light);
 }
 
-/* Detail view */
 .menu-detail {
     display: flex;
     flex-direction: column;
@@ -8268,7 +7693,6 @@ body:has(.guests-wrap) {
     font-weight: 400;
 }
 
-/* Course tabs */
 .menu-course-tabs {
     display: flex;
     gap: .45rem;
@@ -8298,14 +7722,13 @@ body:has(.guests-wrap) {
     border-color: var(--sage) !important;
 }
 
-/* Dishes grid */
-.menu-dishes-grid {
+.menu-items-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: .75rem;
 }
 
-.menu-dish-card {
+.menu-item-card {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -8319,32 +7742,32 @@ body:has(.guests-wrap) {
     animation: cardStaggerUp .35s cubic-bezier(.22,1,.36,1) both;
 }
 
-.menu-dish-info {
+.menu-item-info {
     flex: 1;
     min-width: 0;
 }
 
-.menu-dish-name {
+.menu-item-name {
     font-weight: 700;
     font-size: .9rem;
     color: var(--text);
     margin: 0 0 .25rem;
 }
 
-.menu-dish-desc {
+.menu-item-desc {
     font-size: .78rem;
     color: var(--muted);
     line-height: 1.4;
     margin: 0 0 .5rem;
 }
 
-.menu-dish-tags {
+.menu-item-tags {
     display: flex;
     gap: .3rem;
     flex-wrap: wrap;
 }
 
-.menu-dish-tag {
+.menu-item-tag {
     font-size: .65rem;
     font-weight: 700;
     padding: .12rem .45rem;
@@ -8376,7 +7799,7 @@ body:has(.guests-wrap) {
     border-color: #c8dbc5;
 }
 
-.menu-dish-icon {
+.menu-item-icon {
     width: 2.4rem;
     height: 2.4rem;
     border-radius: .6rem;
@@ -8403,7 +7826,6 @@ body:has(.guests-wrap) {
     background: linear-gradient(135deg, #b6ccb1, #6f8768);
 }
 
-/* Responsive */
 @media (max-width: 700px) {
     .tasks-page,
     .budget-page,
@@ -8416,7 +7838,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Menu selection summary bar ──────────────────────────── */
 .menu-selection-summary {
     display: flex;
     align-items: center;
@@ -8433,10 +7854,6 @@ body:has(.guests-wrap) {
     .menu-selection-summary strong {
         font-weight: 700;
     }
-
-/* ══════════════════════════════════════════════════════════════
-   VENDORS PAGE  (/vendors)
-   ══════════════════════════════════════════════════════════════ */
 
 .vendors-page {
     max-width: 960px;
@@ -8477,7 +7894,6 @@ body:has(.guests-wrap) {
     font-size: .66rem;
 }
 
-/* Stats row */
 .vendor-stats {
     display: flex;
     gap: 1rem;
@@ -8516,7 +7932,6 @@ body:has(.guests-wrap) {
     letter-spacing: .05em;
 }
 
-/* Vendor grid */
 .vendor-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -8600,7 +8015,6 @@ body:has(.guests-wrap) {
     line-height: 1.4;
 }
 
-/* Stars */
 .vendor-stars {
     display: flex;
     align-items: center;
@@ -8633,7 +8047,6 @@ body:has(.guests-wrap) {
     margin-left: .25rem;
 }
 
-/* Book button */
 .vendor-book-btn {
     display: flex;
     align-items: center;
@@ -8772,7 +8185,6 @@ body:has(.guests-wrap) {
     }
 }
 
-/* ── Vendor status pill & actions ────────────────────────── */
 .vendor-status-pill {
     font-size: .7rem;
     font-weight: 700;
@@ -8809,7 +8221,6 @@ body:has(.guests-wrap) {
         flex: 1;
     }
 
-/* ── Admin supplier icon (replaces venue thumbnail) ─────── */
 .supplier-icon {
     width: 4rem;
     height: 3.5rem;
@@ -8822,7 +8233,6 @@ body:has(.guests-wrap) {
     flex-shrink: 0;
 }
 
-/* PagesPaula full-bleed shell fixes */
 html,
 body {
     margin: 0;
@@ -8890,7 +8300,6 @@ body {
     overflow-x: hidden;
 }
 
-/* Guests: menu evidence and row controls */
 .guest-menu-select {
     width: 8.2rem;
     min-height: 2rem;
@@ -8956,7 +8365,6 @@ body {
     font-size: .82rem;
 }
 
-/* Vendors import/export/add controls */
 .vendor-toolbar-actions {
     display: flex;
     align-items: center;
@@ -9082,7 +8490,6 @@ body {
     font-size: .72rem;
 }
 
-/* Shared app page surface: keep pages on the same full-width green canvas. */
 .paula-layout-body:has(.dash-body),
 .paula-layout-body:has(.venues-page),
 .paula-layout-body:has(.guests-wrap),
@@ -9150,7 +8557,7 @@ body {
 }
 
 .venue-cards-grid,
-.menu-dishes-grid,
+.menu-items-grid,
 .tables-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 }
@@ -9213,6 +8620,68 @@ body {
     background: transparent;
     border: 0;
     border-radius: 0;
+}
+
+.guest-tools-row.guest-toolbar-shell {
+    padding: .65rem .75rem .5rem;
+    background: rgba(255,255,255,.78);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.7);
+    border-radius: .9rem;
+    box-shadow: 0 2px 8px rgba(79,107,74,.06);
+}
+
+.guest-tools-row.guest-toolbar-shell .guests-filter-toolbar,
+.guest-tools-row.guest-toolbar-shell .guest-command-bar {
+    background: transparent;
+}
+
+.vendors-page .vendor-filter-toolbar,
+.guests-wrap .guest-tools-row {
+    padding: .7rem .85rem;
+    background: rgba(255,255,255,.82);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.72);
+    border-radius: .9rem;
+    box-shadow: 0 2px 8px rgba(79,107,74,.06);
+    gap: .55rem;
+}
+
+.vendors-page .vendor-filter-toolbar .search-wrap,
+.guests-wrap .guests-filter-toolbar .search-wrap {
+    flex: 1 1 14rem;
+    min-width: 12rem;
+}
+
+.vendors-page .vendor-filter-toolbar .filter-select,
+.guests-wrap .guests-filter-toolbar .filter-select {
+    width: 7.25rem;
+}
+
+.vendors-page .vendor-toolbar-actions,
+.guests-wrap .guest-command-bar {
+    gap: .5rem;
+}
+
+.vendors-page .vendor-toolbar-actions .btn-outline,
+.vendors-page .vendor-toolbar-actions .btn-add,
+.guests-wrap .guest-command-bar .btn-outline,
+.guests-wrap .guest-command-bar .btn-add {
+    min-height: 2.45rem;
+    padding: .55rem .8rem;
+    font-size: .84rem;
+    font-weight: 700;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+
+.vendors-page .vendor-toolbar-actions svg,
+.guests-wrap .guest-command-bar svg {
+    width: .95rem;
+    height: .95rem;
+    flex-shrink: 0;
 }
 
 .admin-primary-tag-value {
@@ -9280,6 +8749,149 @@ body {
     font-size: .66rem;
     font-weight: 800;
     padding: .12rem .45rem;
+}
+
+.admin-menu-list {
+    padding: .75rem 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+}
+
+.admin-menu-list-empty {
+    grid-template-columns: 1fr;
+    min-height: 190px;
+    place-items: center;
+}
+
+.admin-menu-empty {
+    width: 100%;
+    margin: 0;
+}
+
+.admin-menu-card {
+    background: rgba(255,255,255,.66);
+    border: 1.5px solid rgba(200,219,197,.5);
+    border-radius: .85rem;
+    padding: .9rem;
+}
+
+.admin-menu-card-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.admin-menu-card h4 {
+    margin: .45rem 0 .25rem;
+    color: var(--text);
+    font-size: .95rem;
+}
+
+.admin-menu-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: .78rem;
+    line-height: 1.35;
+}
+
+.admin-menu-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: .25rem;
+    color: var(--sage-dark);
+    flex-shrink: 0;
+}
+
+.admin-menu-side span {
+    color: var(--muted);
+    font-size: .74rem;
+    font-weight: 700;
+}
+
+.admin-menu-courses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-top: .75rem;
+}
+
+.admin-menu-courses span {
+    background: rgba(125,155,118,.12);
+    color: var(--sage-dark);
+    border: 1px solid rgba(125,155,118,.18);
+    border-radius: .4rem;
+    padding: .18rem .45rem;
+    font-size: .72rem;
+}
+
+.admin-menu-modal {
+    max-width: 780px;
+    max-height: min(88dvh, 780px);
+    overflow: auto;
+}
+
+.admin-menu-builder {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    margin: .4rem 0 1rem;
+}
+
+.admin-menu-builder-head,
+.admin-course-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.admin-menu-builder-head h4 {
+    margin: .2rem 0 0;
+    color: var(--sage-dark);
+    font-size: .95rem;
+}
+
+.admin-course-box {
+    background: rgba(248,252,248,.72);
+    border: 1px solid rgba(200,219,197,.55);
+    border-radius: .85rem;
+    padding: .8rem;
+}
+
+.admin-course-head .field {
+    flex: 1;
+    margin-bottom: .65rem;
+}
+
+.admin-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.admin-item-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .5rem;
+    align-items: center;
+}
+
+.admin-add-item {
+    margin-top: .65rem;
+    font-size: .8rem;
+    padding: .35rem .75rem;
+}
+
+@media (max-width: 760px) {
+    .admin-menu-list {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-item-row {
+        grid-template-columns: 1fr;
+    }
 }
 
 .plus-one-guest-badge {
