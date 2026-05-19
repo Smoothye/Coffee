@@ -1,8 +1,9 @@
 ﻿@page "/tasks"
-@layout UserLayout
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject WeddingPlannerApp.Services.WeddingStateService State
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Components.PagesPaula.TaskComponents
 @implements IDisposable
 
 <PageNav Title="Tasks"
@@ -40,7 +41,7 @@
         </div>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar tasks-toolbar">
 
         <div class="search-wrap">
             <span class="search-icon">@SvgIcons.Search</span>
@@ -51,21 +52,26 @@
                    @bind:event="oninput" />
         </div>
 
-        <select class="input select-input filter-select" @bind="activeFilter">
-            @foreach (var f in filters)
-            {
-                <option value="@f.Key">@f.Label</option>
-            }
-        </select>
+        <label class="budget-filter-field">
+            <span>Category</span>
+            <select class="input select-input filter-select" @bind="activeCat">
+                <option value="">All</option>
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+        </label>
 
-        <select class="input select-input filter-select" @bind="activeCat">
-            <option value="">All categories</option>
-
-            @foreach (var cat in categories)
-            {
-                <option value="@cat">@cat</option>
-            }
-        </select>
+        <label class="budget-filter-field">
+            <span>Status</span>
+            <select class="input select-input filter-select" @bind="activeStatus">
+                @foreach (var f in statusFilters)
+                {
+                    <option value="@f.Key">@f.Label</option>
+                }
+            </select>
+        </label>
 
         <div class="toolbar-actions">
             <button class="btn-add" @onclick="@(() => addOpen = true)">
@@ -125,7 +131,7 @@
                 </span>
 
                 <button class="task-delete"
-                        @onclick="@(() => State.RemoveTask(t.Id))"
+                        @onclick="@(() => RemoveTask(t.Id))"
                         title="Remove">
 
                     @SvgIcons.Trash
@@ -157,10 +163,11 @@
     <div class="field">
         <label>Task title *</label>
 
-        <input class="input"
+        <input class="input @(HasAddError(nameof(newTitle)) ? "field-invalid" : "")"
                placeholder="e.g. Confirm florist order"
                @bind="newTitle"
                @bind:event="oninput" />
+        @AddFieldError(nameof(newTitle))
     </div>
 
     <div class="form-grid-2">
@@ -192,9 +199,10 @@
         <label>Due date</label>
 
         <input type="date"
-               class="input"
+               class="input @(HasAddError(nameof(newDueDate)) ? "field-invalid" : "")"
                @bind="newDueDate"
                min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+        @AddFieldError(nameof(newDueDate))
     </div>
 
     <button class="btn-add-guest" @onclick="AddTask">
@@ -203,26 +211,30 @@
 
 </ModalShell>
 
+<ConfirmDialog IsOpen="confirmDeleteOpen"
+               Title="Delete task?"
+               Message="This task will be removed from your checklist."
+               ConfirmText="Delete task"
+               OnCancel="@(() => confirmDeleteOpen = false)"
+               OnConfirm="ConfirmRemoveTask" />
+
 @code {
 
-    record Filter(string Key, string Label);
-    List<Filter> filters = new()
+    List<TaskFilter> statusFilters = new()
     {
-    new("all",      "All"),
-    new("overdue",  "Overdue"),
-    new("urgent",   "Due soon"),
-    new("high",     "High priority"),
-    new("medium",   "Medium priority"),
-    new("low",      "Low priority"),
-    new("done",     "Completed"),
-};
+        new("all", "All"),
+        new("open", "Open"),
+        new("urgent", "Due soon"),
+        new("overdue", "Overdue"),
+        new("done", "Completed"),
+    };
 
     static readonly string[] categories = {
         "Venue","Catering","Florals","Music","Photography",
         "Beauty","Invitations","Decor","Tables","Schedule","Travel","General"
     };
 
-    string activeFilter = "all";
+    string activeStatus = "all";
     string activeCat = "";
     string searchQuery = "";
 
@@ -239,8 +251,11 @@
                     || t.Category.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
             }
 
-            q = activeFilter switch
+            q = activeStatus switch
             {
+                "open" => q.Where(t =>
+                    !t.Done),
+
                 "overdue" => q.Where(t =>
                     t.IsOverdue &&
                     !t.Done),
@@ -248,18 +263,6 @@
                 "urgent" => q.Where(t =>
                     t.IsUrgent &&
                     !t.IsOverdue &&
-                    !t.Done),
-
-                "high" => q.Where(t =>
-                    t.Priority == "high" &&
-                    !t.Done),
-
-                "medium" => q.Where(t =>
-                    t.Priority == "medium" &&
-                    !t.Done),
-
-                "low" => q.Where(t =>
-                    t.Priority == "low" &&
                     !t.Done),
 
                 "done" => q.Where(t =>
@@ -291,8 +294,11 @@
         : 0;
 
     bool addOpen = false;
+    bool confirmDeleteOpen = false;
+    int pendingDeleteTaskId;
 
     string addError = "";
+    Dictionary<string, string> addFieldErrors = new();
     string newTitle = "";
 
     string newCategory = "General";
@@ -304,6 +310,7 @@
     {
         addOpen = false;
         addError = "";
+        addFieldErrors.Clear();
         newTitle = "";
 
         newCategory = "General";
@@ -315,10 +322,21 @@
     void AddTask()
     {
         addError = "";
+        addFieldErrors.Clear();
 
         if (string.IsNullOrWhiteSpace(newTitle))
         {
-            addError = "Title is required.";
+            addFieldErrors[nameof(newTitle)] = "Task title is required.";
+        }
+
+        if (newDueDate.Date < DateTime.Today)
+        {
+            addFieldErrors[nameof(newDueDate)] = "Due date cannot be in the past.";
+        }
+
+        if (addFieldErrors.Count > 0)
+        {
+            addError = "Please fix the highlighted fields.";
             return;
         }
 
@@ -333,11 +351,34 @@
         CloseAdd();
     }
 
+    void RemoveTask(int id)
+    {
+        pendingDeleteTaskId = id;
+        confirmDeleteOpen = true;
+    }
+
+    void ConfirmRemoveTask()
+    {
+        State.RemoveTask(pendingDeleteTaskId);
+        confirmDeleteOpen = false;
+    }
+
     protected override void OnInitialized()
         => State.OnChange += Refresh;
 
     void Refresh()
         => InvokeAsync(StateHasChanged);
+
+    bool HasAddError(string field) => addFieldErrors.ContainsKey(field);
+
+    RenderFragment AddFieldError(string field) => builder =>
+    {
+        if (!addFieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
 
     public void Dispose()
         => State.OnChange -= Refresh;

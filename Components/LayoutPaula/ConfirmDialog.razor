@@ -1,0 +1,23 @@
+<ModalShell IsOpen="IsOpen" Title="@Title" OnClose="OnCancel" ExtraClass="confirm-modal">
+    <div class="confirm-dialog">
+        <div class="confirm-icon @(Variant == "danger" ? "confirm-icon-danger" : "confirm-icon-warn")">
+            @(Variant == "danger" ? SvgIcons.Trash : SvgIcons.AlertCircle)
+        </div>
+        <p class="confirm-message">@Message</p>
+        <div class="confirm-actions">
+            <button class="btn-outline confirm-cancel" @onclick="OnCancel">@CancelText</button>
+            <button class="btn-add-guest confirm-primary @(Variant == "danger" ? "confirm-danger-btn" : "")" @onclick="OnConfirm">@ConfirmText</button>
+        </div>
+    </div>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Are you sure?";
+    [Parameter] public string Message { get; set; } = "";
+    [Parameter] public string ConfirmText { get; set; } = "Delete";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string Variant { get; set; } = "danger";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

@@ -1,0 +1,19 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="guest-command-bar">
+    <button class="btn-outline" @onclick="OnCsvGuide">@SvgIcons.FileText CSV Guide</button>
+    <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
+        @SvgIcons.Upload Import
+        <InputFile OnChange="OnImport" accept=".csv" style="display:none;" />
+    </label>
+    <button class="btn-outline" @onclick="OnExport">@SvgIcons.Download Export</button>
+    <button class="btn-add" @onclick="OnAddGuest">@SvgIcons.Plus Add Guest</button>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnCsvGuide { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnImport { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+    [Parameter] public EventCallback OnAddGuest { get; set; }
+}

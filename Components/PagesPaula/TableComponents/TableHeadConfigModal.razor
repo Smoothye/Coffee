@@ -1,0 +1,51 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<ModalShell IsOpen="IsOpen" Title="Configure Head Table" OnClose="OnClose">
+    <p style="font-size:.85rem;color:var(--muted);margin:0 0 1.25rem;">
+        The head table always includes the Bride &amp; Groom. Choose how many godparent couples to add.
+    </p>
+
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Bride name</label>
+            <input class="input" value="@BrideName" @oninput="SetBrideName" placeholder="Bride name" />
+        </div>
+        <div class="field">
+            <label>Groom name</label>
+            <input class="input" value="@GroomName" @oninput="SetGroomName" placeholder="Groom name" />
+        </div>
+    </div>
+
+    <div class="field">
+        <label>Number of godparent couples</label>
+        <div class="couple-picker">
+            @for (int i = 1; i <= 4; i++)
+            {
+                var n = i;
+                <button type="button"
+                        class="couple-btn @(GodparentCount == n ? "couple-btn-active" : "")"
+                        @onclick="@(() => GodparentCountChanged.InvokeAsync(n))">
+                    @n @(n == 1 ? "couple" : "couples")
+                    <span class="couple-seats">@(2 + n * 2) seats</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <button class="btn-add-guest" @onclick="OnApply">Apply Configuration</button>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string BrideName { get; set; } = "Bride";
+    [Parameter] public EventCallback<string> BrideNameChanged { get; set; }
+    [Parameter] public string GroomName { get; set; } = "Groom";
+    [Parameter] public EventCallback<string> GroomNameChanged { get; set; }
+    [Parameter] public int GodparentCount { get; set; } = 2;
+    [Parameter] public EventCallback<int> GodparentCountChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnApply { get; set; }
+
+    Task SetBrideName(ChangeEventArgs e) => BrideNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task SetGroomName(ChangeEventArgs e) => GroomNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+}

@@ -1,326 +1,55 @@
 ﻿@page "/tables"
-@layout UserLayout
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @using System.Text
+@using WeddingPlannerApp.Components.PagesPaula.TableComponents
 @implements IDisposable
 
-<nav class="tables-nav">
-    <div class="tables-nav-brand">
-        <div class="tables-nav-icon">
-            @SvgGrid
-        </div>
-        <div>
-            <span class="tables-nav-title">Table Plan</span>
-            <span class="tables-nav-sub">Drag guests to seats</span>
-        </div>
-    </div>
-</nav>
+<PageNav Title="Table Plan"
+         Subtitle="Drag guests to seats"
+         IconSvg="@SvgIcons.TablesNav" />
 
 @if (!string.IsNullOrEmpty(toastMsg))
 {
     <div class="toast @(toastError ? "toast-error" : "toast-success")">
-        @(toastError ? SvgAlertCircle : SvgCheckCircle)
+        @(toastError ? SvgIcons.AlertCircle : SvgIcons.CheckCircle)
         @toastMsg
     </div>
 }
 
-@if (csvGuideOpen)
-{
-    <div class="modal-backdrop" @onclick="@(() => { csvGuideOpen = false; dragActive = false; })">
-        <div class="modal-box csv-guide-box" @onclick:stopPropagation="true">
-
-            <div class="modal-header">
-                <h3>Import Guests</h3>
-                <button class="modal-close" @onclick="@(() => { csvGuideOpen = false; dragActive = false; })">@SvgX</button>
-            </div>
-
-            <div class="csv-two-col">
-
-                <div class="csv-left">
-                    <p class="csv-section-title">Accepted formats</p>
-                    <div class="csv-formats">
-                        <span class="csv-format-tag">.csv</span>
-                        <span class="csv-format-note">Only .csv files are accepted. Excel files must be saved as CSV first (File &rarr; Save As &rarr; CSV UTF-8).</span>
-                    </div>
-
-                    <p class="csv-section-title" style="margin-top:1rem;">Columns</p>
-                    <div class="csv-col-table">
-                        <div class="csv-col-head">
-                            <span>Column</span><span>Req.</span><span>Valid values</span>
-                        </div>
-                        <div class="csv-col-row">
-                            <span class="csv-col-name">FirstName</span>
-                            <span class="csv-req yes">Yes</span>
-                            <span class="csv-col-vals">Any text</span>
-                        </div>
-                        <div class="csv-col-row">
-                            <span class="csv-col-name">LastName</span>
-                            <span class="csv-req yes">Yes</span>
-                            <span class="csv-col-vals">Any text</span>
-                        </div>
-                        <div class="csv-col-row">
-                            <span class="csv-col-name">Group</span>
-                            <span class="csv-req no">No</span>
-                            <span class="csv-col-vals">
-                                <span class="csv-tag csv-family">family</span>
-                                <span class="csv-tag csv-friends">friends</span>
-                                <span class="csv-tag csv-colleagues">colleagues</span>
-                                <span class="csv-tag csv-other">other</span>
-                            </span>
-                        </div>
-                        <div class="csv-col-row">
-                            <span class="csv-col-name">Email</span>
-                            <span class="csv-req no">No</span>
-                            <span class="csv-col-vals">Used for duplicate check</span>
-                        </div>
-                        <div class="csv-col-row">
-                            <span class="csv-col-name">Phone</span>
-                            <span class="csv-req no">No</span>
-                            <span class="csv-col-vals">Any format</span>
-                        </div>
-                        <div class="csv-col-row csv-col-row-muted">
-                            <span class="csv-col-name">Table</span>
-                            <span class="csv-req no">—</span>
-                            <span class="csv-col-vals">Ignored on import</span>
-                        </div>
-                        <div class="csv-col-row csv-col-row-muted">
-                            <span class="csv-col-name">Seat</span>
-                            <span class="csv-req no">—</span>
-                            <span class="csv-col-vals">Ignored on import</span>
-                        </div>
-                    </div>
-
-                    <div class="csv-rules">
-                        <p class="csv-rules-title">@SvgAlertCircle Duplicate rules</p>
-                        <ul class="csv-rules-list">
-                            <li>Same <strong>email</strong> or <strong>phone</strong> &rarr; skipped</li>
-                            <li>Same <strong>full name</strong> &rarr; allowed (shown as duplicate)</li>
-                            <li>Invalid <strong>Group</strong> &rarr; defaults to <span class="csv-tag csv-other">other</span></li>
-                        </ul>
-                    </div>
-
-                    <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
-                        @SvgDownload Download blank template
-                    </button>
-                </div>
-
-                <div class="csv-right">
-                    <p class="csv-section-title">Upload file</p>
-                    <div class="csv-dropzone @(dragActive ? "csv-dropzone-active" : "")"
-                         @ondragenter="@((e) => dragActive = true)"
-                         @ondragleave="@((e) => dragActive = false)"
-                         @ondragover:preventDefault="true"
-                         @ondragover="@((e) => dragActive = true)">
-                        <div class="csv-drop-inner">
-                            @if (csvImportResult == null)
-                            {
-                                <div class="csv-drop-icon">@SvgUploadCloud</div>
-                                <p class="csv-drop-title">Drag &amp; drop your .csv here</p>
-                                <p class="csv-drop-sub">or</p>
-                            }
-                            else
-                            {
-                                <div class="csv-drop-icon @(csvImportResult.HasWarning ? "icon-warn" : "icon-ok")">
-                                    @(csvImportResult.HasWarning ? SvgAlertCircle : SvgCheckCircle)
-                                </div>
-                                <p class="csv-drop-title">@csvImportResult.Message</p>
-                                <p class="csv-drop-sub">Upload another file?</p>
-                            }
-                            <label class="btn-add" style="cursor:pointer;margin-top:.5rem;">
-                                @SvgUpload Browse file
-                                <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
-                            </label>
-                            <p class="csv-accepted-note">Accepted: <strong>.csv</strong> only</p>
-                        </div>
-                    </div>
-                    @if (csvImportResult != null)
-                    {
-                        <button class="btn-add-guest" style="margin-top:.75rem;" @onclick="@(() => { csvGuideOpen = false; dragActive = false; csvImportResult = null; })">
-                            @SvgCheckSmall Done — View Tables
-                        </button>
-                    }
-                </div>
-
-            </div>
+<CsvGuideModal IsOpen="csvGuideOpen"
+               Title="Import Guests"
+               AcceptedTitle="Accepted formats"
+               Columns="tableCsvColumns"
+               OnClose="@CloseCsvGuide">
+    <LeftFooter>
+        <div class="csv-rules">
+            <p class="csv-rules-title">@SvgIcons.AlertCircle Duplicate rules</p>
+            <ul class="csv-rules-list">
+                <li>Same <strong>email</strong> or <strong>phone</strong> &rarr; skipped</li>
+                <li>Same <strong>full name</strong> &rarr; allowed (shown as duplicate)</li>
+                <li>Invalid <strong>Group</strong> &rarr; defaults to <span class="csv-tag csv-other">other</span></li>
+            </ul>
         </div>
-    </div>
-}
-
-@if (addGuestOpen)
-{
-    <div class="modal-backdrop" @onclick="CloseAddGuest">
-        <div class="modal-box" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <h3>Add Guest</h3>
-                <button class="modal-close" @onclick="CloseAddGuest">@SvgX</button>
-            </div>
-            @if (!string.IsNullOrEmpty(addGuestError))
-            {
-                <div class="error-banner">@SvgAlertCircle @addGuestError</div>
-            }
-            @if (!string.IsNullOrEmpty(dupWarning))
-            {
-                <div class="dup-warning">
-                    @SvgAlertTriangle
-                    <span>@dupWarning</span>
-                </div>
-            }
-            <div class="form-grid-2">
-                <div class="field">
-                    <label>First Name *</label>
-                    <input class="input" @bind="ng_FirstName" @bind:event="oninput" placeholder="John" />
-                </div>
-                <div class="field">
-                    <label>Last Name *</label>
-                    <input class="input" @bind="ng_LastName" @bind:event="oninput" placeholder="Doe" />
-                </div>
-            </div>
-            <div class="form-grid-2">
-                <div class="field">
-                    <label>Email</label>
-                    <input class="input" @bind="ng_Email" @bind:event="oninput" placeholder="john@example.com" />
-                </div>
-                <div class="field">
-                    <label>Phone</label>
-                    <input class="input" @bind="ng_Phone" @bind:event="oninput" placeholder="+40..." />
-                </div>
-            </div>
-            <div class="form-grid-2">
-                <div class="field">
-                    <label>Group</label>
-                    <select class="input select-input" @bind="ng_Group">
-                        <option value="family">Family</option>
-                        <option value="friends">Friends</option>
-                        <option value="colleagues">Colleagues</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <label>Assign to</label>
-                    <select class="input select-input" @bind="ng_AssignTo">
-                        <option value="pool">Guest Pool (unassigned)</option>
-                        @foreach (var t in tables)
-                        {
-                            var filled = t.Seats.Count(s => s != null);
-                            <option value="@t.Id" disabled="@(filled >= t.Capacity)">
-                                @t.Name (@filled/@t.Capacity)@(filled >= t.Capacity ? " — Full" : "")
-                            </option>
-                        }
-                    </select>
-                </div>
-            </div>
-            <button class="btn-add-guest" @onclick="AddGuest">
-                @SvgUserPlus Add Guest
-            </button>
-        </div>
-    </div>
-}
-
-@if (headConfigOpen)
-{
-    <div class="modal-backdrop" @onclick="@(() => headConfigOpen = false)">
-        <div class="modal-box" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <h3>Configure Head Table</h3>
-                <button class="modal-close" @onclick="@(() => headConfigOpen = false)">@SvgX</button>
-            </div>
-            <p style="font-size:.85rem;color:var(--muted);margin:0 0 1.25rem;">
-                The head table always includes the Bride &amp; Groom. Choose how many godparent couples to add.
-            </p>
-            <div class="form-grid-2">
-                <div class="field">
-                    <label>Bride name</label>
-                    <input class="input" @bind="pendingBrideName" @bind:event="oninput" placeholder="Bride name" />
-                </div>
-                <div class="field">
-                    <label>Groom name</label>
-                    <input class="input" @bind="pendingGroomName" @bind:event="oninput" placeholder="Groom name" />
-                </div>
-            </div>
-            <div class="field">
-                <label>Number of godparent couples</label>
-                <div class="couple-picker">
-                    @for (int i = 1; i <= 4; i++)
-                    {
-                        var n = i;
-                        <button type="button"
-                                class="couple-btn @(pendingGodparentCount == n ? "couple-btn-active" : "")"
-                                @onclick="@(() => pendingGodparentCount = n)">
-                            @n @(n == 1 ? "couple" : "couples")
-                            <span class="couple-seats">@(2 + n * 2) seats</span>
-                        </button>
-                    }
-                </div>
-            </div>
-            <button class="btn-add-guest" @onclick="ApplyHeadConfig">Apply Configuration</button>
-        </div>
-    </div>
-}
-
-@if (seatPickerOpen && pickerTable != null)
-{
-    var pickerGuests = PickerGuests().ToList();
-    var seatLabel = pickerTable.IsHeadTable
-        ? (HeadLabels().ElementAtOrDefault(pickerSeatIndex) ?? $"Seat {pickerSeatIndex + 1}")
-        : $"Seat {pickerSeatIndex + 1}";
-    <div class="modal-backdrop" @onclick="CloseSeatPicker">
-        <div class="modal-box seat-picker-box" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <h3>Assign to @pickerTable.Name — @seatLabel</h3>
-                <button class="modal-close" @onclick="CloseSeatPicker">@SvgX</button>
-            </div>
-            <div class="seat-picker-search-wrap">
-                <input class="input seat-picker-search"
-                       placeholder="Search guests…"
-                       value="@pickerSearch"
-                       @oninput="@((e) => pickerSearch = e.Value?.ToString() ?? "")" />
-            </div>
-            @if (!pickerGuests.Any())
-            {
-                <div class="seat-picker-empty">No guests found.</div>
-            }
-            else
-            {
-                <div class="seat-picker-list">
-                    @foreach (var g in pickerGuests)
-                    {
-                        var guest = g;
-                        var colors = GroupDefs[guest.Group];
-                        var isSeated = tables.Any(t => t.Seats.Any(s => s?.Id == guest.Id));
-                        <button class="seat-picker-item" @onclick="@(() => AssignGuestToSeat(guest))">
-                            <div class="pool-avatar" style="background:linear-gradient(135deg,@colors.SeatFrom,@colors.SeatTo);flex-shrink:0;">
-                                @Initials(guest)
-                            </div>
-                            <div class="seat-picker-info">
-                                <span class="seat-picker-name">@DisplayName(guest)</span>
-                                <span class="seat-picker-meta" style="color:@colors.DotColor;">@guest.Group@(isSeated ? " · currently seated" : " · in pool")</span>
-                            </div>
-                            <span class="seat-picker-assign-icon">@SvgCheckSmall</span>
-                        </button>
-                    }
-                </div>
-            }
-        </div>
-    </div>
-}
-
-<div class="tables-page">
-
-    <div class="tables-canvas">
-
-        <div class="tables-toolbar">
-            <div>
-                <h2 class="tables-h2">Seating Plan</h2>
-                <p class="tables-sub">
-                    @seatedCount/@totalGuests seated &nbsp;·&nbsp; @totalSeats total seats
-                </p>
-            </div>
-            <div class="tables-toolbar-right">
-                @if (totalSeats >= totalGuests && tables.Count > 0)
+        <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
+            @SvgIcons.Download Download blank template
+        </button>
+    </LeftFooter>
+    <UploadContent>
+        <p class="csv-section-title">Upload file</p>
+        <div class="csv-dropzone @(dragActive ? "csv-dropzone-active" : "")"
+             @ondragenter="@((e) => dragActive = true)"
+             @ondragleave="@((e) => dragActive = false)"
+             @ondragover:preventDefault="true"
+             @ondragover="@((e) => dragActive = true)">
+            <div class="csv-drop-inner">
+                @if (csvImportResult == null)
                 {
-                    <span class="seats-ok-badge">@SvgCheckSmall All seated</span>
+                    <div class="csv-drop-icon">@SvgIcons.UploadCloud</div>
+                    <p class="csv-drop-title">Drag &amp; drop your .csv here</p>
+                    <p class="csv-drop-sub">or</p>
                 }
                 <button class="btn-outline" @onclick="OpenHeadConfig">
                     @SvgSettings Configure Head Table
@@ -447,62 +176,94 @@
                     <div class="progress-bar-wrap">
                         <div class="progress-bar" style="width:@((filled * 100 / Math.Max(t.Capacity, 1)))%;background:@(filled >= t.Capacity ? "#f87171" : "var(--sage)");"></div>
                     </div>
-                </div>
-            }
-
-        </div>
-    </div>
-
-    <div class="pool-sidebar @(dragOverPool ? "pool-sidebar-over" : "")"
-         @ondragover:preventDefault="true"
-         @ondragover="@((e) => dragOverPool = true)"
-         @ondragleave="@((e) => dragOverPool = false)"
-         @ondrop="@((e) => DropOnPool())">
-
-        <div class="pool-header">
-            <div>
-                <h3 class="pool-title">Guest Pool</h3>
-                <p class="pool-sub">@pool.Count unassigned · synced from Guests</p>
+                    <p class="csv-drop-title">@csvImportResult.Message</p>
+                    <p class="csv-drop-sub">Upload another file?</p>
+                }
+                <label class="btn-add" style="cursor:pointer;margin-top:.5rem;">
+                    @SvgIcons.Upload Browse file
+                    <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
+                </label>
+                <p class="csv-accepted-note">Accepted: <strong>.csv</strong> only</p>
             </div>
         </div>
+        @if (csvImportResult != null)
+        {
+            <button class="btn-add-guest" style="margin-top:.75rem;" @onclick="CloseCsvGuide">
+                @SvgIcons.CheckSmall Done - View Tables
+            </button>
+        }
+    </UploadContent>
+</CsvGuideModal>
 
-        <div class="pool-list">
-            @foreach (var guest in pool)
-            {
-                var g = guest;
-                var colors = GroupDefs[g.Group];
-                <div class="pool-guest"
-                     style="background:@colors.BgColor;border-color:@colors.RingColor;color:@colors.TextColor;"
-                     draggable="true"
-                     @ondragstart="@(() => StartDrag(g, new DragSource { Type = "pool" }))"
-                     @ondragend="@(() => draggedGuest = null)">
-                    <span class="pool-grip">@SvgGrip</span>
-                    <div class="pool-avatar" style="background:linear-gradient(135deg,@colors.SeatFrom,@colors.SeatTo);">
-                        @Initials(g)
-                    </div>
-                    <span class="pool-name">@DisplayName(g)</span>
-                    @if (!string.IsNullOrEmpty(g.Email))
-                    {
-                        <span class="pool-email" title="@g.Email">@SvgMail</span>
-                    }
-                    <button class="pool-remove" title="Remove guest"
-                            @onclick="@(() => RemoveFromPool(g.Id))"
-                            @onclick:stopPropagation="true">
-                        @SvgX
-                    </button>
-                </div>
-            }
-            @if (pool.Count == 0)
-            {
-                <div class="pool-empty">
-                    @SvgCheckCircleLarge
-                    <p>All guests seated!</p>
-                </div>
-            }
-        </div>
-    </div>
+<TableAddGuestModal IsOpen="addGuestOpen"
+                    Tables="tables"
+                    Error="@addGuestError"
+                    DuplicateWarning="@dupWarning"
+                    FieldErrors="@addGuestFieldErrors"
+                    FirstName="@ng_FirstName"
+                    FirstNameChanged="@((value) => ng_FirstName = value)"
+                    LastName="@ng_LastName"
+                    LastNameChanged="@((value) => ng_LastName = value)"
+                    Email="@ng_Email"
+                    EmailChanged="@((value) => ng_Email = value)"
+                    Phone="@ng_Phone"
+                    PhoneChanged="@((value) => ng_Phone = value)"
+                    Group="@ng_Group"
+                    GroupChanged="@((value) => ng_Group = value)"
+                    AssignTo="@ng_AssignTo"
+                    AssignToChanged="@((value) => ng_AssignTo = value)"
+                    OnClose="CloseAddGuest"
+                    OnAdd="AddGuest" />
 
-</div>
+<TableHeadConfigModal IsOpen="headConfigOpen"
+                      BrideName="@pendingBrideName"
+                      BrideNameChanged="@((value) => pendingBrideName = value)"
+                      GroomName="@pendingGroomName"
+                      GroomNameChanged="@((value) => pendingGroomName = value)"
+                      GodparentCount="@pendingGodparentCount"
+                      GodparentCountChanged="@((value) => pendingGodparentCount = value)"
+                      OnClose="@(() => headConfigOpen = false)"
+                      OnApply="ApplyHeadConfig" />
+
+<TableSeatPickerModal IsOpen="@(seatPickerOpen && pickerTable != null)"
+                      Title="@SeatPickerTitle"
+                      Guests="PickerGuests().ToList()"
+                      SeatedGuestIds="SeatedGuestIds"
+                      Groups="GroupDefs"
+                      Search="@pickerSearch"
+                      SearchChanged="@((value) => pickerSearch = value)"
+                      OnAssign="AssignGuestToSeat"
+                      OnClose="CloseSeatPicker" />
+
+<div class="tables-page">
+
+    <TableSeatingCanvas Tables="tables"
+                        Groups="GroupDefs"
+                        HeadLabels="HeadLabels()"
+                        BrideName="@brideName"
+                        GroomName="@groomName"
+                        GodparentCouples="@godparentCouples"
+                        SeatedCount="seatedCount"
+                        TotalGuests="totalGuests"
+                        TotalSeats="totalSeats"
+                        SeatContent="RenderSeat"
+                        OnConfigureHeadTable="OpenHeadConfig"
+                        OnCsvGuide="OpenCsvGuide"
+                        OnImport="ImportCSV"
+                        OnExport="ExportCSV"
+                        OnAddTable="AddTable"
+                        OnRemoveTable="RemoveTable"
+                        OnResizeTable="ResizeTable" />
+
+    <TableGuestPool Guests="pool"
+                    Groups="GroupDefs"
+                    DragOver="dragOverPool"
+                    OnStartDrag="StartPoolDrag"
+                    OnDragEnd="@(() => draggedGuest = null)"
+                    OnDragOver="@(() => dragOverPool = true)"
+                    OnDragLeave="@(() => dragOverPool = false)"
+                    OnDrop="DropOnPool"
+                    OnRemove="RemoveFromPool" />
 
 @code {
     class TableGuest
@@ -517,23 +278,25 @@
         public bool PlusOne { get; set; } = false;
     }
 
-    class EventTable
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public List<TableGuest?> Seats { get; set; } = new();
-        public int Capacity { get; set; }
-        public bool IsHeadTable { get; set; }
-    }
+<ConfirmDialog IsOpen="confirmDeleteOpen"
+               Title="@confirmDeleteTitle"
+               Message="@confirmDeleteMessage"
+               ConfirmText="@confirmDeleteText"
+               OnCancel="@(() => confirmDeleteOpen = false)"
+               OnConfirm="ConfirmDelete" />
 
-    class DragSource
+@code {
+    static readonly CsvGuideColumn[] tableCsvColumns =
     {
-        public string Type { get; set; } = "pool";
-        public int TableId { get; set; }
-        public int SeatIndex { get; set; }
-    }
+        new() { Name = "FirstName", Required = true, ValidValues = "Any text" },
+        new() { Name = "LastName", Required = true, ValidValues = "Any text" },
+        new() { Name = "Group", ValidValues = "family, friends, colleagues, other" },
+        new() { Name = "Email", ValidValues = "Duplicate check" },
+        new() { Name = "Phone", ValidValues = "Duplicate check" },
+        new() { Name = "Table", ValidValues = "Ignored on import" },
+        new() { Name = "Seat", ValidValues = "Ignored on import" },
+    };
 
-    record GroupColors(string BgColor, string RingColor, string TextColor, string DotColor, string SeatFrom, string SeatTo);
     static readonly Dictionary<string, GroupColors> GroupDefs = new()
     {
         ["family"] = new("#fff1f2", "#fda4af", "#be123c", "#f43f5e", "#fda4af", "#fb7185"),
@@ -553,6 +316,7 @@
     bool addGuestOpen = false;
     string addGuestError = "";
     string dupWarning = "";
+    Dictionary<string, string> addGuestFieldErrors = new();
     string ng_FirstName = "";
     string ng_LastName = "";
     string ng_Email = "";
@@ -565,17 +329,56 @@
     string pendingGroomName = "Groom";
     bool csvGuideOpen = false;
     bool dragActive = false;
-    record CsvImportResult(string Message, bool HasWarning);
     CsvImportResult? csvImportResult = null;
     string toastMsg = "";
     bool toastError = false;
     System.Timers.Timer? toastTimer;
+    bool confirmDeleteOpen = false;
+    string confirmDeleteTitle = "Delete item?";
+    string confirmDeleteMessage = "";
+    string confirmDeleteText = "Delete";
+    string pendingDeleteType = "";
+    int pendingDeleteId;
 
     // Seat picker popover
     bool seatPickerOpen = false;
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
     string pickerSearch = "";
+
+    string SeatPickerTitle
+    {
+        get
+        {
+            if (pickerTable is null)
+                return "Assign guest";
+
+            var seatLabel = pickerTable.IsHeadTable
+                ? (HeadLabels().ElementAtOrDefault(pickerSeatIndex) ?? $"Seat {pickerSeatIndex + 1}")
+                : $"Seat {pickerSeatIndex + 1}";
+
+            return $"Assign to {pickerTable.Name} - {seatLabel}";
+        }
+    }
+
+    IReadOnlySet<int> SeatedGuestIds =>
+        tables.SelectMany(t => t.Seats)
+              .Where(g => g is not null)
+              .Select(g => g!.Id)
+              .ToHashSet();
+
+    void CloseCsvGuide()
+    {
+        csvGuideOpen = false;
+        dragActive = false;
+        csvImportResult = null;
+    }
+
+    void OpenCsvGuide()
+    {
+        csvGuideOpen = true;
+        csvImportResult = null;
+    }
 
     void OpenSeatPicker(EventTable table, int idx)
     {
@@ -665,6 +468,12 @@
     void AssignGuestToSeat(TableGuest guest)
     {
         if (pickerTable == null || pickerSeatIndex < 0) return;
+        if (IsLockedHeadSeat(pickerTable, pickerSeatIndex))
+        {
+            ShowToast("Bride and groom stay at the head table.", error: true);
+            CloseSeatPicker();
+            return;
+        }
 
         // If guest is currently seated somewhere else, free that seat
         foreach (var t in tables)
@@ -691,7 +500,7 @@
     {
         var all = pool.Concat(
             tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>())
-        );
+        ).Where(g => !IsLockedHeadGuest(g));
         if (!string.IsNullOrWhiteSpace(pickerSearch))
         {
             var q = pickerSearch.Trim().ToLower();
@@ -788,9 +597,19 @@
 
     void StartDrag(TableGuest guest, DragSource source)
     {
+        if (IsLockedHeadGuest(guest))
+        {
+            draggedGuest = null;
+            dragSource = null;
+            return;
+        }
+
         draggedGuest = guest;
         dragSource = source;
     }
+
+    void StartPoolDrag(TableGuest guest) =>
+        StartDrag(guest, new DragSource { Type = "pool" });
 
     void DropOnSeat(EventTable targetTable, int seatIndex)
     {
@@ -798,6 +617,13 @@
         dragOverSeat = null;
 
         var existing = targetTable.Seats[seatIndex];
+        if (IsLockedHeadSeat(targetTable, seatIndex) || IsLockedHeadGuest(existing))
+        {
+            ShowToast("Bride and groom stay at the head table.", error: true);
+            draggedGuest = null;
+            dragSource = null;
+            return;
+        }
 
         if (dragSource.Type == "pool")
         {
@@ -822,6 +648,13 @@
     {
         dragOverPool = false;
         if (draggedGuest == null || dragSource == null) return;
+        if (IsLockedHeadGuest(draggedGuest))
+        {
+            draggedGuest = null;
+            dragSource = null;
+            ShowToast("Bride and groom stay at the head table.", error: true);
+            return;
+        }
         if (dragSource.Type == "pool") { draggedGuest = null; dragSource = null; return; }
 
         var srcTable = tables.FirstOrDefault(t => t.Id == dragSource.TableId);
@@ -839,6 +672,11 @@
     {
         var g = table.Seats[idx];
         if (g == null) return;
+        if (IsLockedHeadSeat(table, idx) || IsLockedHeadGuest(g))
+        {
+            ShowToast("Bride and groom stay at the head table.", error: true);
+            return;
+        }
         table.Seats[idx] = null;
         pool.Add(g);
     }
@@ -847,6 +685,7 @@
     {
         addGuestOpen = false;
         addGuestError = "";
+        addGuestFieldErrors.Clear();
         dupWarning = "";
         ng_FirstName = ng_LastName = ng_Email = ng_Phone = "";
         ng_Group = "friends";
@@ -856,12 +695,16 @@
     void AddGuest()
     {
         addGuestError = "";
+        addGuestFieldErrors.Clear();
         dupWarning = "";
 
         if (string.IsNullOrWhiteSpace(ng_FirstName) || string.IsNullOrWhiteSpace(ng_LastName))
-        { addGuestError = "First and last name are required."; return; }
+        {
+            if (string.IsNullOrWhiteSpace(ng_FirstName)) addGuestFieldErrors["FirstName"] = "First name is required.";
+            if (string.IsNullOrWhiteSpace(ng_LastName)) addGuestFieldErrors["LastName"] = "Last name is required.";
+        }
 
-        var allGuests = pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>())).ToList();
+        var allGuests = AllGuests().ToList();
         var dupByEmail = !string.IsNullOrWhiteSpace(ng_Email) &&
                          allGuests.Any(g => !string.IsNullOrWhiteSpace(g.Email) &&
                                             g.Email.Trim().ToLower() == ng_Email.Trim().ToLower());
@@ -869,8 +712,13 @@
                          allGuests.Any(g => !string.IsNullOrWhiteSpace(g.Phone) &&
                                             g.Phone.Trim() == ng_Phone.Trim());
 
-        if (dupByEmail) { addGuestError = "A guest with this email already exists."; return; }
-        if (dupByPhone) { addGuestError = "A guest with this phone number already exists."; return; }
+        if (!string.IsNullOrWhiteSpace(ng_Email) && !ng_Email.Contains('@'))
+            addGuestFieldErrors["Email"] = "Enter a valid email address.";
+        if (dupByEmail)
+            addGuestFieldErrors["Email"] = "A guest with this email already exists.";
+        if (dupByPhone)
+            addGuestFieldErrors["Phone"] = "A guest with this phone number already exists.";
+        if (addGuestFieldErrors.Count > 0) { addGuestError = "Please fix the highlighted fields."; return; }
 
         var sameName = allGuests.Where(g =>
             g.FirstName.Trim().ToLower() == ng_FirstName.Trim().ToLower() &&
@@ -927,8 +775,7 @@
 
     void RemoveFromPool(int id)
     {
-        pool.RemoveAll(g => g.Id == id);
-        ShowToast("Guest removed.");
+        OpenDeleteConfirm("Remove guest?", "Remove this guest from the table plan?", "Remove guest", "pool", id);
     }
 
     void AddTable()
@@ -991,13 +838,45 @@
         tbl.Capacity = newCap;
     }
 
+    void ResizeTable(TableResizeRequest request) =>
+        ResizeTable(request.TableId, request.Delta);
+
     void RemoveTable(int id)
     {
         var tbl = tables.FirstOrDefault(t => t.Id == id);
         if (tbl == null || tbl.IsHeadTable) return;
-        pool.AddRange(tbl.Seats.Where(s => s != null).Cast<TableGuest>());
-        tables.Remove(tbl);
-        ShowToast("Table removed, guests returned to pool.");
+        OpenDeleteConfirm("Delete table?", "Delete this table? Seated guests will be returned to the pool.", "Delete table", "table", id);
+    }
+
+    void OpenDeleteConfirm(string title, string message, string confirmText, string type, int id)
+    {
+        confirmDeleteTitle = title;
+        confirmDeleteMessage = message;
+        confirmDeleteText = confirmText;
+        pendingDeleteType = type;
+        pendingDeleteId = id;
+        confirmDeleteOpen = true;
+    }
+
+    void ConfirmDelete()
+    {
+        if (pendingDeleteType == "pool")
+        {
+            pool.RemoveAll(g => g.Id == pendingDeleteId);
+            ShowToast("Guest removed.");
+        }
+        else if (pendingDeleteType == "table")
+        {
+            var tbl = tables.FirstOrDefault(t => t.Id == pendingDeleteId);
+            if (tbl != null && !tbl.IsHeadTable)
+            {
+                pool.AddRange(tbl.Seats.Where(s => s != null).Cast<TableGuest>());
+                tables.Remove(tbl);
+                ShowToast("Table removed, guests returned to pool.");
+            }
+        }
+
+        confirmDeleteOpen = false;
     }
 
     int seatedCount => tables.Sum(t => t.Seats.Count(s => s != null));
@@ -1098,9 +977,8 @@
 
             if (string.IsNullOrWhiteSpace(fn) && string.IsNullOrWhiteSpace(ln)) { skipped++; continue; }
 
-            if ((!string.IsNullOrWhiteSpace(email) && allGuests.Any(g => g.Email.Trim().ToLower() == email.ToLower())) ||
-                (!string.IsNullOrWhiteSpace(phone) && allGuests.Any(g => g.Phone.Trim() == phone)))
-            { skipped++; continue; }
+    IEnumerable<TableGuest> AllGuests() =>
+        pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>()));
 
             pool.Add(new TableGuest
             {
@@ -1115,76 +993,57 @@
             imported++;
         }
 
-        var msg = skipped > 0
-            ? $"Imported {imported}. Skipped {skipped} duplicate(s)."
-            : $"Imported {imported} guest(s).";
-        csvImportResult = new CsvImportResult(msg, skipped > 0);
-        dragActive = false;
-        ShowToast(msg, error: skipped > 0 && imported == 0);
-    }
+    static bool IsLockedHeadSeat(EventTable table, int seatIndex) =>
+        table.IsHeadTable && seatIndex is 0 or 1;
 
     RenderFragment RenderSeat(TableGuest? guest, EventTable table, int idx, string? label) =>
     @<div class="seat-wrap @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-wrap-over" : "")"
-          @ondragover:preventDefault="true"
-          @ondragover="@((e) => dragOverSeat = $"{table.Id}-{idx}")"
+          @ondragover:preventDefault="@(!IsLockedHeadSeat(table, idx))"
+          @ondragover="@((e) => { if (!IsLockedHeadSeat(table, idx)) dragOverSeat = $"{table.Id}-{idx}"; })"
           @ondragleave="@((e) => dragOverSeat = null)"
           @ondrop="@((e) => { DropOnSeat(table, idx); dragOverSeat = null; })">
         @if (guest != null)
         {
             var g = guest;
+            var isLocked = IsLockedHeadGuest(g);
             var col = GroupDefs[g.Group];
             var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} — {label ?? $"Seat {idx + 1}"}";
             <div class="seat-guest @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
                  style="background:linear-gradient(135deg,@col.SeatFrom,@col.SeatTo);box-shadow:0 2px 8px rgba(0,0,0,.2);"
                  title="@title"
-                 draggable="true"
+                 draggable="@(!isLocked)"
                  @ondragstart="@(() => StartDrag(g, new DragSource { Type = "table", TableId = table.Id, SeatIndex = idx }))"
                  @ondragend="@(() => draggedGuest = null)">
-                @Initials(g)
+                @TableDisplay.Initials(g)
                 @if (g.DupIndex > 0)
                 {
                     <span class="dup-badge">#@g.DupIndex</span>
                 }
             </div>
-            <button class="seat-remove" title="Return to pool"
-                    @onclick="@(() => RemoveFromSeat(table, idx))"
-                    @onclick:stopPropagation="true">
-                @SvgXSmall
-            </button>
+            @if (!isLocked)
+            {
+                <button class="seat-remove" title="Return to pool"
+                        @onclick="@(() => RemoveFromSeat(table, idx))"
+                        @onclick:stopPropagation="true">
+                    @SvgIcons.XSmall
+                </button>
+            }
         }
         else
         {
-            <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") seat-empty-clickable"
+            var isLockedSeat = IsLockedHeadSeat(table, idx);
+            <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") @(isLockedSeat ? "seat-empty-locked" : "seat-empty-clickable")"
                  title="@(label != null ? label : $"Seat {idx + 1}") — click to assign or drop a guest"
-                 @onclick="@(() => OpenSeatPicker(table, idx))"
+                 @onclick="@(() => { if (!isLockedSeat) OpenSeatPicker(table, idx); })"
                  @onclick:stopPropagation="true">
                 <span class="seat-empty-num">@(label != null ? label.Split(' ').Select(w => w[0].ToString()).Aggregate((a, b) => a + b) : (idx + 1).ToString())</span>
-                <span class="seat-empty-plus">+</span>
+                @if (!isLockedSeat)
+                {
+                    <span class="seat-empty-plus">+</span>
+                }
             </div>
         }
     </div>;
-
-    record SeatPos(double X, double Y);
-
-    static List<SeatPos> GetSeatPositions(int capacity, double radius)
-    {
-        var list = new List<SeatPos>();
-        for (int i = 0; i < capacity; i++)
-        {
-            double angle = (double)i / capacity * 2 * Math.PI - Math.PI / 2;
-            list.Add(new SeatPos(Math.Cos(angle) * radius, Math.Sin(angle) * radius));
-        }
-        return list;
-    }
-
-    static string Initials(TableGuest g)
-        => $"{(g.FirstName.Length > 0 ? g.FirstName[0] : ' ')}{(g.LastName.Length > 0 ? g.LastName[0] : ' ')}";
-
-    static string DisplayName(TableGuest g)
-    {
-        var name = $"{g.FirstName} {g.LastName}";
-        return g.DupIndex > 0 ? $"{name} #{g.DupIndex}" : name;
-    }
 
     void ShowToast(string msg, bool error = false)
     {
@@ -1203,24 +1062,4 @@
     }
 
     public void Dispose() => toastTimer?.Dispose();
-
-    static RenderFragment SvgFileText = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>;
-    static RenderFragment SvgGrid = @<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>;
-    static RenderFragment SvgRings = @<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="5" /><circle cx="16" cy="12" r="5" /></svg>;
-    static RenderFragment SvgSettings = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>;
-    static RenderFragment SvgPlus = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>;
-    static RenderFragment SvgTrash = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" /></svg>;
-    static RenderFragment SvgX = @<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
-    static RenderFragment SvgXSmall = @<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>;
-    static RenderFragment SvgCheckSmall = @<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>;
-    static RenderFragment SvgCheckCircle = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
-    static RenderFragment SvgCheckCircleLarge = @<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
-    static RenderFragment SvgAlertCircle = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>;
-    static RenderFragment SvgAlertTriangle = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>;
-    static RenderFragment SvgUserPlus = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>;
-    static RenderFragment SvgGrip = @<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1" /><circle cx="9" cy="12" r="1" /><circle cx="9" cy="19" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="12" r="1" /><circle cx="15" cy="19" r="1" /></svg>;
-    static RenderFragment SvgUpload = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>;
-    static RenderFragment SvgUploadCloud = @<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16" /><line x1="12" y1="12" x2="12" y2="21" /><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" /></svg>;
-    static RenderFragment SvgDownload = @<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>;
-    static RenderFragment SvgMail = @<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>;
 }

@@ -1,11 +1,13 @@
 ﻿@page "/venues/{VenueId:int}"
 @page "/venues"
-@layout UserLayout
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject WeddingPlannerApp.Services.VenueCatalogService VenueCatalog
 @implements IDisposable
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Services
 
 <HeadContent>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -26,8 +28,7 @@
 
         @if (selected != null)
         {
-            <div class="venue-selected-hero" @onclick="@(() => SelectVenue(selected.Id))" style="cursor:pointer;">
-                <img src="@selected.Images[0]" alt="@selected.Name" class="venue-selected-img" />
+            <div class="venue-selected-hero venue-text-hero" @onclick="@(() => SelectVenue(selected.Id))" style="cursor:pointer;">
                 <div class="venue-selected-overlay">
                     <div class="venue-selected-top">
                         <div class="venue-selected-badge">@SvgIcons.CheckSmall Your venue</div>
@@ -41,7 +42,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                                 @selected.Address &nbsp;·&nbsp; @selected.MinCapacity–@selected.MaxCapacity guests
                                 @if (selected.EstimatedPrice > 0)
-                                { <span style="margin-left:.6rem;font-weight:700;color:#fff;">est. $@selected.EstimatedPrice.ToString("N0")</span> }
+                                { <span class="venue-inline-price">est. $@selected.EstimatedPrice.ToString("N0")</span> }
                             </p>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;flex-shrink:0;">
@@ -54,6 +55,12 @@
                     <div class="venue-selected-amenities">
                         @foreach (var a in selected.Amenities.Take(5)) { <span class="amenity-tag-dark">@a</span> }
                         @if (selected.Amenities.Count > 5) { <span class="amenity-tag-dark" style="opacity:.55;">+@(selected.Amenities.Count - 5) more</span> }
+                    </div>
+                    <div class="venue-hero-gallery-strip">
+                        @foreach (var image in VenueImages(selected).Take(4))
+                        {
+                            <img src="@image" alt="@selected.Name" />
+                        }
                     </div>
                 </div>
             </div>
@@ -81,7 +88,7 @@
                     var venue = v;
                     <button class="carousel-card" @onclick="@(() => SelectVenue(venue.Id))">
                         <div class="carousel-img-wrap">
-                            <img src="@venue.Images[0]" alt="@venue.Name" class="carousel-img" />
+                            <img src="@VenueImage(venue)" alt="@venue.Name" class="carousel-img" />
                             @if (pendingVenueId == venue.Id)
                             { <span class="venue-image-badge venue-image-badge-pending">Pending approval</span> }
                         </div>
@@ -100,8 +107,7 @@
         var detail = current!;
         <div @key="@($"detail-{detail.Id}")">
 
-            <div class="venue-hero-full">
-                <img src="@detail.Images[activeImage]" alt="@detail.Name" class="venue-selected-img" />
+            <div class="venue-hero-full venue-text-hero">
                 <div class="venue-selected-overlay">
                     <div class="venue-selected-top">
                         <button class="venue-back-hero" @onclick="ClearVenue">
@@ -134,7 +140,7 @@
                             <p class="venues-sub">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                                 @detail.Address &nbsp;·&nbsp; @detail.MinCapacity–@detail.MaxCapacity guests
-                                @if (detail.EstimatedPrice > 0) { <span style="margin-left:.6rem;font-weight:700;color:#fff;">est. $@detail.EstimatedPrice.ToString("N0")</span> }
+                                @if (detail.EstimatedPrice > 0) { <span class="venue-inline-price">est. $@detail.EstimatedPrice.ToString("N0")</span> }
                             </p>
                         </div>
                     </div>
@@ -142,18 +148,6 @@
                         @foreach (var a in detail.Amenities.Take(6)) { <span class="amenity-tag-dark">@a</span> }
                     </div>
                 </div>
-                @if (detail.Images.Count > 1)
-                {
-                    <div class="venue-thumbs">
-                        @for (int i = 0; i < detail.Images.Count; i++)
-                        {
-                            var idx = i;
-                            <button class="venue-thumb @(activeImage == idx ? "thumb-active" : "")" @onclick="@(() => activeImage = idx)">
-                                <img src="@detail.Images[idx]" alt="@(idx + 1)" />
-                            </button>
-                        }
-                    </div>
-                }
             </div>
 
             <div class="venue-two-col">
@@ -173,7 +167,6 @@
                             </div>
                         }
                     </div>
-                    <div class="venue-section"><h3 class="venue-section-title">About</h3><p class="venue-description">@detail.Description</p></div>
                     <div class="venue-section">
                         <h3 class="venue-section-title">Amenities</h3>
                         <div class="amenities-wrap">@foreach (var a in detail.Amenities) { <span class="amenity-tag">@a</span> }</div>
@@ -181,11 +174,11 @@
                     <div class="venue-section">
                         <h3 class="venue-section-title">Gallery</h3>
                         <div class="venue-gallery">
-                            @for (int i = 0; i < detail.Images.Count; i++)
+                            @for (int i = 0; i < VenueImages(detail).Count; i++)
                             {
                                 var idx = i;
                                 <button type="button" class="gallery-item @(activeImage == idx ? "gallery-active" : "")" @onclick="@(() => activeImage = idx)">
-                                    <img src="@detail.Images[idx]" alt="@(idx + 1)" class="gallery-img" />
+                                    <img src="@VenueImages(detail)[idx]" alt="@(idx + 1)" class="gallery-img" />
                                 </button>
                             }
                         </div>
@@ -208,7 +201,7 @@
                         var s = sv;
                         <button class="sidebar-venue-card" @onclick="@(() => SelectVenue(s.Id))">
                             <div class="sidebar-venue-img-wrap">
-                                <img src="@s.Images[0]" alt="@s.Name" class="sidebar-venue-img" />
+                                <img src="@VenueImage(s)" alt="@s.Name" class="sidebar-venue-img" />
                                 @if (s.MaxCapacity >= detail.MinCapacity && s.MinCapacity <= detail.MaxCapacity)
                                 { <span class="sidebar-venue-match">Similar capacity</span> }
                                 @if (pendingVenueId == s.Id)
@@ -240,7 +233,7 @@
                 You're about to set <strong>@bookVenue.Name</strong> as your wedding venue.
             </p>
             <div class="book-confirm-venue">
-                <img src="@bookVenue.Images[0]" alt="@bookVenue.Name" class="book-confirm-img" />
+                <img src="@VenueImage(bookVenue)" alt="@bookVenue.Name" class="book-confirm-img" />
                 <div>
                     <p style="font-weight:700;font-size:.92rem;color:var(--sage-dark);margin:0 0 .2rem;">@bookVenue.Name</p>
                     <p style="font-size:.78rem;color:var(--muted);margin:0;">@bookVenue.Address</p>
@@ -267,37 +260,24 @@
 
     Toast _toast = default!;
 
-    class Venue
-    {
-        public int           Id             { get; set; }
-        public string        Name           { get; set; } = "";
-        public string        Type           { get; set; } = "";
-        public string        Address        { get; set; } = "";
-        public string        Description    { get; set; } = "";
-        public int           MinCapacity    { get; set; }
-        public int           MaxCapacity    { get; set; }
-        public decimal       EstimatedPrice { get; set; }
-        public double        Latitude       { get; set; }
-        public double        Longitude      { get; set; }
-        public List<string>  Images         { get; set; } = new();
-        public List<string>  Amenities      { get; set; } = new();
-        public string        ImageFolder    { get; set; } = "";
-    }
+    IReadOnlyList<AppVenue> allVenues => VenueCatalog.Venues;
 
-    List<Venue> allVenues = new()
-    {
-        new Venue { Id=1, Name="Rosewood Gardens",   Type="Garden",      Address="12 Rose Lane, Greenfield",    Description="A stunning garden venue surrounded by lush greenery, blooming roses and elegant fountains.",         MinCapacity=50,  MaxCapacity=200, EstimatedPrice=5000,  Images=new(){"https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80","https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80","https://images.unsplash.com/photo-1478146059778-26028b07395a?w=800&q=80","https://images.unsplash.com/photo-1510076857177-7470076d4098?w=800&q=80"}, Amenities=new(){"Parking","Catering Kitchen","Bridal Suite","Sound System","Garden","Wheelchair Access"} },
-        new Venue { Id=2, Name="The Grand Ballroom", Type="Indoor",      Address="88 Grand Ave, Maplewood",     Description="An opulent ballroom with crystal chandeliers, marble floors and world-class catering.",              MinCapacity=100, MaxCapacity=500, EstimatedPrice=12000, Images=new(){"https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80","https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80","https://images.unsplash.com/photo-1505236858219-8359eb29e329?w=800&q=80"}, Amenities=new(){"Valet Parking","Full Catering","Honeymoon Suite","Live Band Stage","Bar","AV System"} },
-        new Venue { Id=3, Name="Lakeside Pavilion",  Type="Waterfront",  Address="1 Lake Road, Crystal Shores", Description="A breathtaking waterfront pavilion with panoramic lake views.",                                     MinCapacity=30,  MaxCapacity=150, EstimatedPrice=3500,  Images=new(){"https://images.unsplash.com/photo-1478146059778-26028b07395a?w=800&q=80","https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=800&q=80","https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&q=80"}, Amenities=new(){"Boat Dock","Outdoor Terrace","Scenic Views","Parking","Catering","Fire Pit"} },
-        new Venue { Id=4, Name="Vineyard Estate",    Type="Countryside", Address="44 Vine St, Rolling Hills",   Description="A romantic countryside estate among rolling vineyards. Rustic elegance meets modern comfort.",       MinCapacity=80,  MaxCapacity=300, EstimatedPrice=7500,  Images=new(){"https://images.unsplash.com/photo-1510076857177-7470076d4098?w=800&q=80","https://images.unsplash.com/photo-1505236858219-8359eb29e329?w=800&q=80","https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80"}, Amenities=new(){"Wine Cellar","Barn Hall","Outdoor Ceremony","Farm Catering","Parking","Pet Friendly"} },
-    };
-
-    Venue? current          = null;
+    AppVenue? current          = null;
     int    activeImage      = 0;
     bool   mapLoaded        = false;
     int    userSelectedVenueId = 1;
     int?   pendingVenueId   = null;
     bool   showBookConfirm  = false;
+
+    protected override void OnInitialized() => VenueCatalog.OnChange += Refresh;
+    void Refresh() => InvokeAsync(StateHasChanged);
+
+    static string VenueImage(AppVenue venue) =>
+        venue.Images.FirstOrDefault()
+        ?? (!string.IsNullOrWhiteSpace(venue.ImagePath) ? venue.ImagePath : "/images/venues/placeholder.svg");
+
+    static IReadOnlyList<string> VenueImages(AppVenue venue) =>
+        venue.Images.Count > 0 ? venue.Images : new[] { VenueImage(venue) };
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -362,19 +342,7 @@
 
     public void Dispose()
     {
-        try { JS.InvokeVoidAsync("eval", "if(window._venueMap){window._venueMap.remove();window._venueMap=null;}"); }
-        catch { }
-    }
-}
-        _toast = new System.Timers.Timer(4000);
-        _toast.Elapsed += async (_, _) => { toastMsg = ""; _toast?.Dispose(); await InvokeAsync(StateHasChanged); };
-        _toast.AutoReset = false;
-        _toast.Start();
-    }
-
-    public void Dispose()
-    {
-        _toast?.Dispose();
+        VenueCatalog.OnChange -= Refresh;
         try { JS.InvokeVoidAsync("eval", "if(window._venueMap){window._venueMap.remove();window._venueMap=null;}"); }
         catch { }
     }

@@ -1,0 +1,112 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<ModalShell IsOpen="IsOpen" Title="Add Guest" OnClose="OnClose">
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="error-banner">@SvgIcons.AlertCircle @Error</div>
+    }
+    @if (!string.IsNullOrEmpty(DuplicateWarning))
+    {
+        <div class="dup-warning">
+            @SvgIcons.AlertTriangle
+            <span>@DuplicateWarning</span>
+        </div>
+    }
+
+    <div class="form-grid-2">
+        <div class="field">
+            <label>First Name *</label>
+            <input class="input @(HasFieldError(nameof(FirstName)) ? "field-invalid" : "")" value="@FirstName" @oninput="SetFirstName" placeholder="John" />
+            @FieldError(nameof(FirstName))
+        </div>
+        <div class="field">
+            <label>Last Name *</label>
+            <input class="input @(HasFieldError(nameof(LastName)) ? "field-invalid" : "")" value="@LastName" @oninput="SetLastName" placeholder="Doe" />
+            @FieldError(nameof(LastName))
+        </div>
+    </div>
+
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Email</label>
+            <input class="input @(HasFieldError(nameof(Email)) ? "field-invalid" : "")" value="@Email" @oninput="SetEmail" placeholder="john@example.com" />
+            @FieldError(nameof(Email))
+        </div>
+        <div class="field">
+            <label>Phone</label>
+            <input class="input @(HasFieldError(nameof(Phone)) ? "field-invalid" : "")" value="@Phone" @oninput="SetPhone" placeholder="+40..." />
+            @FieldError(nameof(Phone))
+        </div>
+    </div>
+
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Group</label>
+            <select class="input select-input" value="@Group" @onchange="SetGroup">
+                <option value="family">Family</option>
+                <option value="friends">Friends</option>
+                <option value="colleagues">Colleagues</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Assign to</label>
+            <select class="input select-input" value="@AssignTo" @onchange="SetAssignTo">
+                <option value="pool">Guest Pool (unassigned)</option>
+                @foreach (var table in Tables)
+                {
+                    var filled = table.Seats.Count(s => s != null);
+                    <option value="@table.Id" disabled="@(filled >= table.Capacity)">
+                        @table.Name (@filled/@table.Capacity)@(filled >= table.Capacity ? " - Full" : "")
+                    </option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <button class="btn-add-guest" @onclick="OnAdd">
+        @SvgIcons.UserPlus Add Guest
+    </button>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public IReadOnlyList<EventTable> Tables { get; set; } = Array.Empty<EventTable>();
+    [Parameter] public string Error { get; set; } = "";
+    [Parameter] public string DuplicateWarning { get; set; } = "";
+    [Parameter] public IReadOnlyDictionary<string, string> FieldErrors { get; set; } = new Dictionary<string, string>();
+
+    [Parameter] public string FirstName { get; set; } = "";
+    [Parameter] public EventCallback<string> FirstNameChanged { get; set; }
+    [Parameter] public string LastName { get; set; } = "";
+    [Parameter] public EventCallback<string> LastNameChanged { get; set; }
+    [Parameter] public string Email { get; set; } = "";
+    [Parameter] public EventCallback<string> EmailChanged { get; set; }
+    [Parameter] public string Phone { get; set; } = "";
+    [Parameter] public EventCallback<string> PhoneChanged { get; set; }
+    [Parameter] public string Group { get; set; } = "friends";
+    [Parameter] public EventCallback<string> GroupChanged { get; set; }
+    [Parameter] public string AssignTo { get; set; } = "pool";
+    [Parameter] public EventCallback<string> AssignToChanged { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnAdd { get; set; }
+
+    Task SetFirstName(ChangeEventArgs e) => FirstNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task SetLastName(ChangeEventArgs e) => LastNameChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task SetEmail(ChangeEventArgs e) => EmailChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task SetPhone(ChangeEventArgs e) => PhoneChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task SetGroup(ChangeEventArgs e) => GroupChanged.InvokeAsync(e.Value?.ToString() ?? "friends");
+    Task SetAssignTo(ChangeEventArgs e) => AssignToChanged.InvokeAsync(e.Value?.ToString() ?? "pool");
+
+    bool HasFieldError(string field) => FieldErrors.ContainsKey(field);
+
+    RenderFragment FieldError(string field) => builder =>
+    {
+        if (!FieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+}

@@ -1,0 +1,26 @@
+<div class="green-heartfall @Class" aria-hidden="true">
+    @foreach (var style in HeartStyles)
+    {
+        <span style="@style">&hearts;</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+
+    static readonly string[] HeartStyles =
+    {
+        "--x:6%;--delay:-1.2s;--duration:9.5s;--size:1.05rem;--opacity:.72;--sway:28px;",
+        "--x:14%;--delay:-6.1s;--duration:12s;--size:1.25rem;--opacity:.58;--sway:-20px;",
+        "--x:23%;--delay:-3.4s;--duration:10.5s;--size:.9rem;--opacity:.62;--sway:18px;",
+        "--x:31%;--delay:-8.2s;--duration:13s;--size:1.4rem;--opacity:.52;--sway:-30px;",
+        "--x:41%;--delay:-2.6s;--duration:11.2s;--size:1.1rem;--opacity:.66;--sway:24px;",
+        "--x:49%;--delay:-7.3s;--duration:9.8s;--size:.85rem;--opacity:.58;--sway:-16px;",
+        "--x:58%;--delay:-4.5s;--duration:12.6s;--size:1.35rem;--opacity:.56;--sway:34px;",
+        "--x:67%;--delay:-9.1s;--duration:10.7s;--size:.98rem;--opacity:.68;--sway:-22px;",
+        "--x:76%;--delay:-1.7s;--duration:13.4s;--size:1.2rem;--opacity:.54;--sway:20px;",
+        "--x:84%;--delay:-5.8s;--duration:11.8s;--size:.92rem;--opacity:.70;--sway:-28px;",
+        "--x:92%;--delay:-3.1s;--duration:10.2s;--size:1.28rem;--opacity:.57;--sway:18px;",
+        "--x:97%;--delay:-7.9s;--duration:12.9s;--size:1.02rem;--opacity:.60;--sway:-24px;",
+    };
+}

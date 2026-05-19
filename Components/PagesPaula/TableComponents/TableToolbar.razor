@@ -1,0 +1,46 @@
+<div class="tables-toolbar">
+    <div>
+        <h2 class="tables-h2">Seating Plan</h2>
+        <p class="tables-sub">
+            @SeatedCount/@TotalGuests seated &nbsp;·&nbsp; @TotalSeats total seats
+        </p>
+    </div>
+    <div class="tables-toolbar-right">
+        @if (TotalSeats >= TotalGuests && TableCount > 0)
+        {
+            <span class="seats-ok-badge">@SvgIcons.CheckSmall All seated</span>
+        }
+        <button class="btn-outline" @onclick="OnConfigureHeadTable">
+            @SvgIcons.Settings Configure Head Table
+        </button>
+        <div class="toolbar-actions">
+            <button class="btn-outline" @onclick="OnCsvGuide">
+                @SvgIcons.FileText CSV Guide
+            </button>
+            <label class="btn-outline" style="cursor:pointer;">
+                @SvgIcons.Upload Import
+                <InputFile OnChange="OnImport" accept=".csv" style="display:none;" />
+            </label>
+            <button class="btn-outline" @onclick="OnExport">
+                @SvgIcons.Download Export
+            </button>
+        </div>
+        <button class="btn-add"
+                @onclick="OnAddTable"
+                disabled="@(TotalSeats >= TotalGuests)">
+            @SvgIcons.Plus Add Table
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int SeatedCount { get; set; }
+    [Parameter] public int TotalGuests { get; set; }
+    [Parameter] public int TotalSeats { get; set; }
+    [Parameter] public int TableCount { get; set; }
+    [Parameter] public EventCallback OnConfigureHeadTable { get; set; }
+    [Parameter] public EventCallback OnCsvGuide { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnImport { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+    [Parameter] public EventCallback OnAddTable { get; set; }
+}
