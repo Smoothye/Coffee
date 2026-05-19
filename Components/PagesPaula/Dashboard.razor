@@ -1,7 +1,14 @@
 @page "/dashboard"
+@page "/dashboard/{EventId:int}"
 @layout PaulaLayout
 @rendermode InteractiveServer
 @using WeddingPlannerApp.Components.PagesPaula.DashboardWidgets
+@using WeddingPlannerApp.DTOs.Event
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.DTOs.Venue
+@using WeddingPlannerApp.Models
+@inject NavigationManager Nav
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
 
 <HeadContent>
     <link rel="stylesheet" href="styles/Dashboard.css" />
@@ -12,6 +19,11 @@
          IconSvg="@SvgIcons.DashboardNav" />
 
 <div class="dash-body">
+    @if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="error-banner">@SvgIcons.AlertCircle @loadError</div>
+    }
+
     <div class="dash-header">
         <h1 class="dash-greeting">@Greeting, Emma</h1>
         <p class="dash-subtitle">
@@ -51,11 +63,14 @@
 </div>
 
 @code {
+    [Parameter] public int EventId { get; set; }
+
     DateTime weddingDate = new(2026, 9, 12);
     string venueName = "Rosewood Gardens";
     int expectedGuests = 120;
     bool tablesConfirmed = false;
     string selectedMenu = "Classic Elegance";
+    string loadError = "";
 
     int daysUntilWedding => Math.Max(0, (weddingDate - DateTime.Today).Days);
     int weeksUntilWedding => daysUntilWedding / 7;
@@ -76,10 +91,10 @@
         new("Other", 800, "#d97706"),
     ];
 
-    int rsvpConfirmed = 84;
-    int rsvpPending = 28;
-    int rsvpDeclined = 8;
-    int rsvpPlusOnes = 14;
+    int rsvpConfirmed = 0;
+    int rsvpPending = 0;
+    int rsvpDeclined = 0;
+    int rsvpPlusOnes = 0;
 
     List<DashboardTaskItem> tasks =
     [
@@ -101,5 +116,62 @@
         {
             task.Done = !task.Done;
         }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = "";
+
+        try
+        {
+            if (EventId <= 0)
+            {
+                var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
+                if (firstEvent is null)
+                {
+                    loadError = "No event exists yet. Create one from onboarding first.";
+                    return;
+                }
+
+                EventId = firstEvent.EventId;
+                Nav.NavigateTo($"/dashboard/{EventId}", replace: true);
+            }
+
+            var eventItem = await Api.GetEventAsync(EventId);
+            if (eventItem is null)
+            {
+                loadError = $"Event {EventId} was not found.";
+                return;
+            }
+
+            ApplyEvent(eventItem);
+
+            var guests = await Api.GetGuestsAsync(EventId);
+            ApplyGuestStats(guests);
+
+            var venue = await Api.GetVenueAsync(eventItem.VenueId);
+            if (venue != null)
+                venueName = venue.Name;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load dashboard data: {ex.Message}";
+        }
+    }
+
+    void ApplyEvent(EventDto eventItem)
+    {
+        weddingDate = eventItem.EventDate;
+        expectedGuests = eventItem.EstimatedGuests;
+        budgetTotal = (int)eventItem.TotalBudget;
+        selectedMenu = eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Select a menu";
+    }
+
+    void ApplyGuestStats(IReadOnlyCollection<GuestDto> guests)
+    {
+        rsvpConfirmed = guests.Count(g => g.RsvpStatus == RsvpStatus.Confirmed);
+        rsvpPending = guests.Count(g => g.RsvpStatus == RsvpStatus.Pending);
+        rsvpDeclined = guests.Count(g => g.RsvpStatus == RsvpStatus.Declined);
+        rsvpPlusOnes = guests.Count(g => g.HasPlusOne);
     }
 }

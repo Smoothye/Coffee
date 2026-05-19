@@ -1,4 +1,6 @@
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.Models
 
 <div class="guest-list">
     @if (!Guests.Any())
@@ -19,29 +21,22 @@
                     <p class="guest-name">@g.FirstName @g.LastName</p>
                     <div class="guest-meta">
                         <span>@g.Email</span>
-                        @if (g.IsPlusOne) { <span class="badge plus-one-guest-badge">Plus one</span> }
-                        @if (g.DietaryRequirements != "none") { <span class="badge badge-dietary">@g.DietaryRequirements</span> }
+                        @if (g.DietaryRequirements != DietaryRequirements.None) { <span class="badge badge-dietary">@DietaryLabel(g.DietaryRequirements)</span> }
                     </div>
                 </div>
                 <div class="guest-actions">
                     <span class="badge @GroupBadgeClass(g.Group)">@g.Group</span>
-                    <select class="input select-input guest-menu-select" @bind="g.MenuType">
-                        @foreach (var menu in MenuOptions) { <option value="@menu.Value">@menu.Label</option> }
-                    </select>
-                    @if (!g.IsPlusOne)
-                    {
-                        <button type="button"
-                                class="plus-one-toggle-row @(g.PlusOne ? "plus-one-active" : "")"
-                                @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.Id))">
-                            @(g.PlusOne ? "Remove +1" : "Add +1")
-                        </button>
-                    }
+                    <button type="button"
+                            class="plus-one-toggle-row @(g.HasPlusOne ? "plus-one-active" : "")"
+                            @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
+                        @(g.HasPlusOne ? "Remove +1" : "Add +1")
+                    </button>
                     <div class="rsvp-btns">
-                        <button class="rsvp-btn rsvp-confirmed @(g.Status == "confirmed" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.Id, "confirmed")))">@SvgIcons.Check</button>
-                        <button class="rsvp-btn rsvp-pending @(g.Status == "pending" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.Id, "pending")))">@SvgIcons.ClockSmall</button>
-                        <button class="rsvp-btn rsvp-declined @(g.Status == "declined" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.Id, "declined")))">@SvgIcons.XSmall</button>
+                        <button class="rsvp-btn rsvp-confirmed @(g.RsvpStatus == RsvpStatus.Confirmed ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.GuestId, RsvpStatus.Confirmed)))">@SvgIcons.Check</button>
+                        <button class="rsvp-btn rsvp-pending @(g.RsvpStatus == RsvpStatus.Pending ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.GuestId, RsvpStatus.Pending)))">@SvgIcons.ClockSmall</button>
+                        <button class="rsvp-btn rsvp-declined @(g.RsvpStatus == RsvpStatus.Declined ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.GuestId, RsvpStatus.Declined)))">@SvgIcons.XSmall</button>
                     </div>
-                    <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.Id))">@SvgIcons.Trash</button>
+                    <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
                 </div>
             </div>
         }
@@ -49,24 +44,29 @@
 </div>
 
 @code {
-    [Parameter] public IReadOnlyList<GuestModel> Guests { get; set; } = Array.Empty<GuestModel>();
-    [Parameter] public IReadOnlyList<MenuOption> MenuOptions { get; set; } = Array.Empty<MenuOption>();
+    [Parameter] public IReadOnlyList<GuestDto> Guests { get; set; } = Array.Empty<GuestDto>();
     [Parameter] public EventCallback<int> OnTogglePlusOne { get; set; }
-    [Parameter] public EventCallback<(int Id, string Status)> OnSetStatus { get; set; }
+    [Parameter] public EventCallback<(int Id, RsvpStatus Status)> OnSetStatus { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
 
-    static string Initials(GuestModel guest)
+    static string Initials(GuestDto guest)
     {
         var first = string.IsNullOrEmpty(guest.FirstName) ? "" : guest.FirstName[0].ToString();
         var last = string.IsNullOrEmpty(guest.LastName) ? "" : guest.LastName[0].ToString();
         return $"{first}{last}";
     }
 
-    static string GroupBadgeClass(string group) => group switch
+    static string GroupBadgeClass(Group group) => group switch
     {
-        "family" => "badge-family",
-        "friends" => "badge-friends",
-        "colleagues" => "badge-colleagues",
+        Group.Family => "badge-family",
+        Group.Friends => "badge-friends",
+        Group.Colleagues => "badge-colleagues",
         _ => "badge-other",
+    };
+
+    static string DietaryLabel(DietaryRequirements dietary) => dietary switch
+    {
+        DietaryRequirements.GlutenFree => "Gluten-free",
+        _ => dietary.ToString()
     };
 }

@@ -3,11 +3,13 @@
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 @inject IWebHostEnvironment Env
-@inject WeddingPlannerApp.Services.VenueCatalogService VenueCatalog
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using Microsoft.AspNetCore.Components.Forms
+@using WeddingPlannerApp.DTOs.Event
+@using WeddingPlannerApp.DTOs.Venue
+@using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Services
 @using WeddingPlannerApp.Components.PagesPaula.AdminComponents
-@implements IDisposable
 
 <div class="admin-wrap">
     <nav class="tables-nav">
@@ -254,12 +256,8 @@
         "Premium",
     ];
 
-    List<AdminEventModel> events = new()
-    {
-        new AdminEventModel { Id=1, Name="Emma & James Wedding", Type="Wedding", EventDate=new DateTime(2026,6,15), VenueId=1, VenueName="Rosewood Gardens", GuestCount=120, TotalBudget=18000, OwnerName="Emma Rossi", OwnerEmail="emma@example.com", MenuName="Classic Elegance", Notes="Outdoor ceremony, indoor reception.", CreatedAt=new DateTime(2025,12,1) },
-        new AdminEventModel { Id=2, Name="Sophie's Birthday Gala", Type="Birthday", EventDate=new DateTime(2026,7,20), VenueId=2, VenueName="The Grand Ballroom", GuestCount=200, TotalBudget=12000, OwnerName="Sophie Martin", OwnerEmail="sophie@example.com", MenuName="Festive Buffet", Notes="Surprise - do not email owner!", CreatedAt=new DateTime(2025,12,10) },
-        new AdminEventModel { Id=3, Name="Johnson Anniversary", Type="Anniversary", EventDate=new DateTime(2026,8,10), VenueId=3, VenueName="Lakeside Pavilion", GuestCount=80, TotalBudget=8000, OwnerName="Mark Johnson", OwnerEmail="mark@example.com", MenuName="", Notes="25th anniversary, prefer garden seating.", CreatedAt=new DateTime(2026,1,5) },
-    };
+    List<AdminEventModel> events = new();
+    List<AdminVenueModel> venues = new();
 
     int? expandedEventId = null;
 
@@ -280,26 +278,39 @@
     string pendingDeleteType = "";
     int pendingDeleteId;
 
-    IReadOnlyList<AdminVenueModel> venues => VenueCatalog.Venues.Select(ToAdminVenue).ToList();
     IReadOnlyList<AdminEventModel> EventList => events.OrderBy(e => e.EventDate).ToList();
     int UpcomingEventCount => events.Count(e => e.EventDate.Date >= DateTime.Today);
     int TotalGuestCount => events.Sum(e => e.GuestCount);
     decimal TotalBudget => events.Sum(e => e.TotalBudget);
 
-    static AdminVenueModel ToAdminVenue(AppVenue venue) => new()
+    static AdminVenueModel ToAdminVenue(VenueDto venue) => new()
     {
-        Id = venue.Id,
+        Id = venue.VenueId,
         Name = venue.Name,
-        Type = venue.Type,
+        Type = venue.Tags?.ToString() ?? "Venue",
         Address = venue.Address,
         MinCapacity = venue.MinCapacity,
         MaxCapacity = venue.MaxCapacity,
         EstimatedPrice = venue.EstimatedPrice,
-        Latitude = (decimal?)venue.Latitude,
-        Longitude = (decimal?)venue.Longitude,
-        ImagePath = venue.ImagePath,
-        ImageFolder = venue.ImageFolder,
-        Tags = venue.Tags.Count > 0 ? venue.Tags.ToList() : new() { venue.Type }
+        Latitude = venue.Latitude,
+        Longitude = venue.Longitude,
+        ImagePath = venue.ImagePath ?? "",
+        Tags = venue.Tags is null ? [] : [venue.Tags.Value.ToString()]
+    };
+
+    static AdminEventModel ToAdminEvent(EventDto eventItem, IReadOnlyDictionary<int, string> venueNames, int guestCount) => new()
+    {
+        Id = eventItem.EventId,
+        Name = eventItem.Name,
+        Type = "Wedding",
+        EventDate = eventItem.EventDate,
+        VenueId = eventItem.VenueId,
+        VenueName = venueNames.GetValueOrDefault(eventItem.VenueId, $"Venue #{eventItem.VenueId}"),
+        GuestCount = guestCount,
+        TotalBudget = eventItem.TotalBudget,
+        MenuName = eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Not selected",
+        Notes = eventItem.Notes ?? "",
+        CreatedAt = eventItem.CreatedAt
     };
 
     void ToggleExpand(int id) =>
@@ -376,7 +387,7 @@
         newVenue.ImagePath = $"/images/venues/{slug}/{fileName}";
     }
 
-    void AddVenue()
+    async Task AddVenue()
     {
         venueModalError = "";
         venueFieldErrors.Clear();
@@ -397,25 +408,32 @@
         var latitude = newVenue.Latitude.GetValueOrDefault();
         var longitude = newVenue.Longitude.GetValueOrDefault();
 
-        VenueCatalog.AddVenue(new AppVenue
+        try
         {
-            Name = newVenue.Name.Trim(),
-            Type = newVenue.Type,
-            Address = newVenue.Address.Trim(),
-            Description = $"A {newVenue.Type.ToLowerInvariant()} venue added by the admin team.",
-            MinCapacity = newVenue.MinCapacity,
-            MaxCapacity = newVenue.MaxCapacity,
-            EstimatedPrice = newVenue.EstimatedPrice,
-            Latitude = (double)latitude,
-            Longitude = (double)longitude,
-            ImagePath = newVenue.ImagePath,
-            ImageFolder = newVenue.ImageFolder,
-            Images = string.IsNullOrWhiteSpace(newVenue.ImagePath) ? new() : new() { newVenue.ImagePath },
-            Tags = newVenue.Tags.ToList(),
-            Amenities = new() { "Parking", "Catering", "Event Staff" }
-        });
-        CloseVenueModal();
-        ShowToast($"\"{newVenue.Name}\" added. Planners will see it during onboarding.");
+            var created = await Api.CreateVenueAsync(new VenueCreateDto
+            {
+                Name = newVenue.Name.Trim(),
+                Address = newVenue.Address.Trim(),
+                Description = $"A {newVenue.Type.ToLowerInvariant()} venue added by the admin team.",
+                MinCapacity = newVenue.MinCapacity,
+                MaxCapacity = newVenue.MaxCapacity,
+                EstimatedPrice = newVenue.EstimatedPrice,
+                Latitude = latitude,
+                Longitude = longitude,
+                ImagePath = newVenue.ImagePath,
+                Tags = ToVenueTag(PrimaryVenueTag)
+            });
+
+            if (created != null)
+                venues.Add(ToAdminVenue(created));
+
+            CloseVenueModal();
+            ShowToast($"\"{newVenue.Name}\" added. Planners will see it during onboarding.");
+        }
+        catch (Exception ex)
+        {
+            venueModalError = $"Could not add venue: {ex.Message}";
+        }
     }
 
     void DeleteVenue(int id)
@@ -436,18 +454,34 @@
 
     void CloseConfirm() => confirmOpen = false;
 
-    void ConfirmDelete()
+    async Task ConfirmDelete()
     {
         if (pendingDeleteType == "event")
         {
-            events.RemoveAll(x => x.Id == pendingDeleteId);
-            if (expandedEventId == pendingDeleteId) expandedEventId = null;
-            ShowToast("Event removed.");
+            try
+            {
+                await Api.DeleteEventAsync(pendingDeleteId);
+                events.RemoveAll(x => x.Id == pendingDeleteId);
+                if (expandedEventId == pendingDeleteId) expandedEventId = null;
+                ShowToast("Event removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete event: {ex.Message}", error: true);
+            }
         }
         else if (pendingDeleteType == "venue")
         {
-            VenueCatalog.RemoveVenue(pendingDeleteId);
-            ShowToast("Venue removed.");
+            try
+            {
+                await Api.DeleteVenueAsync(pendingDeleteId);
+                venues.RemoveAll(x => x.Id == pendingDeleteId);
+                ShowToast("Venue removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete venue: {ex.Message}", error: true);
+            }
         }
 
         CloseConfirm();
@@ -497,12 +531,46 @@
         toastTimer.Start();
     }
 
-    protected override void OnInitialized() => VenueCatalog.OnChange += Refresh;
-    void Refresh() => InvokeAsync(StateHasChanged);
+    protected override async Task OnInitializedAsync() => await LoadAdminData();
+
+    async Task LoadAdminData()
+    {
+        try
+        {
+            var venueDtos = await Api.GetVenuesAsync();
+            venues = venueDtos.Select(ToAdminVenue).ToList();
+            var venueNames = venueDtos.ToDictionary(v => v.VenueId, v => v.Name);
+
+            var eventDtos = await Api.GetEventsAsync();
+            var loadedEvents = new List<AdminEventModel>();
+            foreach (var eventDto in eventDtos)
+            {
+                var guestCount = 0;
+                try
+                {
+                    guestCount = (await Api.GetGuestsAsync(eventDto.EventId)).Count;
+                }
+                catch
+                {
+                    guestCount = eventDto.EstimatedGuests;
+                }
+
+                loadedEvents.Add(ToAdminEvent(eventDto, venueNames, guestCount));
+            }
+
+            events = loadedEvents;
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not load admin data: {ex.Message}", error: true);
+        }
+    }
+
+    static VenueTag? ToVenueTag(string tag) =>
+        Enum.TryParse<VenueTag>(tag, ignoreCase: true, out var venueTag) ? venueTag : null;
 
     public void Dispose()
     {
         toastTimer?.Dispose();
-        VenueCatalog.OnChange -= Refresh;
     }
 }

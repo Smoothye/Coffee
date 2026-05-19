@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WeddingPlannerApp.Components;
@@ -51,7 +52,11 @@ public class Program
         builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
         builder.Services.AddScoped<WeddingStateService>();
-        builder.Services.AddSingleton<VenueCatalogService>();
+        builder.Services.AddScoped(sp => new HttpClient
+        {
+            BaseAddress = new Uri(sp.GetRequiredService<NavigationManager>().BaseUri)
+        });
+        builder.Services.AddScoped<WeddingApiClient>();
 
         var app = builder.Build();
 
