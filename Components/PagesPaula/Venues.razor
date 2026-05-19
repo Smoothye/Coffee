@@ -1,7 +1,8 @@
-ï»¿@page "/venues/{VenueId:int}"
+@page "/venues/{VenueId:int}"
 @page "/venues/event/{EventId:int}"
 @page "/venues/event/{EventId:int}/{VenueId:int}"
 @page "/venues"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject IJSRuntime JS
@@ -44,7 +45,7 @@
                             <h1 class="venues-h1">@selected.Name</h1>
                             <p class="venues-sub">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                @selected.Address &nbsp;Â·&nbsp; @selected.MinCapacityâ€“@selected.MaxCapacity guests
+                                @selected.Address &nbsp;·&nbsp; @selected.MinCapacity–@selected.MaxCapacity guests
                                 @if (selected.EstimatedPrice > 0)
                                 { <span class="venue-inline-price">est. $@selected.EstimatedPrice.ToString("N0")</span> }
                             </p>
@@ -80,7 +81,7 @@
         <div class="venues-bottom">
             <div class="other-venues-header">
                 <h2 class="other-venues-title">Other venues</h2>
-                <p class="other-venues-sub">Swipe to explore &nbsp;Â·&nbsp; @(allVenues.Count - 1) more available</p>
+                <p class="other-venues-sub">Swipe to explore &nbsp;·&nbsp; @(allVenues.Count - 1) more available</p>
             </div>
             <div class="venue-carousel">
                 @foreach (var v in allVenues.Where(v => v.VenueId != userSelectedVenueId))
@@ -94,7 +95,7 @@
                         </div>
                         <div class="carousel-info">
                             <p class="carousel-name">@venue.Name</p>
-                            <p class="carousel-meta">@VenueType(venue) &nbsp;Â·&nbsp; @venue.MinCapacityâ€“@venue.MaxCapacity</p>
+                            <p class="carousel-meta">@VenueType(venue) &nbsp;·&nbsp; @venue.MinCapacity–@venue.MaxCapacity</p>
                             @if (venue.EstimatedPrice > 0) { <p class="carousel-price">est. $@venue.EstimatedPrice.ToString("N0")</p> }
                         </div>
                     </button>
@@ -139,7 +140,7 @@
                             <h1 class="venues-h1">@detail.Name</h1>
                             <p class="venues-sub">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                @detail.Address &nbsp;Â·&nbsp; @detail.MinCapacityâ€“@detail.MaxCapacity guests
+                                @detail.Address &nbsp;·&nbsp; @detail.MinCapacity–@detail.MaxCapacity guests
                                 @if (detail.EstimatedPrice > 0) { <span class="venue-inline-price">est. $@detail.EstimatedPrice.ToString("N0")</span> }
                             </p>
                         </div>
@@ -152,7 +153,7 @@
                     <div class="venue-info-grid">
                         <div class="vinfo-card">
                             <div class="vinfo-icon">@SvgIcons.Users</div>
-                            <div><p class="vinfo-label">Capacity</p><p class="vinfo-val">@detail.MinCapacityâ€“@detail.MaxCapacity guests</p></div>
+                            <div><p class="vinfo-label">Capacity</p><p class="vinfo-val">@detail.MinCapacity–@detail.MaxCapacity guests</p></div>
                         </div>
                         @if (detail.EstimatedPrice > 0)
                         {
@@ -182,7 +183,7 @@
                         <p class="venue-map-addr">
                             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem;color:var(--sage)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                             @detail.Address
-                            <a href="https://www.openstreetmap.org/search?query=@Uri.EscapeDataString(detail.Address)" target="_blank" class="map-ext-link">Open in maps â†’</a>
+                            <a href="https://www.openstreetmap.org/search?query=@Uri.EscapeDataString(detail.Address)" target="_blank" class="map-ext-link">Open in maps ?</a>
                         </p>
                     </div>
                 </div>
@@ -202,7 +203,7 @@
                             </div>
                             <div class="sidebar-venue-info">
                                 <p class="sidebar-venue-name">@s.Name</p>
-                                <p class="sidebar-venue-meta">@VenueType(s) Â· @s.MinCapacityâ€“@s.MaxCapacity guests</p>
+                                <p class="sidebar-venue-meta">@VenueType(s) · @s.MinCapacity–@s.MaxCapacity guests</p>
                                 @if (s.EstimatedPrice > 0) { <p class="sidebar-venue-price">est. $@s.EstimatedPrice.ToString("N0")</p> }
                             </div>
                         </button>
@@ -213,7 +214,6 @@
     }
 </div>
 
-<!-- Confirm venue change modal -->
 <ModalShell IsOpen="showBookConfirm && current != null"
             Title="Save this venue?"
             ExtraClass="venue-confirm-box"
@@ -230,7 +230,7 @@
                 <div>
                     <p style="font-weight:700;font-size:.92rem;color:var(--sage-dark);margin:0 0 .2rem;">@bookVenue.Name</p>
                     <p style="font-size:.78rem;color:var(--muted);margin:0;">@bookVenue.Address</p>
-                    <p style="font-size:.78rem;color:var(--muted);margin:.15rem 0 0;">@bookVenue.MinCapacityâ€“@bookVenue.MaxCapacity guests</p>
+                    <p style="font-size:.78rem;color:var(--muted);margin:.15rem 0 0;">@bookVenue.MinCapacity–@bookVenue.MaxCapacity guests</p>
                 </div>
             </div>
         </div>
@@ -297,13 +297,13 @@
                             var lat=data&&data[0]?parseFloat(data[0].lat):44.4268;
                             var lng=data&&data[0]?parseFloat(data[0].lon):26.1025;
                             var map=L.map('venue-map',{zoomControl:true,scrollWheelZoom:false}).setView([lat,lng],15);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'Â© OpenStreetMap',maxZoom:19}).addTo(map);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
                             var icon=L.divIcon({className:'',html:'<div style="width:2rem;height:2rem;background:linear-gradient(135deg,#7d9b76,#4f6b4a);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>',iconSize:[32,32],iconAnchor:[16,32]});
                             L.marker([lat,lng],{icon}).addTo(map).bindPopup('<strong>{{n}}</strong><br>{{a}}').openPopup();
                             window._venueMap=map;
                         }).catch(()=>{
                             var map=L.map('venue-map',{zoomControl:true,scrollWheelZoom:false}).setView([45.9432,24.9668],7);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'Â© OpenStreetMap',maxZoom:19}).addTo(map);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
                             window._venueMap=map;
                         });
                     }

@@ -19,8 +19,6 @@ internal sealed class IdentityRedirectManager(NavigationManager navigationManage
     public void RedirectTo(string? uri)
     {
         uri ??= "";
-
-        // Prevent open redirects.
         if (!Uri.IsWellFormedUriString(uri, UriKind.Relative))
         {
             uri = navigationManager.ToBaseRelativePath(uri);

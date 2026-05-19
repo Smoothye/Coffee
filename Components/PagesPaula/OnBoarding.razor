@@ -1,4 +1,5 @@
-﻿@page "/onboarding"
+@page "/onboarding"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
@@ -167,12 +168,12 @@
                                     <img src="@venue.Image" alt="@venue.Name" class="venue-img" />
                                     @if (selectedVenue == venue.Id)
                                     {
-                                        <div class="venue-check">✓</div>
+                                        <div class="venue-check">?</div>
                                     }
                                 </div>
                                 <div class="venue-info">
                                     <p class="venue-name">@venue.Name</p>
-                                    <p class="venue-meta">@venue.Type · @venue.MinCapacity–@venue.MaxCapacity guests</p>
+                                    <p class="venue-meta">@venue.Type � @venue.MinCapacity�@venue.MaxCapacity guests</p>
                                 </div>
                             </button>
                         }
@@ -181,7 +182,7 @@
                 else
                 {
                     <div class="empty-venues">
-                        <span class="empty-icon">⚠</span>
+                        <span class="empty-icon">?</span>
                         <p>No venues are available for @guestCount guests on @date!.Value.ToString("MMM d, yyyy"). Try another date or guest count.</p>
                     </div>
                 }
@@ -199,7 +200,7 @@
                                     </div>
                                     <div class="venue-info">
                                         <p class="venue-name">@v.Name</p>
-                                        <p class="venue-meta">@v.Type · @v.MinCapacity–@v.MaxCapacity guests</p>
+                                        <p class="venue-meta">@v.Type � @v.MinCapacity�@v.MaxCapacity guests</p>
                                         <p class="venue-meta">@UnavailableReason(v)</p>
                                     </div>
                                 </div>
@@ -215,7 +216,7 @@
                     class="btn-back"
                     @onclick="Prev"
                     disabled="@(step == 0)">
-                ← Back
+                ? Back
             </button>
             <button type="button"
                     class="btn-next"
@@ -239,7 +240,6 @@
     Dictionary<string, string> fieldErrors = new();
 
     string eventName = "";
-    // eventType is always "Wedding" — app is wedding-only, no field needed
     DateTime? date = null;
     int guestCount = 0;
     int? selectedVenue = null;

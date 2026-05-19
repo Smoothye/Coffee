@@ -1,6 +1,7 @@
-ï»¿@rendermode InteractiveServer
+@rendermode InteractiveServer
 @implements IDisposable
 @page "/vendors"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @using System.Text
 @inject IJSRuntime JS
@@ -9,10 +10,9 @@
 @using WeddingPlannerApp.Components.PagesPaula.VendorComponents
 
 <PageNav Title="Suppliers"
-         Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed Â· {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
+         Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed · {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
          IconSvg="@SvgIcons.VendorsNav" />
 
-<!-- CSV Guide Modal -->
 <CsvGuideModal IsOpen="csvGuideOpen"
                Title="Import Suppliers"
                IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, EstimatedValue and ActualValue columns."
@@ -42,7 +42,6 @@
     </UploadContent>
 </CsvGuideModal>
 
-<!-- Add Supplier Modal -->
 <ModalShell IsOpen="addSupplierOpen" Title="Add Supplier" OnClose="CloseAddSupplier">
     @if (!string.IsNullOrEmpty(formError))
     {
@@ -122,7 +121,7 @@
                    OnExport="ExportCSV"
                    OnAddSupplier="OpenAddSupplier" />
 
-    <!-- Supplier grid -->
+    
     <div class="vendor-grid">
         @foreach (var supplier in filteredSuppliers)
         {
@@ -309,7 +308,7 @@
         _ => "Other"
     };
 
-    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "â€”";
+    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "—";
 
     async Task ExportCSV()
     {

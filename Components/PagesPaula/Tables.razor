@@ -1,5 +1,6 @@
-ï»¿@page "/tables"
+@page "/tables"
 @page "/tables/{EventId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
@@ -215,8 +216,6 @@
     string pendingDeleteType = "";
     int pendingDeleteId;
     string loadError = "";
-
-    // Seat picker popover
     bool seatPickerOpen = false;
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
@@ -356,8 +355,6 @@
             CloseSeatPicker();
             return;
         }
-
-        // If guest is currently seated somewhere else, free that seat
         foreach (var t in tables)
         {
             for (int i = 0; i < t.Seats.Count; i++)
@@ -369,7 +366,6 @@
                 }
             }
         }
-        // Otherwise remove from pool
         pool.RemoveAll(g => g.Id == guest.Id);
 
     found:
@@ -643,7 +639,7 @@
         groomName = string.IsNullOrWhiteSpace(pendingGroomName) ? "Groom" : pendingGroomName.Trim();
         BuildHeadTable();
         headConfigOpen = false;
-        ShowToast($"Head table updated â€” {2 + godparentCouples * 2} seats total.");
+        ShowToast($"Head table updated — {2 + godparentCouples * 2} seats total.");
     }
 
     void StartDrag(TableGuest guest, DragSource source)
@@ -918,7 +914,7 @@
         }
 
         tables.Add(MakeTable(newId, $"Table {newCount}", idealCap));
-        ShowToast($"Table added â€” {newCount} tables, ~{idealCap} seats each.");
+        ShowToast($"Table added — {newCount} tables, ~{idealCap} seats each.");
     }
 
     void ResizeTable(int id, int delta)
@@ -1087,7 +1083,7 @@
             var g = guest;
             var isLocked = IsLockedHeadGuest(g);
             var col = GroupDefs[g.Group];
-            var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} â€” {label ?? $"Seat {idx + 1}"}";
+            var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} — {label ?? $"Seat {idx + 1}"}";
             <div class="seat-guest @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
                  style="background:linear-gradient(135deg,@col.SeatFrom,@col.SeatTo);box-shadow:0 2px 8px rgba(0,0,0,.2);"
                  title="@title"
@@ -1113,7 +1109,7 @@
         {
             var isLockedSeat = IsLockedHeadSeat(table, idx);
             <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") @(isLockedSeat ? "seat-empty-locked" : "seat-empty-clickable")"
-                 title="@(label != null ? label : $"Seat {idx + 1}") â€” click to assign or drop a guest"
+                 title="@(label != null ? label : $"Seat {idx + 1}") — click to assign or drop a guest"
                  @onclick="@(() => { if (!isLockedSeat) OpenSeatPicker(table, idx); })"
                  @onclick:stopPropagation="true">
                 <span class="seat-empty-num">@(label != null ? label.Split(' ').Select(w => w[0].ToString()).Aggregate((a, b) => a + b) : (idx + 1).ToString())</span>

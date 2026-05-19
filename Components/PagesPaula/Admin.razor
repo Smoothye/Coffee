@@ -1,4 +1,5 @@
 @page "/admin"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
@@ -24,7 +25,7 @@
             </div>
             <div>
                 <span class="tables-nav-title">Application Manager</span>
-                <span class="tables-nav-sub">Review events &amp; manage venues</span>
+                <span class="tables-nav-sub">Review events, venues &amp; menus</span>
             </div>
         </div>
         <div class="tables-nav-actions">
@@ -53,6 +54,10 @@
         <AdminVenuesPanel Venues="venues"
                           OnAddVenue="OpenNewVenueModal"
                           OnDeleteVenue="DeleteVenue" />
+
+        <AdminMenusPanel Menus="menus"
+                         OnAddMenu="OpenNewMenuModal"
+                         OnDeleteMenu="DeleteMenu" />
     </div>
 </div>
 
@@ -195,6 +200,115 @@
     </div>
 }
 
+@if (showMenuModal)
+{
+    <div class="modal-backdrop" @onclick="CloseMenuModal">
+        <div class="modal-box admin-menu-modal" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>Add New Menu</h3>
+                <button class="modal-close" @onclick="CloseMenuModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(menuModalError))
+            {
+                <div class="error-banner">@menuModalError</div>
+            }
+
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>Menu Name</label>
+                    <input class="input @(HasMenuError(nameof(newMenu.Name)) ? "field-invalid" : "")" placeholder="Classic Elegance" @bind="newMenu.Name" @bind:event="oninput" />
+                    @MenuFieldError(nameof(newMenu.Name))
+                </div>
+                <div class="field">
+                    <label>Dietary Type</label>
+                    <select class="input select-input" @bind="newMenu.DietaryType">
+                        <option value="standard">Casual</option>
+                        <option value="vegetarian">Vegetarian</option>
+                        <option value="vegan">Vegan</option>
+                        <option value="fasting">Fasting</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>Price Per Person ($)</label>
+                    <input type="number" class="input @(HasMenuError(nameof(newMenu.PricePerPerson)) ? "field-invalid" : "")" min="0" @bind="newMenu.PricePerPerson" @bind:event="oninput" />
+                    @MenuFieldError(nameof(newMenu.PricePerPerson))
+                </div>
+                <div class="field">
+                    <label>Description</label>
+                    <input class="input @(HasMenuError(nameof(newMenu.Description)) ? "field-invalid" : "")" placeholder="A refined menu for a full wedding dinner" @bind="newMenu.Description" @bind:event="oninput" />
+                    @MenuFieldError(nameof(newMenu.Description))
+                </div>
+            </div>
+
+            <div class="admin-menu-builder">
+                <div class="admin-menu-builder-head">
+                    <h4>Courses</h4>
+                    <button type="button" class="btn-outline" @onclick="AddCourse">Add Course</button>
+                </div>
+
+                @for (var courseIndex = 0; courseIndex < newMenu.Courses.Count; courseIndex++)
+                {
+                    var currentCourseIndex = courseIndex;
+                    var course = newMenu.Courses[currentCourseIndex];
+                    <div class="admin-course-box">
+                        <div class="admin-course-head">
+                            <div class="field">
+                                <label>Course Name</label>
+                                <input class="input" placeholder="Starters" @bind="course.Label" @bind:event="oninput" />
+                            </div>
+                            <button type="button" class="icon-btn delete" title="Remove course" @onclick="@(() => RemoveCourse(currentCourseIndex))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                    <path d="M10 11v6" />
+                                    <path d="M14 11v6" />
+                                    <path d="M9 6V4h6v2" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="admin-item-list">
+                            @for (var itemIndex = 0; itemIndex < course.Items.Count; itemIndex++)
+                            {
+                                var currentItemIndex = itemIndex;
+                                var menuItem = course.Items[currentItemIndex];
+                                <div class="admin-item-row">
+                                    <input class="input" placeholder="Item name" @bind="menuItem.Name" @bind:event="oninput" />
+                                    <button type="button" class="icon-btn delete" title="Remove item" @onclick="@(() => RemoveItem(currentCourseIndex, currentItemIndex))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <button type="button" class="btn-outline admin-add-item" @onclick="@(() => AddItem(currentCourseIndex))">Add Item</button>
+                    </div>
+                }
+            </div>
+
+            <button class="btn-add-guest" @onclick="AddMenu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.35rem">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add Menu
+            </button>
+        </div>
+    </div>
+}
+
 @if (!string.IsNullOrEmpty(toastMessage))
 {
     <div class="toast @(toastIsError ? "toast-error" : "toast-success")">
@@ -258,6 +372,7 @@
 
     List<AdminEventModel> events = new();
     List<AdminVenueModel> venues = new();
+    List<AdminMenuModel> menus = new();
 
     int? expandedEventId = null;
 
@@ -267,6 +382,11 @@
     bool uploadDragActive = false;
     string uploadError = "";
     Dictionary<string, string> venueFieldErrors = new();
+
+    bool showMenuModal = false;
+    string menuModalError = "";
+    AdminMenuModel newMenu = NewMenuDraft();
+    Dictionary<string, string> menuFieldErrors = new();
 
     string toastMessage = "";
     bool toastIsError = false;
@@ -282,6 +402,30 @@
     int UpcomingEventCount => events.Count(e => e.EventDate.Date >= DateTime.Today);
     int TotalGuestCount => events.Sum(e => e.GuestCount);
     decimal TotalBudget => events.Sum(e => e.TotalBudget);
+
+    static AdminMenuModel NewMenuDraft() => new()
+    {
+        DietaryType = "standard",
+        PricePerPerson = 0,
+        Courses =
+        [
+            new AdminMenuCourseModel
+            {
+                Label = "Starters",
+                Items = [new AdminMenuItemModel()]
+            },
+            new AdminMenuCourseModel
+            {
+                Label = "Main Course",
+                Items = [new AdminMenuItemModel()]
+            },
+            new AdminMenuCourseModel
+            {
+                Label = "Desserts",
+                Items = [new AdminMenuItemModel()]
+            }
+        ]
+    };
 
     static AdminVenueModel ToAdminVenue(VenueDto venue) => new()
     {
@@ -442,6 +586,115 @@
         OpenConfirm("Delete venue?", $"Delete \"{item?.Name ?? "this venue"}\"? This cannot be undone.", "Delete venue", "venue", id);
     }
 
+    void OpenNewMenuModal()
+    {
+        newMenu = NewMenuDraft();
+        menuModalError = "";
+        menuFieldErrors.Clear();
+        showMenuModal = true;
+    }
+
+    void CloseMenuModal()
+    {
+        showMenuModal = false;
+        menuModalError = "";
+        menuFieldErrors.Clear();
+    }
+
+    void AddCourse()
+    {
+        newMenu.Courses.Add(new AdminMenuCourseModel
+        {
+            Label = "",
+            Items = [new AdminMenuItemModel()]
+        });
+    }
+
+    void RemoveCourse(int index)
+    {
+        if (newMenu.Courses.Count <= 1)
+        {
+            menuModalError = "Keep at least one course.";
+            return;
+        }
+
+        newMenu.Courses.RemoveAt(index);
+    }
+
+    void AddItem(int courseIndex) =>
+        newMenu.Courses[courseIndex].Items.Add(new AdminMenuItemModel());
+
+    void RemoveItem(int courseIndex, int itemIndex)
+    {
+        var course = newMenu.Courses[courseIndex];
+        if (course.Items.Count <= 1)
+        {
+            menuModalError = "Each course needs at least one item.";
+            return;
+        }
+
+        course.Items.RemoveAt(itemIndex);
+    }
+
+    void AddMenu()
+    {
+        menuModalError = "";
+        menuFieldErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(newMenu.Name)) menuFieldErrors[nameof(newMenu.Name)] = "Menu name is required.";
+        if (newMenu.PricePerPerson <= 0) menuFieldErrors[nameof(newMenu.PricePerPerson)] = "Price must be greater than 0.";
+        if (string.IsNullOrWhiteSpace(newMenu.Description)) menuFieldErrors[nameof(newMenu.Description)] = "Description is required.";
+        if (newMenu.Courses.Count == 0) menuModalError = "Add at least one course.";
+
+        foreach (var course in newMenu.Courses)
+        {
+            if (string.IsNullOrWhiteSpace(course.Label)) menuModalError = "Every course needs a name.";
+            if (course.Items.Count == 0) menuModalError = "Every course needs at least one item.";
+
+            foreach (var menuItem in course.Items)
+            {
+                if (string.IsNullOrWhiteSpace(menuItem.Name)) menuModalError = "Every item needs a name.";
+            }
+        }
+
+        if (menuFieldErrors.Count > 0 || !string.IsNullOrWhiteSpace(menuModalError))
+        {
+            if (string.IsNullOrWhiteSpace(menuModalError))
+                menuModalError = "Please fix the highlighted fields.";
+            return;
+        }
+
+        newMenu.Id = menus.Count == 0 ? 1 : menus.Max(menu => menu.Id) + 1;
+        menus.Add(CloneMenu(newMenu));
+        CloseMenuModal();
+        ShowToast($"\"{newMenu.Name}\" added locally. It can be wired to the menu API when the backend is ready.");
+    }
+
+    void DeleteMenu(int id)
+    {
+        var item = menus.FirstOrDefault(m => m.Id == id);
+        OpenConfirm("Delete menu?", $"Delete \"{item?.Name ?? "this menu"}\"? This cannot be undone.", "Delete menu", "menu", id);
+    }
+
+    static AdminMenuModel CloneMenu(AdminMenuModel menu) => new()
+    {
+        Id = menu.Id,
+        Name = menu.Name.Trim(),
+        DietaryType = menu.DietaryType,
+        PricePerPerson = menu.PricePerPerson,
+        Description = menu.Description.Trim(),
+        Courses = menu.Courses.Select(course => new AdminMenuCourseModel
+        {
+            Label = course.Label.Trim(),
+            Items = course.Items.Select(menuItem => new AdminMenuItemModel
+            {
+                Name = menuItem.Name.Trim(),
+                Description = "",
+                DietaryTagsValue = ""
+            }).ToList()
+        }).ToList()
+    };
+
     void OpenConfirm(string title, string message, string confirmTextValue, string type, int id)
     {
         confirmTitle = title;
@@ -483,6 +736,11 @@
                 ShowToast($"Could not delete venue: {ex.Message}", error: true);
             }
         }
+        else if (pendingDeleteType == "menu")
+        {
+            menus.RemoveAll(x => x.Id == pendingDeleteId);
+            ShowToast("Menu removed.");
+        }
 
         CloseConfirm();
     }
@@ -506,9 +764,20 @@
 
     bool HasVenueError(string field) => venueFieldErrors.ContainsKey(field);
 
+    bool HasMenuError(string field) => menuFieldErrors.ContainsKey(field);
+
     RenderFragment VenueFieldError(string field) => builder =>
     {
         if (!venueFieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+
+    RenderFragment MenuFieldError(string field) => builder =>
+    {
+        if (!menuFieldErrors.TryGetValue(field, out var message)) return;
         builder.OpenElement(0, "p");
         builder.AddAttribute(1, "class", "field-error");
         builder.AddContent(2, message);

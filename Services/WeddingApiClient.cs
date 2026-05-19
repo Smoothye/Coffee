@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using WeddingPlannerApp.DTOs.Event;
 using WeddingPlannerApp.DTOs.Guest;
 using WeddingPlannerApp.DTOs.Venue;
+using WeddingPlannerApp.Models;
 
 namespace WeddingPlannerApp.Services;
 
@@ -31,6 +32,9 @@ public sealed class WeddingApiClient(HttpClient http)
         var response = await http.DeleteAsync($"api/Events/{eventId}");
         response.EnsureSuccessStatusCode();
     }
+
+    public async Task<List<Menu>> GetMenusAsync() =>
+        await http.GetFromJsonAsync<List<Menu>>("api/Menus") ?? [];
 
     public async Task<List<VenueDto>> GetVenuesAsync() =>
         await http.GetFromJsonAsync<List<VenueDto>>("api/Venues") ?? [];

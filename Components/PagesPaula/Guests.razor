@@ -1,5 +1,6 @@
-﻿@page "/guests"
+@page "/guests"
 @page "/guests/{EventId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @using System.Text
 @rendermode InteractiveServer
@@ -25,8 +26,8 @@
             <div class="csv-rules">
                 <p class="csv-rules-title">@SvgIcons.AlertCircle Duplicate rules</p>
                 <ul class="csv-rules-list">
-                    <li>Same <strong>email</strong> or <strong>phone</strong> → skipped</li>
-                    <li>Same <strong>full name</strong> → allowed (shown as duplicate)</li>
+                    <li>Same <strong>email</strong> or <strong>phone</strong> ? skipped</li>
+                    <li>Same <strong>full name</strong> ? allowed (shown as duplicate)</li>
                 </ul>
             </div>
             <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
@@ -66,7 +67,7 @@
             {
                 <button class="btn-add-guest" style="margin-top:.75rem;"
                         @onclick="@(() => { csvGuideOpen = false; dragActive = false; importResult = null; })">
-                    @SvgIcons.Check Done — View Guests
+                    @SvgIcons.Check Done � View Guests
                 </button>
             }
     </UploadContent>
@@ -90,7 +91,7 @@
         <div class="field">
             <label>Gender</label>
             <select class="input select-input" @bind="newGuest.Gender">
-                <option value="">—</option><option value="@Gender.Male">Male</option>
+                <option value="">�</option><option value="@Gender.Male">Male</option>
                 <option value="@Gender.Female">Female</option><option value="@Gender.Other">Other</option>
             </select>
         </div>
@@ -155,7 +156,7 @@
                 Pending="@guests.Count(g => g.RsvpStatus == RsvpStatus.Pending)"
                 Declined="@guests.Count(g => g.RsvpStatus == RsvpStatus.Declined)" />
 
-    <div class="guest-tools-row">
+    <div class="guest-tools-row guest-toolbar-shell">
         <GuestFilters Search="@search"
                       SearchChanged="@((value) => search = value)"
                       Group="@filterGroup"

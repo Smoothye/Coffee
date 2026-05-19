@@ -1,5 +1,6 @@
 @page "/dashboard"
 @page "/dashboard/{EventId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
 @using WeddingPlannerApp.Components.PagesPaula.DashboardWidgets
@@ -7,8 +8,12 @@
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.DTOs.Venue
 @using WeddingPlannerApp.Models
+@using WeddingPlannerApp.Data
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
 @inject NavigationManager Nav
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
+@inject UserManager<ApplicationUser> UserManager
 
 <HeadContent>
     <link rel="stylesheet" href="styles/Dashboard.css" />
@@ -25,7 +30,7 @@
     }
 
     <div class="dash-header">
-        <h1 class="dash-greeting">@Greeting, Emma</h1>
+        <h1 class="dash-greeting">@Greeting, @userDisplayName</h1>
         <p class="dash-subtitle">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -71,6 +76,9 @@
     bool tablesConfirmed = false;
     string selectedMenu = "Classic Elegance";
     string loadError = "";
+    string userDisplayName = "there";
+
+    [CascadingParameter] public Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
     int daysUntilWedding => Math.Max(0, (weddingDate - DateTime.Today).Days);
     int weeksUntilWedding => daysUntilWedding / 7;
@@ -124,6 +132,8 @@
 
         try
         {
+            await LoadUserName();
+
             if (EventId <= 0)
             {
                 var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
@@ -152,11 +162,30 @@
             var venue = await Api.GetVenueAsync(eventItem.VenueId);
             if (venue != null)
                 venueName = venue.Name;
+
+            var menus = await Api.GetMenusAsync();
+            selectedMenu = menus.FirstOrDefault(menu => menu.MenuId == eventItem.MenuId)?.Name
+                ?? (eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Select a menu");
         }
         catch (Exception ex)
         {
             loadError = $"Could not load dashboard data: {ex.Message}";
         }
+    }
+
+    async Task LoadUserName()
+    {
+        if (AuthenticationStateTask is null)
+            return;
+
+        var authState = await AuthenticationStateTask;
+        var user = await UserManager.GetUserAsync(authState.User);
+        if (user is null)
+            return;
+
+        userDisplayName = !string.IsNullOrWhiteSpace(user.FirstName)
+            ? user.FirstName.Trim()
+            : user.Email?.Split('@')[0] ?? "there";
     }
 
     void ApplyEvent(EventDto eventItem)
