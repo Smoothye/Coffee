@@ -21,6 +21,13 @@
         {
             var headFilled = head.Seats.Count(s => s != null);
             <div class="head-table-card">
+                <button type="button"
+                        class="head-lock-btn @(HeadTableLocked ? "head-lock-on" : "")"
+                        title="@(HeadTableLocked ? "Unlock head table" : "Lock head table")"
+                        aria-label="@(HeadTableLocked ? "Unlock head table" : "Lock head table")"
+                        @onclick="OnToggleHeadLock">
+                    @(HeadTableLocked ? SvgIcons.Lock : SvgIcons.Unlock)
+                </button>
                 <div class="head-table-header">
                     <div>
                         <h4 class="head-table-title">
@@ -118,11 +125,13 @@
     [Parameter] public string BrideName { get; set; } = "Bride";
     [Parameter] public string GroomName { get; set; } = "Groom";
     [Parameter] public int GodparentCouples { get; set; }
+    [Parameter] public bool HeadTableLocked { get; set; } = true;
     [Parameter] public int SeatedCount { get; set; }
     [Parameter] public int TotalGuests { get; set; }
     [Parameter] public int TotalSeats { get; set; }
     [Parameter] public TableSeatTemplate? SeatContent { get; set; }
     [Parameter] public EventCallback OnConfigureHeadTable { get; set; }
+    [Parameter] public EventCallback OnToggleHeadLock { get; set; }
     [Parameter] public EventCallback OnCsvGuide { get; set; }
     [Parameter] public EventCallback<InputFileChangeEventArgs> OnImport { get; set; }
     [Parameter] public EventCallback OnExport { get; set; }

@@ -3,13 +3,17 @@
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @using System.Text
+@using System.ComponentModel.DataAnnotations
+@using System.Text.RegularExpressions
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.Components.PagesPaula.GuestComponents
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Services
+@using GuestGroup = WeddingPlannerApp.Models.Group
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject WeddingApiClient Api
@@ -116,26 +120,28 @@
                 Pending="@guests.Count(g => g.RsvpStatus == RsvpStatus.Pending)"
                 Declined="@guests.Count(g => g.RsvpStatus == RsvpStatus.Declined)" />
 
-    <div class="guest-tools-row guest-toolbar-shell">
-        <GuestFilters Search="@search"
-                      SearchChanged="@((value) => search = value)"
-                      Group="@filterGroup"
-                      GroupChanged="@((value) => filterGroup = value)"
-                      Status="@filterStatus"
-                      StatusChanged="@((value) => filterStatus = value)" />
+    <div class="guests-window">
+        <div class="guest-tools-row guest-toolbar-shell">
+            <GuestFilters Search="@search"
+                          SearchChanged="@((value) => search = value)"
+                          Group="@filterGroup"
+                          GroupChanged="@((value) => filterGroup = value)"
+                          Status="@filterStatus"
+                          StatusChanged="@((value) => filterStatus = value)" />
 
-        <GuestCommandBar OnCsvGuide="@OpenCsvGuide"
-                         OnImport="HandleImport"
-                         OnExport="ExportCSV"
-                         OnAddGuest="OpenDialog" />
+            <GuestCommandBar OnCsvGuide="@OpenCsvGuide"
+                             OnImport="HandleImport"
+                             OnExport="ExportCSV"
+                             OnAddGuest="OpenDialog" />
+        </div>
+
+        <GuestList Guests="FilteredGuests.ToList()"
+                   OnTogglePlusOne="TogglePlusOne"
+                   OnSetStatus="SetStatus"
+                   OnSetDietary="SetDietary"
+                   OnRemove="RemoveGuest"
+                   MenuOptions="availableMenuOptions" />
     </div>
-
-    <GuestList Guests="FilteredGuests.ToList()"
-               OnTogglePlusOne="TogglePlusOne"
-               OnSetStatus="SetStatus"
-               OnSetDietary="SetDietary"
-               OnRemove="RemoveGuest"
-               MenuOptions="availableMenuOptions" />
 </div>
 
 @code {
@@ -159,6 +165,11 @@
     Dictionary<string, string> guestFieldErrors = new();
     DietaryRequirements plusOneDietary = DietaryRequirements.Standard;
     const string PlusOneNotePrefix = "Plus one for guest ";
+    const string CoupleNotePrefix = "Wedding couple:";
+    const string BrideCoupleNote = "Wedding couple: bride";
+    const string GroomCoupleNote = "Wedding couple: groom";
+    static readonly Regex GuestNamePattern = new(@"^[\p{L}\p{M}][\p{L}\p{M}' -]*$", RegexOptions.Compiled);
+    readonly EmailAddressAttribute emailValidator = new();
     List<GuestMenuOption> availableMenuOptions = [new(DietaryRequirements.Standard, "Standard")];
 
     static readonly CsvGuideColumn[] guestCsvColumns =
@@ -222,6 +233,7 @@
 
             await LoadAvailableMenuOptionsAsync(ownEvent.MenuIds);
             guests = await Api.GetGuestsAsync(EventId);
+            await EnsureCoupleRowsAsync(ownEvent);
             await EnsurePlusOneRowsAsync();
             await NormalizeGuestMenuPreferencesAsync();
         }
@@ -241,7 +253,7 @@
         FirstName = "",
         LastName = "",
         Email = "",
-        Group = Group.Friends,
+        Group = GuestGroup.Friends,
         DietaryRequirements = DietaryRequirements.Standard,
         RsvpStatus = RsvpStatus.Pending
     };
@@ -300,6 +312,9 @@
     static bool IsPlusOneGuest(GuestDto? guest) =>
         guest?.Notes?.StartsWith(PlusOneNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
 
+    static bool IsCoupleGuest(GuestDto? guest) =>
+        guest?.Notes?.StartsWith(CoupleNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
     static int? PlusOneOwnerId(GuestDto guest)
     {
         if (!IsPlusOneGuest(guest))
@@ -322,10 +337,92 @@
     GuestDto? FindPlusOneFor(int ownerId) =>
         guests.FirstOrDefault(g => string.Equals(g.Notes?.Trim(), PlusOneNote(ownerId), StringComparison.OrdinalIgnoreCase));
 
+    async Task EnsureCoupleRowsAsync(EventDto eventItem)
+    {
+        await EnsureCoupleRowAsync(eventItem, BrideCoupleNote, eventItem.BrideName, "Bride", Gender.Female);
+        await EnsureCoupleRowAsync(eventItem, GroomCoupleNote, eventItem.GroomName, "Groom", Gender.Male);
+    }
+
+    async Task EnsureCoupleRowAsync(EventDto eventItem, string note, string? fullName, string fallbackRole, Gender gender)
+    {
+        var existing = guests.FirstOrDefault(g => string.Equals(g.Notes?.Trim(), note, StringComparison.OrdinalIgnoreCase));
+        var dietary = existing?.DietaryRequirements ?? DefaultAvailableDietary();
+        var desired = BuildCoupleCreateDto(eventItem.EventId, fullName, fallbackRole, note, gender, dietary);
+
+        if (existing is null)
+        {
+            var created = await Api.CreateGuestAsync(EventId, desired);
+            if (created is not null)
+                guests.Add(created);
+            return;
+        }
+
+        if (existing.FirstName == desired.FirstName &&
+            existing.LastName == desired.LastName &&
+            existing.Email == desired.Email &&
+            existing.RsvpStatus == RsvpStatus.Confirmed &&
+            existing.Group == GuestGroup.Family &&
+            existing.HasPlusOne == false &&
+            existing.Gender == gender)
+        {
+            return;
+        }
+
+        existing.FirstName = desired.FirstName;
+        existing.LastName = desired.LastName;
+        existing.Email = desired.Email;
+        existing.RsvpStatus = RsvpStatus.Confirmed;
+        existing.Group = GuestGroup.Family;
+        existing.HasPlusOne = false;
+        existing.Gender = gender;
+        existing.Notes = note;
+        await Api.UpdateGuestAsync(EventId, existing.GuestId, ToUpdateDto(existing));
+    }
+
+    static GuestCreateDto BuildCoupleCreateDto(
+        int eventId,
+        string? fullName,
+        string fallbackRole,
+        string note,
+        Gender gender,
+        DietaryRequirements dietary)
+    {
+        var (firstName, lastName) = CoupleNameParts(fullName, fallbackRole);
+        return new()
+        {
+            FirstName = firstName,
+            LastName = lastName,
+            Email = $"couple-{fallbackRole.ToLowerInvariant()}-{eventId}@wedding.local",
+            Gender = gender,
+            RsvpStatus = RsvpStatus.Confirmed,
+            Group = GuestGroup.Family,
+            DietaryRequirements = dietary,
+            HasPlusOne = false,
+            Notes = note
+        };
+    }
+
+    static (string FirstName, string LastName) CoupleNameParts(string? fullName, string fallbackRole)
+    {
+        var name = string.IsNullOrWhiteSpace(fullName) ? fallbackRole : fullName.Trim();
+        if (!GuestNamePattern.IsMatch(name))
+            name = fallbackRole;
+
+        var parts = name.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+            return (fallbackRole, "Partner");
+
+        if (parts.Length == 1)
+            return (parts[0], fallbackRole);
+
+        return (parts[0], parts[1]);
+    }
+
     async Task EnsurePlusOneRowsAsync()
     {
         var ownersMissingPlusOneRows = guests
             .Where(g => g.HasPlusOne && !IsPlusOneGuest(g) && FindPlusOneFor(g.GuestId) is null)
+            .Where(g => !IsCoupleGuest(g))
             .ToList();
 
         foreach (var owner in ownersMissingPlusOneRows)
@@ -344,12 +441,12 @@
         _ => null,
     };
 
-    static Group ToGroup(string value) => value switch
+    static GuestGroup ToGroup(string value) => value switch
     {
-        "family" => Group.Family,
-        "friends" => Group.Friends,
-        "colleagues" => Group.Colleagues,
-        _ => Group.Other,
+        "family" => GuestGroup.Family,
+        "friends" => GuestGroup.Friends,
+        "colleagues" => GuestGroup.Colleagues,
+        _ => GuestGroup.Other,
     };
 
     static DietaryRequirements ToDietary(string value) => value switch
@@ -383,24 +480,7 @@
     {
         formError = "";
         guestFieldErrors.Clear();
-        if (string.IsNullOrWhiteSpace(newGuest.FirstName) || string.IsNullOrWhiteSpace(newGuest.LastName) || string.IsNullOrWhiteSpace(newGuest.Email))
-        {
-            if (string.IsNullOrWhiteSpace(newGuest.FirstName)) guestFieldErrors[nameof(newGuest.FirstName)] = "First name is required.";
-            if (string.IsNullOrWhiteSpace(newGuest.LastName)) guestFieldErrors[nameof(newGuest.LastName)] = "Last name is required.";
-            if (string.IsNullOrWhiteSpace(newGuest.Email)) guestFieldErrors[nameof(newGuest.Email)] = "Email is required.";
-        }
-        if (!string.IsNullOrWhiteSpace(newGuest.Email) && !newGuest.Email.Contains('@'))
-            guestFieldErrors[nameof(newGuest.Email)] = "Enter a valid email address.";
-        if (newGuest.Age is < 0)
-            guestFieldErrors[nameof(newGuest.Age)] = "Age cannot be negative.";
-        if (!string.IsNullOrWhiteSpace(newGuest.Email) && guests.Any(g => g.Email.Trim().Equals(newGuest.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
-            guestFieldErrors[nameof(newGuest.Email)] = "A guest with this email already exists.";
-        if (!string.IsNullOrWhiteSpace(newGuest.Phone) && guests.Any(g => (g.Phone ?? "").Trim() == newGuest.Phone.Trim()))
-            guestFieldErrors[nameof(newGuest.Phone)] = "A guest with this phone already exists.";
-        if (!string.IsNullOrWhiteSpace(newGuest.FirstName) &&
-            !string.IsNullOrWhiteSpace(newGuest.LastName) &&
-            guests.Any(g => $"{g.FirstName.ToLower()} {g.LastName.ToLower()}" == $"{newGuest.FirstName.Trim().ToLower()} {newGuest.LastName.Trim().ToLower()}"))
-            guestFieldErrors[nameof(newGuest.FirstName)] = "A guest with this full name already exists.";
+        ValidateGuestDraft(newGuest, guestFieldErrors);
         if (guestFieldErrors.Count > 0) { formError = "Please fix the highlighted fields."; return; }
         newGuest.RsvpStatus = RsvpStatus.Pending;
         try
@@ -587,18 +667,19 @@
             var group     = c.ElementAtOrDefault(7)?.Trim().ToLower() ?? "";
             var status    = c.ElementAtOrDefault(8)?.Trim().ToLower() ?? "";
             var plusOne   = c.ElementAtOrDefault(9)?.Trim().ToLower() ?? "";
-            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || string.IsNullOrWhiteSpace(email)) { skipped++; continue; }
-            if (IsDuplicate(firstName, lastName, email, phone)) { skipped++; continue; }
             var importedGuest = new GuestCreateDto
             {
                 FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
                 Age = int.TryParse(ageStr, out var age) ? age : null,
                 Gender = ToGender(gender),
                 DietaryRequirements = NormalizeDietaryForSelectedMenus(validDietary.Contains(dietary) ? ToDietary(dietary) : DietaryRequirements.Standard),
-                Group = validGroups.Contains(group) ? ToGroup(group) : Group.Other,
+                Group = validGroups.Contains(group) ? ToGroup(group) : GuestGroup.Other,
                 RsvpStatus = validStatuses.Contains(status) ? ToRsvpStatus(status) : RsvpStatus.Pending,
                 HasPlusOne = plusOne is "yes" or "true" or "1",
             };
+            var rowErrors = new Dictionary<string, string>();
+            ValidateGuestDraft(importedGuest, rowErrors);
+            if (rowErrors.Count > 0) { skipped++; continue; }
             guestsToCreate.Add(CleanCreateDto(importedGuest));
             imported++;
         }
@@ -630,6 +711,45 @@
         importResult    = new ImportResult(msg, skipped > 0);
         importSummary   = msg;
         importHasWarning = skipped > 0;
+    }
+
+    void ValidateGuestDraft(GuestCreateDto guest, Dictionary<string, string> errors)
+    {
+        var firstName = guest.FirstName.Trim();
+        var lastName = guest.LastName.Trim();
+        var email = guest.Email.Trim();
+        var phone = guest.Phone?.Trim() ?? "";
+
+        if (string.IsNullOrWhiteSpace(firstName))
+            errors[nameof(guest.FirstName)] = "First name is required.";
+        else if (!GuestNamePattern.IsMatch(firstName))
+            errors[nameof(guest.FirstName)] = "Use only letters, spaces, accents, hyphens, or apostrophes.";
+
+        if (string.IsNullOrWhiteSpace(lastName))
+            errors[nameof(guest.LastName)] = "Last name is required.";
+        else if (!GuestNamePattern.IsMatch(lastName))
+            errors[nameof(guest.LastName)] = "Use only letters, spaces, accents, hyphens, or apostrophes.";
+
+        if (string.IsNullOrWhiteSpace(email))
+            errors[nameof(guest.Email)] = "Email is required.";
+        else if (!emailValidator.IsValid(email))
+            errors[nameof(guest.Email)] = "Enter a valid email address.";
+
+        if (guest.Age is < 0)
+            errors[nameof(guest.Age)] = "Age cannot be negative.";
+
+        if (!string.IsNullOrWhiteSpace(email) &&
+            guests.Any(g => g.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase)))
+            errors[nameof(guest.Email)] = "A guest with this email already exists.";
+
+        if (!string.IsNullOrWhiteSpace(phone) &&
+            guests.Any(g => string.Equals((g.Phone ?? "").Trim(), phone, StringComparison.OrdinalIgnoreCase)))
+            errors[nameof(guest.Phone)] = "A guest with this phone already exists.";
+
+        if (!string.IsNullOrWhiteSpace(firstName) &&
+            !string.IsNullOrWhiteSpace(lastName) &&
+            guests.Any(g => string.Equals($"{g.FirstName.Trim()} {g.LastName.Trim()}", $"{firstName} {lastName}", StringComparison.OrdinalIgnoreCase)))
+            errors[nameof(guest.FirstName)] = "A guest with this full name already exists.";
     }
 
     async Task DownloadTemplate()

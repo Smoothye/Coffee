@@ -1,14 +1,14 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using WeddingPlannerApp.Components.LayoutPaula
 
-<div class="toolbar vendor-filter-toolbar">
+<div class="toolbar supplier-filter-toolbar">
     <div class="search-wrap">
         <span class="search-icon">@SvgIcons.Search</span>
         <input class="input search-input" placeholder="Search suppliers..."
                value="@Search"
                @oninput="HandleSearch" />
     </div>
-    <label class="budget-filter-field vendor-filter-field">
+    <label class="budget-filter-field supplier-filter-field">
         <span>Category</span>
         <select class="input select-input filter-select"
                 value="@Category"
@@ -20,7 +20,7 @@
             }
         </select>
     </label>
-    <label class="budget-filter-field vendor-filter-field">
+    <label class="budget-filter-field supplier-filter-field">
         <span>Status</span>
         <select class="input select-input filter-select"
                 value="@Status"
@@ -31,7 +31,7 @@
             <option value="none">Not selected</option>
         </select>
     </label>
-    <div class="vendor-toolbar-actions">
+    <div class="supplier-toolbar-actions">
         <button class="btn-outline" title="CSV Guide" @onclick="OnCsvGuide">@SvgIcons.FileText CSV Guide</button>
         <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
             @SvgIcons.Upload Import

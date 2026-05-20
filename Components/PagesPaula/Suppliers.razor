@@ -1,25 +1,25 @@
 @rendermode InteractiveServer
 @implements IDisposable
-@page "/vendors"
 @page "/suppliers"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @using System.Text
+@using System.ComponentModel.DataAnnotations
 @inject IJSRuntime JS
 @inject WeddingPlannerApp.Services.WeddingStateService State
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
-@using WeddingPlannerApp.Components.PagesPaula.VendorComponents
+@using WeddingPlannerApp.Components.PagesPaula.SupplierComponents
 
 <PageNav Title="Suppliers"
          Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed - {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
-         IconSvg="@SvgIcons.VendorsNav" />
+         IconSvg="@SvgIcons.SuppliersNav" />
 
 <CsvGuideModal IsOpen="csvGuideOpen"
                Title="Import Suppliers"
-               IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, EstimatedValue and ActualValue columns."
+               IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, BasePrice and ActualValue columns."
                Columns="supplierCsvColumns"
                OnClose="@(() => csvGuideOpen = false)">
     <LeftFooter>
@@ -58,13 +58,14 @@
             @FormFieldError(nameof(draftSupplier.Name))
         </div>
         <div class="field">
-            <label>Category</label>
-            <select class="input select-input" @bind="draftSupplier.Category">
+            <label>Category *</label>
+            <select class="input select-input @(HasFormError(nameof(draftSupplier.Category)) ? "field-invalid" : "")" @bind="draftSupplier.Category">
                 @foreach (var c in categories)
                 {
                     <option value="@c">@c</option>
                 }
             </select>
+            @FormFieldError(nameof(draftSupplier.Category))
         </div>
     </div>
     <div class="form-grid-2">
@@ -74,7 +75,7 @@
         </div>
         <div class="field">
             <label>Email</label>
-            <input class="input @(HasFormError(nameof(draftSupplier.Email)) ? "field-invalid" : "")" @bind="draftSupplier.Email" @bind:event="oninput" placeholder="supplier@example.com" />
+            <input class="input @(HasFormError(nameof(draftSupplier.Email)) ? "field-invalid" : "")" type="email" @bind="draftSupplier.Email" @bind:event="oninput" placeholder="supplier@example.com" />
             @FormFieldError(nameof(draftSupplier.Email))
         </div>
     </div>
@@ -84,7 +85,7 @@
     </div>
     <div class="form-grid-2">
         <div class="field">
-            <label>Estimated value</label>
+            <label>Base price</label>
             <input class="input @(HasFormError(nameof(draftSupplier.EstimatedValue)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.EstimatedValue" @bind:event="oninput" />
             @FormFieldError(nameof(draftSupplier.EstimatedValue))
         </div>
@@ -104,16 +105,16 @@
                OnCancel="@(() => confirmRemoveOpen = false)"
                OnConfirm="ConfirmRemoveStatus" />
 
-<div class="vendors-page">
+<div class="suppliers-page">
 
-    <VendorStats Available="@allSuppliers.Count"
+    <SupplierStats Available="@allSuppliers.Count"
                  Confirmed="@eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")"
                  Pending="@eventSuppliers.Count(s => s.CollaborationStatus == "pending")"
                  NotSelected="@allSuppliers.Count(s => !eventSuppliers.Any(es => es.SupplierId == s.Id))"
                  Estimated="@ActiveSuppliers.Sum(s => s.EstimatedValue)"
                  Actual="@ActiveSuppliers.Sum(s => s.ActualValue)" />
 
-    <VendorToolbar Search="@search"
+    <SupplierToolbar Search="@search"
                    SearchChanged="@((value) => search = value)"
                    Category="@filterCat"
                    CategoryChanged="@((value) => filterCat = value)"
@@ -126,16 +127,24 @@
                    OnAddSupplier="OpenAddSupplier" />
 
     
-    <div class="vendor-grid">
+    <div class="supplier-grid">
         @foreach (var supplier in filteredSuppliers)
         {
             var sid = supplier.Id;
-            <VendorCard Supplier="supplier"
+            <SupplierCard Supplier="supplier"
                         Status="@GetStatus(sid)"
                         EventSupplier="GetEventSupplier(sid)"
                         OnSetStatus="SetStatus"
                         OnRemoveStatus="RemoveStatus"
                         OnSyncBudget="SyncSupplierBudget" />
+        }
+        @if (!filteredSuppliers.Any())
+        {
+            <div class="suppliers-empty">
+                <span class="suppliers-empty-icon">@((MarkupString)SvgIcons.SuppliersNav)</span>
+                <p>No suppliers yet.</p>
+                <span>Add suppliers manually or import a CSV when you are ready.</span>
+            </div>
         }
     </div>
 </div>
@@ -146,28 +155,17 @@
     static readonly CsvGuideColumn[] supplierCsvColumns =
     {
         new() { Name = "Name", Required = true, ValidValues = "Any text" },
-        new() { Name = "Category", ValidValues = "Cake, Candy Bar, Flowers, Photography, Music/DJ, Catering, Decorations, Rentals, Other" },
+        new() { Name = "Category", Required = true, ValidValues = "Cake, Candy Bar, Flowers, Photography, Music/DJ, Catering, Decorations, Rentals, Other" },
         new() { Name = "Phone", ValidValues = "Any format" },
         new() { Name = "Email", ValidValues = "Used for duplicate check" },
         new() { Name = "Description", ValidValues = "Short notes" },
-        new() { Name = "EstimatedValue", ValidValues = "Number" },
-        new() { Name = "ActualValue", ValidValues = "Number" },
+        new() { Name = "BasePrice", ValidValues = "Number, cannot be negative" },
+        new() { Name = "ActualValue", ValidValues = "Number, cannot be negative" },
     };
 
-    List<SupplierModel> allSuppliers = new() {
-        new SupplierModel { Id=1, Name="Sweet Bliss Bakery",    Category="Cake",        Phone="+1 555-0101", Email="info@sweetbliss.com",  Description="Specializes in 3-tier wedding cakes.", EstimatedValue=900,  ActualValue=850 },
-        new SupplierModel { Id=2, Name="Petal & Bloom",         Category="Flowers",     Phone="+1 555-0102", Email="hello@petalbloom.com", Description="Eucalyptus and roses.",                EstimatedValue=1800, ActualValue=0 },
-        new SupplierModel { Id=3, Name="Snap & Co Photography", Category="Photography", Phone="+1 555-0103", Email="book@snapco.com",      Description="Full-day packages.",                  EstimatedValue=2400, ActualValue=2400 },
-        new SupplierModel { Id=4, Name="CandyLand Creations",   Category="Candy Bar",   Phone="+1 555-0104", Email="info@candyland.com",   Description="Custom packaging.",                    EstimatedValue=650,  ActualValue=0 },
-        new SupplierModel { Id=5, Name="DJ Harmony",            Category="Music/DJ",    Phone="+1 555-0105", Email="dj@harmony.com",       Description="Live mixing.",                         EstimatedValue=1200, ActualValue=0 },
-        new SupplierModel { Id=6, Name="Golden Lens Studio",    Category="Photography", Phone="+1 555-0106", Email="hi@goldenlens.com",    Description="Documentary-style.",                   EstimatedValue=2800, ActualValue=0 },
-        new SupplierModel { Id=7, Name="Bloom & Wild",          Category="Flowers",     Phone="+1 555-0107", Email="info@bloomwild.com",   Description="Garden-style bouquets.",               EstimatedValue=2100, ActualValue=0 },
-    };
+    List<SupplierModel> allSuppliers = [];
 
-    List<EventSupplierModel> eventSuppliers = new() {
-        new EventSupplierModel { SupplierId=1, CollaborationStatus="confirmed", Notes="Tasting scheduled" },
-        new EventSupplierModel { SupplierId=2, CollaborationStatus="pending",   Notes="Waiting for quote" },
-    };
+    List<EventSupplierModel> eventSuppliers = [];
 
     IEnumerable<SupplierModel> ActiveSuppliers => allSuppliers.Where(s => GetStatus(s.Id) != null);
 
@@ -180,6 +178,7 @@
     string importSummary = "";
     bool importHasWarning = false;
     SupplierModel draftSupplier = new() { Category = "Other" };
+    readonly EmailAddressAttribute emailValidator = new();
 
     string _search = "";
     string search { get => _search; set { _search = value; ApplyFilters(); } }
@@ -235,16 +234,7 @@
     {
         formError = "";
         formFieldErrors.Clear();
-        if (string.IsNullOrWhiteSpace(draftSupplier.Name))
-            formFieldErrors[nameof(draftSupplier.Name)] = "Supplier name is required.";
-        if (allSuppliers.Any(s => s.Name.Equals(draftSupplier.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
-            formFieldErrors[nameof(draftSupplier.Name)] = "A supplier with this name already exists.";
-        if (!string.IsNullOrWhiteSpace(draftSupplier.Email) && !draftSupplier.Email.Contains('@'))
-            formFieldErrors[nameof(draftSupplier.Email)] = "Enter a valid email address.";
-        if (draftSupplier.EstimatedValue < 0)
-            formFieldErrors[nameof(draftSupplier.EstimatedValue)] = "Estimated value cannot be negative.";
-        if (draftSupplier.ActualValue < 0)
-            formFieldErrors[nameof(draftSupplier.ActualValue)] = "Actual value cannot be negative.";
+        ValidateSupplierDraft(draftSupplier, formFieldErrors);
 
         if (formFieldErrors.Count > 0)
         {
@@ -253,9 +243,7 @@
         }
 
         draftSupplier.Id = allSuppliers.Count == 0 ? 1 : allSuppliers.Max(s => s.Id) + 1;
-        draftSupplier.Name = draftSupplier.Name.Trim();
-        draftSupplier.Category = categories.Contains(draftSupplier.Category) ? draftSupplier.Category : "Other";
-        allSuppliers.Add(draftSupplier);
+        allSuppliers.Add(SanitizeSupplier(draftSupplier));
         CloseAddSupplier();
         ApplyFilters();
     }
@@ -324,7 +312,7 @@
     async Task ExportCSV()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Name,Category,Phone,Email,Description,EstimatedValue,ActualValue,Status,Notes");
+        sb.AppendLine("Name,Category,Phone,Email,Description,BasePrice,ActualValue,Status,Notes");
         foreach (var s in allSuppliers)
         {
             var es = GetEventSupplier(s.Id);
@@ -346,19 +334,27 @@
         foreach (var line in text.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
         {
             var c = line.TrimEnd('\r').Split(',');
-            var name = c.ElementAtOrDefault(0)?.Trim() ?? "";
-            if (string.IsNullOrWhiteSpace(name) || allSuppliers.Any(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) { skipped++; continue; }
-            allSuppliers.Add(new SupplierModel
+            var supplier = new SupplierModel
             {
                 Id = nextId + counter++,
-                Name = name,
-                Category = categories.Contains(c.ElementAtOrDefault(1)?.Trim() ?? "") ? c[1].Trim() : "Other",
+                Name = c.ElementAtOrDefault(0)?.Trim() ?? "",
+                Category = c.ElementAtOrDefault(1)?.Trim() ?? "",
                 Phone = c.ElementAtOrDefault(2)?.Trim() ?? "",
                 Email = c.ElementAtOrDefault(3)?.Trim() ?? "",
                 Description = c.ElementAtOrDefault(4)?.Trim() ?? "",
                 EstimatedValue = decimal.TryParse(c.ElementAtOrDefault(5), out var est) ? est : 0,
                 ActualValue = decimal.TryParse(c.ElementAtOrDefault(6), out var act) ? act : 0,
-            });
+            };
+
+            var rowErrors = new Dictionary<string, string>();
+            ValidateSupplierDraft(supplier, rowErrors);
+            if (rowErrors.Count > 0)
+            {
+                skipped++;
+                continue;
+            }
+
+            allSuppliers.Add(SanitizeSupplier(supplier));
             imported++;
         }
         importSummary = skipped > 0 ? $"Imported {imported} supplier(s). Skipped {skipped} duplicate/invalid row(s)." : $"Successfully imported {imported} supplier(s).";
@@ -368,10 +364,59 @@
 
     async Task DownloadTemplate()
     {
-        var csv = "Name,Category,Phone,Email,Description,EstimatedValue,ActualValue\nFloral Atelier,Flowers,+40721000001,hello@floral.example,Garden-style arrangements,1800,0\nMidnight Band,Music/DJ,+40721000002,bookings@midnight.example,Live band and DJ set,2200,0\n";
+        var csv = "Name,Category,Phone,Email,Description,BasePrice,ActualValue\n";
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='suppliers_template.csv';a.click()");
     }
+
+    void ValidateSupplierDraft(SupplierModel supplier, Dictionary<string, string> errors)
+    {
+        var name = supplier.Name.Trim();
+        var category = supplier.Category.Trim();
+        var email = supplier.Email.Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            errors[nameof(supplier.Name)] = "Supplier name is required.";
+
+        if (string.IsNullOrWhiteSpace(category))
+            errors[nameof(supplier.Category)] = "Category is required.";
+        else if (!categories.Contains(category))
+            errors[nameof(supplier.Category)] = "Choose one of the available categories.";
+
+        if (allSuppliers.Any(s => s.Name.Trim().Equals(name, StringComparison.OrdinalIgnoreCase)))
+            errors[nameof(supplier.Name)] = "A supplier with this name already exists.";
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            if (!emailValidator.IsValid(email))
+            {
+                errors[nameof(supplier.Email)] = "Enter a valid email address.";
+            }
+            else if (allSuppliers.Any(s => !string.IsNullOrWhiteSpace(s.Email) &&
+                                           s.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase)))
+            {
+                errors[nameof(supplier.Email)] = "A supplier with this email already exists.";
+            }
+        }
+
+        if (supplier.EstimatedValue < 0)
+            errors[nameof(supplier.EstimatedValue)] = "Base price cannot be negative.";
+
+        if (supplier.ActualValue < 0)
+            errors[nameof(supplier.ActualValue)] = "Actual value cannot be negative.";
+    }
+
+    static SupplierModel SanitizeSupplier(SupplierModel supplier) => new()
+    {
+        Id = supplier.Id,
+        Name = supplier.Name.Trim(),
+        Category = supplier.Category.Trim(),
+        Phone = supplier.Phone.Trim(),
+        Email = supplier.Email.Trim(),
+        Description = supplier.Description.Trim(),
+        EstimatedValue = supplier.EstimatedValue,
+        ActualValue = supplier.ActualValue
+    };
 
     bool HasFormError(string field) => formFieldErrors.ContainsKey(field);
 

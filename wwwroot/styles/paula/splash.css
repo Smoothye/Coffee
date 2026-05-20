@@ -1,0 +1,434 @@
+﻿.splash-wrap {
+    position: relative;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-family: inherit;
+}
+
+.splash-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.splash-bg-img {
+    position: absolute;
+    inset: 0;
+    background-image: url('https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1920&q=85');
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.04);
+    animation: bgDrift 20s ease-in-out infinite alternate;
+}
+
+@keyframes bgDrift {
+    from {
+        transform: scale(1.04) translateX(0);
+    }
+
+    to {
+        transform: scale(1.04) translateX(-1.5%);
+    }
+}
+
+.splash-bg-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient( 160deg, rgba(30, 45, 28, .78) 0%, rgba(50, 75, 45, .60) 50%, rgba(30, 45, 28, .82) 100% );
+}
+
+.splash-bg-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(15,22,14,.65) 100%);
+}
+
+.petals {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.petal {
+    position: absolute;
+    width: .5rem;
+    height: .5rem;
+    border-radius: 50% 0 50% 0;
+    background: rgba(255,255,255,.18);
+    animation: petalFall linear infinite;
+}
+
+.petal-1 {
+    left: 8%;
+    width: .6rem;
+    height: .6rem;
+    animation-duration: 14s;
+    animation-delay: 0s;
+    opacity: .22;
+}
+
+.petal-2 {
+    left: 17%;
+    width: .4rem;
+    height: .4rem;
+    animation-duration: 18s;
+    animation-delay: -3s;
+    opacity: .15;
+}
+
+.petal-3 {
+    left: 26%;
+    width: .7rem;
+    height: .7rem;
+    animation-duration: 12s;
+    animation-delay: -6s;
+    opacity: .2;
+}
+
+.petal-4 {
+    left: 35%;
+    width: .5rem;
+    height: .5rem;
+    animation-duration: 16s;
+    animation-delay: -1s;
+    opacity: .18;
+}
+
+.petal-5 {
+    left: 44%;
+    width: .8rem;
+    height: .8rem;
+    animation-duration: 20s;
+    animation-delay: -9s;
+    opacity: .12;
+}
+
+.petal-6 {
+    left: 53%;
+    width: .4rem;
+    height: .4rem;
+    animation-duration: 13s;
+    animation-delay: -4s;
+    opacity: .2;
+}
+
+.petal-7 {
+    left: 62%;
+    width: .6rem;
+    height: .6rem;
+    animation-duration: 17s;
+    animation-delay: -7s;
+    opacity: .16;
+}
+
+.petal-8 {
+    left: 71%;
+    width: .5rem;
+    height: .5rem;
+    animation-duration: 15s;
+    animation-delay: -2s;
+    opacity: .22;
+}
+
+.petal-9 {
+    left: 80%;
+    width: .7rem;
+    height: .7rem;
+    animation-duration: 11s;
+    animation-delay: -5s;
+    opacity: .14;
+}
+
+.petal-10 {
+    left: 89%;
+    width: .4rem;
+    height: .4rem;
+    animation-duration: 19s;
+    animation-delay: -8s;
+    opacity: .18;
+}
+
+.petal-11 {
+    left: 13%;
+    width: .9rem;
+    height: .9rem;
+    animation-duration: 22s;
+    animation-delay: -11s;
+    opacity: .10;
+}
+
+.petal-12 {
+    left: 76%;
+    width: .3rem;
+    height: .3rem;
+    animation-duration: 10s;
+    animation-delay: -13s;
+    opacity: .25;
+}
+
+@keyframes petalFall {
+    0% {
+        transform: translateY(-5vh) rotate(0deg) translateX(0);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(105vh) rotate(540deg) translateX(3rem);
+        opacity: 0;
+    }
+}
+
+.splash-content {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    gap: 0;
+}
+
+.ring-wrap {
+    position: relative;
+    width: 5.5rem;
+    height: 5.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+    animation: fadeDown .8s ease both;
+    animation-delay: .2s;
+    opacity: 0;
+}
+
+.ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(200,219,197,.4);
+}
+
+.ring-outer {
+    width: 5.5rem;
+    height: 5.5rem;
+    animation: ringPulse 3s ease-in-out infinite;
+}
+
+.ring-inner {
+    width: 4rem;
+    height: 4rem;
+    border-color: rgba(200,219,197,.25);
+    animation: ringPulse 3s ease-in-out infinite .5s;
+}
+
+.ring-icon {
+    width: 3rem;
+    height: 3rem;
+    background: rgba(125,155,118,.25);
+    border: 1px solid rgba(200,219,197,.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c8dbc5;
+    backdrop-filter: blur(4px);
+}
+
+@keyframes ringPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: .6;
+    }
+
+    50% {
+        transform: scale(1.06);
+        opacity: 1;
+    }
+}
+
+.splash-eyebrow {
+    font-size: .8rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: rgba(200,219,197,.75);
+    margin: 0 0 .6rem;
+    animation: fadeDown .7s ease both;
+    animation-delay: .5s;
+    opacity: 0;
+}
+
+.splash-title {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: clamp(3.5rem, 9vw, 6.5rem);
+    font-weight: 400;
+    line-height: 1;
+    margin: 0 0 1.5rem;
+    letter-spacing: -.01em;
+    animation: fadeUp .9s ease both;
+    animation-delay: .7s;
+    opacity: 0;
+}
+
+.title-ever {
+    color: #ffffff;
+    font-style: italic;
+}
+
+.title-after {
+    color: #a8c8a4;
+    font-style: normal;
+}
+
+.splash-divider {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: 1.5rem;
+    animation: fadeIn .7s ease both;
+    animation-delay: 1s;
+    opacity: 0;
+}
+
+.divider-line {
+    width: 4rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,219,197,.5), transparent);
+}
+
+.divider-diamond {
+    width: .45rem;
+    height: .45rem;
+    background: rgba(200,219,197,.7);
+    transform: rotate(45deg);
+}
+
+.splash-motto {
+    font-family: Georgia, serif;
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: rgba(255,255,255,.78);
+    font-style: italic;
+    line-height: 1.7;
+    margin: 0 0 2.75rem;
+    letter-spacing: .01em;
+    animation: fadeUp .8s ease both;
+    animation-delay: 1.15s;
+    opacity: 0;
+}
+
+.splash-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .85rem 2.25rem;
+    background: rgba(125,155,118,.2);
+    border: 1.5px solid rgba(200,219,197,.55);
+    border-radius: 999px;
+    color: #fff;
+    font-family: Georgia, serif;
+    font-size: 1rem;
+    font-style: italic;
+    letter-spacing: .04em;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background .3s, border-color .3s, transform .2s, box-shadow .3s;
+    animation: fadeUp .8s ease both;
+    animation-delay: 1.4s;
+    opacity: 0;
+    box-shadow: 0 4px 24px rgba(0,0,0,.2);
+}
+
+    .splash-btn:hover {
+        background: rgba(125,155,118,.4);
+        border-color: rgba(200,219,197,.9);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(0,0,0,.3);
+    }
+
+    .splash-btn:active {
+        transform: translateY(0);
+    }
+
+.btn-arrow {
+    display: flex;
+    align-items: center;
+    transition: transform .25s;
+}
+
+.splash-btn:hover .btn-arrow {
+    transform: translateX(4px);
+}
+
+.splash-footer {
+    margin: 2rem 0 0;
+    font-size: .72rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: rgba(200,219,197,.4);
+    animation: fadeIn .7s ease both;
+    animation-delay: 1.7s;
+    opacity: 0;
+}
+
+@keyframes fadeDown {
+    from {
+        opacity: 0;
+        transform: translateY(-16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    .splash-content {
+        padding: 2rem 1.25rem;
+    }
+
+    .divider-line {
+        width: 2.5rem;
+    }
+
+    .splash-btn {
+        padding: .75rem 1.75rem;
+        font-size: .9rem;
+    }
+}
+

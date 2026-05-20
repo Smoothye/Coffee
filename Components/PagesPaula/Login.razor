@@ -191,7 +191,7 @@
             const isRegister = form.action.endsWith("/auth/register");
             const password = form.querySelector("input[name='password']");
             const confirmPassword = form.querySelector("input[name='confirmPassword']");
-            const namePattern = /^(?=.*\p{L})[\p{L}\s'’-]+$/u;
+            const namePattern = /^(?=.*\p{L})[\p{L}\s'-]+$/u;
 
             errorBox?.classList.add("auth-error-hidden");
 

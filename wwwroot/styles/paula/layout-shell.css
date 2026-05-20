@@ -1,0 +1,83 @@
+﻿html,
+body {
+    margin: 0;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.paula-layout,
+.paula-layout-body {
+    min-height: 100dvh;
+}
+
+.paula-layout {
+    position: relative;
+}
+
+.paula-layout-body {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+}
+
+.paula-layout-body:has(.dash-body),
+.paula-layout-body:has(.venues-page),
+.paula-layout-body:has(.guests-wrap),
+.paula-layout-body:has(.tables-page),
+.paula-layout-body:has(.menu-page),
+.paula-layout-body:has(.suppliers-page),
+.paula-layout-body:has(.budget-page),
+.paula-layout-body:has(.tasks-page) {
+    animation: pageFadeIn .18s ease-out both;
+}
+
+@keyframes pageFadeIn {
+    from {
+        opacity: .72;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.paula-layout-public {
+    min-height: 100dvh;
+    overflow: hidden;
+}
+
+.paula-layout-public .paula-layout-body {
+    display: grid;
+    min-height: 100dvh;
+}
+
+.splash-wrap,
+.page-center,
+.auth-wrap {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.splash-wrap,
+.page-center,
+.auth-wrap {
+    min-height: 100dvh;
+}
+
+.splash-content,
+.auth-card,
+.page-center .glass-card {
+    width: min(100% - 2rem, 640px);
+}
+
+.page-center {
+    padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.progress-steps {
+    width: min(100% - 2rem, 640px);
+    justify-content: center;
+}
+

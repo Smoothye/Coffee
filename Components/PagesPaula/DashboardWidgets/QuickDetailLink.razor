@@ -1,0 +1,16 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<a class="qd-row qd-row-link" href="@Href">
+    <span class="qd-icon">@Icon</span>
+    <span class="qd-label">@Label</span>
+    <span class="qd-value @ValueClass">@Value</span>
+    <span class="qd-arrow">@SvgIcons.ArrowRight</span>
+</a>
+
+@code {
+    [Parameter] public string Href { get; set; } = "#";
+    [Parameter] public RenderFragment? Icon { get; set; }
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string ValueClass { get; set; } = "";
+}

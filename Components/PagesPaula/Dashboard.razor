@@ -35,12 +35,7 @@
     <div class="dash-header">
         <h1 class="dash-greeting">@Greeting, @userDisplayName</h1>
         <p class="dash-subtitle">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
+            @SvgIcons.CalendarSmall
             @daysUntilWedding days until your wedding - @weddingDate.ToString("MMMM d, yyyy")
         </p>
     </div>
@@ -53,14 +48,18 @@
     <div class="dash-grid">
         <BudgetWidget BudgetTotal="budgetTotal"
                       BudgetSpent="budgetSpent"
-                      Categories="budgetCategories" />
+                      Categories="budgetCategories"
+                      Href="/budget" />
 
         <RsvpWidget Confirmed="rsvpConfirmed"
                     Pending="rsvpPending"
                     Declined="rsvpDeclined"
-                    PlusOnes="rsvpPlusOnes" />
+                    PlusOnes="rsvpPlusOnes"
+                    Href="@($"/guests/{EventId}")" />
 
-        <TasksWidget Tasks="tasks" OnToggleTask="ToggleTask" />
+        <TasksWidget Tasks="tasks"
+                     OnToggleTask="ToggleTask"
+                     Href="/tasks" />
 
         <MenuDetailsWidget SelectedMenu="@selectedMenu"
                            MenuRows="menuRows"
@@ -70,18 +69,23 @@
                            SeatedGuests="seatedGuests"
                            SeatingTotalGuests="seatingTotalGuests"
                            TablesConfirmed="tablesConfirmed"
-                           BudgetPercent="budgetPercent" />
+                           BudgetPercent="budgetPercent"
+                           Href="@($"/menu/{EventId}")"
+                           VenueHref="@($"/venues/event/{EventId}")"
+                           GuestsHref="@($"/guests/{EventId}")"
+                           TablesHref="@($"/tables/{EventId}")"
+                           BudgetHref="/budget" />
     </div>
 </div>
 
 @code {
     [Parameter] public int EventId { get; set; }
 
-    DateTime weddingDate = new(2026, 9, 12);
-    string venueName = "Rosewood Gardens";
-    int expectedGuests = 120;
+    DateTime weddingDate = DateTime.Today;
+    string venueName = "";
+    int expectedGuests = 0;
     bool tablesConfirmed = false;
-    string selectedMenu = "Classic Elegance";
+    string selectedMenu = "";
     List<string> menuRows = [];
     int menuEstimate = 0;
     int seatedGuests = 0;
@@ -97,45 +101,24 @@
 
     string Greeting => DateTime.Now.Hour switch { < 12 => "Good morning", < 18 => "Good afternoon", _ => "Good evening" };
 
-    int budgetTotal = 20000;
-    int budgetSpent = 14200;
+    int budgetTotal = 0;
+    int budgetSpent = 0;
     int budgetEstimated = 0;
     int budgetPercent => budgetTotal > 0 ? budgetEstimated * 100 / budgetTotal : 0;
 
-    List<DashboardBudgetCategory> budgetCategories =
-    [
-        new("Catering", 5800, "#7d9b76"),
-        new("Venue", 4500, "#a8c8a4"),
-        new("Photography", 2200, "#4f6b4a"),
-        new("Florals", 900, "#c8dbc5"),
-        new("Other", 800, "#d97706"),
-    ];
+    List<DashboardBudgetCategory> budgetCategories = [];
 
     int rsvpConfirmed = 0;
     int rsvpPending = 0;
     int rsvpDeclined = 0;
     int rsvpPlusOnes = 0;
 
-    List<DashboardTaskItem> tasks =
-    [
-        new(1, "Final headcount to caterer", "Catering", DateTime.Today.AddDays(3), "high"),
-        new(2, "Confirm florist order", "Florals", DateTime.Today.AddDays(5), "high"),
-        new(3, "Send final seating chart", "Tables", DateTime.Today.AddDays(7), "high"),
-        new(4, "Pay venue balance", "Venue", DateTime.Today.AddDays(10), "high"),
-        new(5, "Review ceremony timeline", "Schedule", DateTime.Today.AddDays(14), "medium"),
-        new(6, "Collect dietary requirements", "Catering", DateTime.Today.AddDays(4), "medium"),
-        new(7, "Book hair & makeup", "Beauty", DateTime.Today.AddDays(21), "medium"),
-        new(8, "Order wedding favors", "Decor", DateTime.Today.AddDays(30), "low", true),
-        new(9, "Send save-the-dates", "Invitations", DateTime.Today.AddDays(-5), "high", true),
-    ];
+    List<DashboardTaskItem> tasks = [];
 
     void ToggleTask(int id)
     {
-        var task = tasks.FirstOrDefault(x => x.Id == id);
-        if (task is not null)
-        {
-            task.Done = !task.Done;
-        }
+        State.ToggleTask(id);
+        ApplyTasksState();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -189,6 +172,7 @@
                 State.UpsertVenueBudgetItem(venue.Name, (int)Math.Round(venue.EstimatedPrice));
             State.UpsertMenuBudgetItem(menuEstimate);
             ApplyBudgetState();
+            ApplyTasksState();
         }
         catch (Exception ex)
         {
@@ -338,6 +322,19 @@
             .GroupBy(item => item.Category)
             .Select(group => new DashboardBudgetCategory(group.Key, group.Sum(item => item.Actual > 0 ? item.Actual : item.Estimated), BudgetCategoryColor(group.Key)))
             .OrderByDescending(category => category.Amount)
+            .ToList();
+    }
+
+    void ApplyTasksState()
+    {
+        tasks = State.Tasks
+            .Select(task => new DashboardTaskItem(
+                task.Id,
+                task.Title,
+                task.Category,
+                task.DueDate,
+                task.Priority,
+                task.Done))
             .ToList();
     }
 

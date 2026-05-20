@@ -1,0 +1,55 @@
+﻿.pool-filter-panel {
+    display: flex;
+    align-items: flex-end;
+    gap: .45rem;
+    padding: .55rem .7rem;
+    background: rgba(255,255,255,.72);
+    border-bottom: 1px solid rgba(200,219,197,.35);
+    flex-shrink: 0;
+}
+
+.pool-search-wrap {
+    flex: 1 1 8rem;
+    min-width: 0;
+}
+
+.pool-search-wrap .input {
+    min-height: 2.15rem;
+    font-size: .78rem;
+}
+
+.pool-filter-field {
+    flex: 0 0 6.6rem;
+    min-width: 0;
+    gap: .3rem;
+}
+
+.pool-filter-field span {
+    font-size: .58rem;
+}
+
+.pool-filter-field .filter-select {
+    width: 100%;
+    min-height: 2.15rem;
+    font-size: .76rem;
+    padding-block: .35rem;
+}
+
+.pool-auto-btn {
+    padding: .45rem .7rem;
+    font-size: .76rem;
+    font-weight: 800;
+    border-color: rgba(79,107,74,.34);
+    background: rgba(248,252,248,.72);
+    flex-shrink: 0;
+}
+
+.pool-auto-btn:not(:disabled):hover {
+    background: rgba(200,219,197,.45);
+}
+
+.pool-auto-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+

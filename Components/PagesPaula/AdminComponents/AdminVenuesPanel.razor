@@ -46,6 +46,13 @@
                     {
                         <p style="color:var(--sage-dark);font-weight:600;margin-top:.2rem;">est. $@venue.EstimatedPrice.ToString("N0")</p>
                     }
+                    @if (venue.Rating.HasValue)
+                    {
+                        <div class="admin-score-pill" title="Admin venue score">
+                            <span>Admin score</span>
+                            <strong>@venue.Rating/5</strong>
+                        </div>
+                    }
                     @if (venue.Tags.Count > 0)
                     {
                         <div class="admin-venue-tags">

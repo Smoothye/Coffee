@@ -7,12 +7,14 @@
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@using System.Text.RegularExpressions
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.MenuComponents
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
+@using GuestGroup = WeddingPlannerApp.Models.Group
 @implements IDisposable
 
 <PageNav Title="Menu"
@@ -30,52 +32,51 @@
                 @ff.Label
             </button>
         }
-    </div>
 
-    <div class="menu-count-grid">
-        @foreach (var item in GuestMenuBreakdown)
+        @if (selectedByType.Count > 0)
         {
-            <div class="menu-count-card count-@item.Menu">
-                <span class="menu-count-icon diet-icon-@item.Menu">@DietIcon(item.Menu)</span>
-                <span class="menu-count-label">@DietLabel(item.Menu)</span>
-                <div class="menu-count-split">
-                    <div class="menu-count-stat">
-                        <strong>@item.Available</strong>
-                        <span>@MenuTypeLabel(item.Available)</span>
-                    </div>
-                    <div class="menu-count-stat">
-                        <strong>@item.Count</strong>
-                        <span>@GuestNeedLabel(item.Count)</span>
-                    </div>
-                </div>
+            <div class="menu-selection-summary" title="@SelectionSummary">
+                <span class="menu-selection-check">@SvgIcons.CheckSmall</span>
+                <span class="menu-selection-copy">
+                    <span class="menu-selection-label">Selected</span>
+                    <strong>@SelectionSummaryCompact</strong>
+                </span>
+                <button class="menu-selection-clear" @onclick="ClearSelection">Clear</button>
             </div>
         }
     </div>
-    @if (showGuestCountNotice)
-    {
-        <div class="menu-count-note">
-            <div>
-                @SvgIcons.CheckSmall
-                <span>Guest counts use RSVP guests and plus-ones. The couple is not added automatically.</span>
-            </div>
-            <button class="menu-count-note-close"
-                    type="button"
-                    title="Dismiss"
-                    aria-label="Dismiss guest count note"
-                    @onclick="@(() => showGuestCountNotice = false)">
-                x
-            </button>
-        </div>
-    }
 
-    @if (selectedByType.Count > 0)
-    {
-        <div class="menu-selection-summary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span>Selected: <strong>@SelectionSummary</strong></span>
-            <button class="task-filter-btn" style="font-size:.72rem;padding:.2rem .55rem;" @onclick="ClearSelection">Clear all</button>
+    <div class="menu-count-wrap">
+        <div class="menu-count-grid">
+            @foreach (var item in GuestMenuBreakdown)
+            {
+                <div class="menu-count-card count-@item.Menu">
+                    <div class="menu-count-info-wrap">
+                        <button type="button"
+                                class="menu-count-info"
+                                aria-label="@($"{DietLabel(item.Menu)} guest count information")">
+                            i
+                        </button>
+                        <div class="menu-count-tooltip" role="tooltip">
+                            Guest counts include RSVP guests, plus-ones, and the couple. Declined guests are not counted.
+                        </div>
+                    </div>
+                    <span class="menu-count-icon diet-icon-@item.Menu">@DietIcon(item.Menu)</span>
+                    <span class="menu-count-label">@DietLabel(item.Menu)</span>
+                    <div class="menu-count-split">
+                        <div class="menu-count-stat">
+                            <strong>@item.Available</strong>
+                            <span>@MenuTypeLabel(item.Available)</span>
+                        </div>
+                        <div class="menu-count-stat">
+                            <strong>@item.Count</strong>
+                            <span>@GuestNeedLabel(item.Count)</span>
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
-    }
+    </div>
 
     @if (isLoading)
     {
@@ -208,7 +209,6 @@
     string        dietFilter    = "all";
     MenuPackage?  activePackage = null;
     int           activeCourse  = 0;
-    bool          showGuestCountNotice = true;
     bool          isLoading     = true;
     bool          isSaving      = false;
     string        loadError     = "";
@@ -230,8 +230,15 @@
         if (isSaving)
             return;
 
-        if (IsSelected(p)) selectedByType.Remove(p.DietaryType);
-        else selectedByType[p.DietaryType] = p.Id;
+        if (IsSelected(p))
+        {
+            selectedByType.Remove(p.DietaryType);
+            EnsureOneMenuSelected();
+        }
+        else
+        {
+            selectedByType[p.DietaryType] = p.Id;
+        }
 
         SyncSelectedMenuState();
         await SaveSelectionAsync();
@@ -240,6 +247,7 @@
     async Task ClearSelection()
     {
         selectedByType.Clear();
+        EnsureOneMenuSelected();
         SyncSelectedMenuState();
         await SaveSelectionAsync();
     }
@@ -264,6 +272,14 @@
     string SelectionSummary =>
         selectedByType.Count == 0 ? "" :
         string.Join(" + ", SelectedMenuNames());
+
+    string SelectionSummaryCompact =>
+        selectedByType.Count switch
+        {
+            0 => "",
+            1 => SelectedMenuNames().FirstOrDefault() ?? "",
+            _ => $"{selectedByType.Count} menus selected"
+        };
 
     IEnumerable<MenuPackage> filteredPackages =>
         dietFilter == "all" ? packages : packages.Where(p => p.DietaryType == dietFilter);
@@ -307,19 +323,7 @@
         try
         {
             var menuIds = SelectedMenuIds().ToList();
-            await Api.UpdateEventAsync(eventItem.EventId, new EventUpdateDto
-            {
-                VenueId = eventItem.VenueId,
-                MenuIds = menuIds,
-                Name = eventItem.Name,
-                BrideName = eventItem.BrideName,
-                GroomName = eventItem.GroomName,
-                EventDate = eventItem.EventDate,
-                EstimatedGuests = eventItem.EstimatedGuests,
-                TotalBudget = eventItem.TotalBudget,
-                Notes = eventItem.Notes
-            });
-
+            await Api.UpdateMenuSelectionsAsync(eventItem.EventId, menuIds);
             eventItem.MenuIds = menuIds;
         }
         catch (Exception ex)
@@ -365,7 +369,7 @@
             string.Join(" + ", SelectedMenuNames()));
     }
 
-    List<MenuPackage> packages = MenuFallbackPackages.Create();
+    List<MenuPackage> packages = [];
 
     protected override void OnInitialized()
     {
@@ -385,7 +389,9 @@
                 return;
 
             await LoadMenusAsync();
-            selectedByType = BuildSelectedByType(eventItem?.MenuIds ?? []);
+            var menuSelections = await Api.GetMenuSelectionsAsync(EventId);
+            selectedByType = BuildSelectedByType(menuSelections.Select(menu => menu.MenuId).ToList());
+            await EnsureStandardMenuSelectedAsync();
             SyncSelectedMenuState();
             await LoadGuestMenuCountsAsync();
         }
@@ -426,6 +432,33 @@
         return true;
     }
 
+    async Task EnsureStandardMenuSelectedAsync()
+    {
+        if (eventItem is null || selectedByType.Count > 0)
+            return;
+
+        EnsureOneMenuSelected();
+        if (selectedByType.Count > 0)
+            await SaveSelectionAsync();
+    }
+
+    void EnsureOneMenuSelected()
+    {
+        if (selectedByType.Count > 0)
+            return;
+
+        var fallback = packages
+            .Where(package => package.DietaryType == "standard")
+            .OrderBy(package => package.Name)
+            .FirstOrDefault()
+            ?? packages.OrderBy(package => package.Name).FirstOrDefault();
+
+        if (fallback is null)
+            return;
+
+        selectedByType[fallback.DietaryType] = fallback.Id;
+    }
+
     async Task LoadMenusAsync()
     {
         try
@@ -438,9 +471,10 @@
                 activeCourse = 0;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Keep the curated fallback packages if the menu API is unavailable.
+            packages = [];
+            loadError = $"Could not load menus: {ex.Message}";
         }
     }
 
@@ -454,17 +488,19 @@
             ["fasting"] = 0
         };
 
+        EventDto? eventItem = null;
         var eventId = EventId;
-        if (eventId <= 0)
-        {
-            var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
-            eventId = firstEvent?.EventId ?? 0;
-        }
+        if (eventId > 0)
+            eventItem = await Api.GetEventAsync(eventId);
 
-        if (eventId <= 0)
+        eventItem ??= (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
+        eventId = eventItem?.EventId ?? 0;
+
+        if (eventItem is null || eventId <= 0)
             return;
 
         var guests = await Api.GetGuestsAsync(eventId);
+        await EnsureCoupleRowsAsync(eventItem, guests);
         var plusOneOwnerIds = guests
             .Where(IsPlusOneGuest)
             .Select(PlusOneOwnerId)
@@ -481,9 +517,116 @@
     }
 
     const string PlusOneNotePrefix = "Plus one for guest ";
+    const string CoupleNotePrefix = "Wedding couple:";
+    const string BrideCoupleNote = "Wedding couple: bride";
+    const string GroomCoupleNote = "Wedding couple: groom";
+    static readonly Regex GuestNamePattern = new(@"^[\p{L}\p{M}][\p{L}\p{M}' -]*$", RegexOptions.Compiled);
 
     static bool IsPlusOneGuest(GuestDto guest) =>
         guest.Notes?.StartsWith(PlusOneNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
+    async Task EnsureCoupleRowsAsync(EventDto eventItem, List<GuestDto> guests)
+    {
+        await EnsureCoupleRowAsync(eventItem, guests, BrideCoupleNote, eventItem.BrideName, "Bride", Gender.Female);
+        await EnsureCoupleRowAsync(eventItem, guests, GroomCoupleNote, eventItem.GroomName, "Groom", Gender.Male);
+    }
+
+    async Task EnsureCoupleRowAsync(
+        EventDto eventItem,
+        List<GuestDto> guests,
+        string note,
+        string? fullName,
+        string fallbackRole,
+        Gender gender)
+    {
+        var existing = guests.FirstOrDefault(g => string.Equals(g.Notes?.Trim(), note, StringComparison.OrdinalIgnoreCase));
+        var desired = BuildCoupleCreateDto(eventItem.EventId, fullName, fallbackRole, note, gender, existing?.DietaryRequirements ?? DietaryRequirements.Standard);
+
+        if (existing is null)
+        {
+            var created = await Api.CreateGuestAsync(eventItem.EventId, desired);
+            if (created is not null)
+                guests.Add(created);
+            return;
+        }
+
+        if (existing.FirstName == desired.FirstName &&
+            existing.LastName == desired.LastName &&
+            existing.Email == desired.Email &&
+            existing.RsvpStatus == RsvpStatus.Confirmed &&
+            existing.Group == GuestGroup.Family &&
+            existing.HasPlusOne == false &&
+            existing.Gender == gender)
+        {
+            return;
+        }
+
+        existing.FirstName = desired.FirstName;
+        existing.LastName = desired.LastName;
+        existing.Email = desired.Email;
+        existing.RsvpStatus = RsvpStatus.Confirmed;
+            existing.Group = GuestGroup.Family;
+        existing.HasPlusOne = false;
+        existing.Gender = gender;
+        existing.Notes = note;
+        await Api.UpdateGuestAsync(eventItem.EventId, existing.GuestId, ToUpdateDto(existing));
+    }
+
+    static GuestCreateDto BuildCoupleCreateDto(
+        int eventId,
+        string? fullName,
+        string fallbackRole,
+        string note,
+        Gender gender,
+        DietaryRequirements dietary)
+    {
+        var (firstName, lastName) = CoupleNameParts(fullName, fallbackRole);
+        return new()
+        {
+            FirstName = firstName,
+            LastName = lastName,
+            Email = $"couple-{fallbackRole.ToLowerInvariant()}-{eventId}@wedding.local",
+            Gender = gender,
+            RsvpStatus = RsvpStatus.Confirmed,
+            Group = GuestGroup.Family,
+            DietaryRequirements = dietary,
+            HasPlusOne = false,
+            Notes = note
+        };
+    }
+
+    static GuestUpdateDto ToUpdateDto(GuestDto guest) => new()
+    {
+        TableId = guest.TableId,
+        FirstName = guest.FirstName.Trim(),
+        LastName = guest.LastName.Trim(),
+        Age = guest.Age,
+        Email = guest.Email.Trim(),
+        Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+        Gender = guest.Gender,
+        RsvpStatus = guest.RsvpStatus,
+        Group = guest.Group,
+        DietaryRequirements = guest.DietaryRequirements,
+        HasPlusOne = guest.HasPlusOne,
+        SeatNumber = guest.SeatNumber,
+        Notes = string.IsNullOrWhiteSpace(guest.Notes) ? null : guest.Notes,
+    };
+
+    static (string FirstName, string LastName) CoupleNameParts(string? fullName, string fallbackRole)
+    {
+        var name = string.IsNullOrWhiteSpace(fullName) ? fallbackRole : fullName.Trim();
+        if (!GuestNamePattern.IsMatch(name))
+            name = fallbackRole;
+
+        var parts = name.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+            return (fallbackRole, "Partner");
+
+        if (parts.Length == 1)
+            return (parts[0], fallbackRole);
+
+        return (parts[0], parts[1]);
+    }
 
     static int? PlusOneOwnerId(GuestDto guest)
     {

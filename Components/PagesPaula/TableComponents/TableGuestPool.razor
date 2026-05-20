@@ -9,6 +9,12 @@
             <h3 class="pool-title">Guest Pool</h3>
             <p class="pool-sub">@FilteredGuests.Count unassigned &middot; synced from Guests</p>
         </div>
+        <button type="button"
+                class="btn-outline pool-auto-btn"
+                disabled="@(!Guests.Any())"
+                @onclick="OnAutoArrange">
+            @SvgIcons.Sparkles Auto arrange
+        </button>
     </div>
 
     <div class="pool-filter-panel">
@@ -85,6 +91,7 @@
     [Parameter] public EventCallback OnDragOver { get; set; }
     [Parameter] public EventCallback OnDragLeave { get; set; }
     [Parameter] public EventCallback OnDrop { get; set; }
+    [Parameter] public EventCallback OnAutoArrange { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
 
     string search = "";

@@ -6,7 +6,7 @@
             <div class="widget-icon wicon-blue">@SvgIcons.Users</div>
             <h3 class="widget-title">Guest RSVPs</h3>
         </div>
-        <a href="/guests" class="widget-link">View all -></a>
+        <a href="@Href" class="widget-link-icon" title="Open guests" aria-label="Open guests">@SvgIcons.ArrowRight</a>
     </div>
 
     <div class="rsvp-donut-wrap">
@@ -47,6 +47,7 @@
     [Parameter] public int Pending { get; set; }
     [Parameter] public int Declined { get; set; }
     [Parameter] public int PlusOnes { get; set; }
+    [Parameter] public string Href { get; set; } = "/guests";
 
     const double radius = 48.0;
     const double center = 60.0;

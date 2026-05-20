@@ -1,0 +1,221 @@
+﻿.admin-primary-tag-value {
+    min-height: 2.55rem;
+    display: flex;
+    align-items: center;
+    padding: .65rem .9rem;
+    border: 1.5px solid var(--sage-light);
+    border-radius: .6rem;
+    background: rgba(200,219,197,.22);
+    color: var(--sage-dark);
+    font-weight: 800;
+}
+
+.admin-field-hint {
+    margin: .35rem 0 0;
+    color: var(--muted);
+    font-size: .75rem;
+}
+
+.admin-tag-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+}
+
+.admin-tag-chip {
+    border: 1px solid rgba(200,219,197,.72);
+    border-radius: 999px;
+    background: rgba(255,255,255,.58);
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 700;
+    padding: .38rem .7rem;
+    transition: background .16s, border-color .16s, color .16s, transform .14s;
+}
+
+.admin-tag-chip:hover {
+    border-color: var(--sage);
+    color: var(--sage-dark);
+    transform: translateY(-1px);
+}
+
+.admin-tag-chip-selected {
+    background: var(--sage-panel);
+    border-color: var(--sage);
+    color: var(--sage-dark);
+}
+
+.admin-venue-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    margin-top: .45rem;
+}
+
+.admin-venue-tags span {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: rgba(200,219,197,.34);
+    color: var(--sage-dark);
+    font-size: .66rem;
+    font-weight: 800;
+    padding: .12rem .45rem;
+}
+
+.admin-menu-list {
+    padding: .75rem 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+}
+
+.admin-menu-list-empty {
+    grid-template-columns: 1fr;
+    min-height: 190px;
+    place-items: center;
+}
+
+.admin-menu-empty {
+    width: 100%;
+    margin: 0;
+}
+
+.admin-menu-card {
+    background: rgba(255,255,255,.66);
+    border: 1.5px solid rgba(200,219,197,.5);
+    border-radius: .85rem;
+    padding: .9rem;
+}
+
+.admin-menu-card-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.admin-menu-card h4 {
+    margin: .45rem 0 .25rem;
+    color: var(--text);
+    font-size: .95rem;
+}
+
+.admin-menu-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: .78rem;
+    line-height: 1.35;
+}
+
+.admin-menu-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: .25rem;
+    color: var(--sage-dark);
+    flex-shrink: 0;
+}
+
+.admin-menu-side span {
+    color: var(--muted);
+    font-size: .74rem;
+    font-weight: 700;
+}
+
+.admin-menu-courses {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-top: .75rem;
+}
+
+.admin-menu-courses span {
+    background: rgba(125,155,118,.12);
+    color: var(--sage-dark);
+    border: 1px solid rgba(125,155,118,.18);
+    border-radius: .4rem;
+    padding: .18rem .45rem;
+    font-size: .72rem;
+}
+
+.admin-menu-modal {
+    max-width: 780px;
+    max-height: min(88dvh, 780px);
+    overflow: auto;
+}
+
+.admin-menu-builder {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+    margin: .4rem 0 1rem;
+}
+
+.admin-menu-builder-head,
+.admin-course-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.admin-menu-builder-head h4 {
+    margin: .2rem 0 0;
+    color: var(--sage-dark);
+    font-size: .95rem;
+}
+
+.admin-course-box {
+    background: rgba(248,252,248,.72);
+    border: 1px solid rgba(200,219,197,.55);
+    border-radius: .85rem;
+    padding: .8rem;
+}
+
+.admin-course-head .field {
+    flex: 1;
+    margin-bottom: .65rem;
+}
+
+.admin-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.admin-item-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .5rem;
+    align-items: center;
+}
+
+.admin-item-fields {
+    display: grid;
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    gap: .5rem;
+    min-width: 0;
+}
+
+.admin-add-item {
+    margin-top: .65rem;
+    font-size: .8rem;
+    padding: .35rem .75rem;
+}
+
+@media (max-width: 760px) {
+    .admin-menu-list {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-item-row {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-item-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
