@@ -8,14 +8,16 @@
             </div>
             <h3 class="widget-title">Menu &amp; Details</h3>
         </div>
+        <a href="@Href" class="widget-link-icon" title="Open menu" aria-label="Open menu">@SvgIcons.ArrowRight</a>
     </div>
 
     @if (!string.IsNullOrEmpty(SelectedMenu))
     {
-        <div class="menu-selected">
+        <a href="@Href" class="menu-selected menu-selected-link" aria-label="Open selected menus">
             <div class="menu-check-icon">@SvgIcons.Check</div>
             <div><p class="menu-name">@SelectedMenu</p><p class="menu-sub">Menu packages selected</p></div>
-        </div>
+            <span class="menu-selected-arrow">@SvgIcons.ArrowRight</span>
+        </a>
         @if (MenuRows.Count > 0)
         {
             <div class="dashboard-menu-list">
@@ -35,29 +37,31 @@
         <div class="menu-empty">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-light)"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7" /></svg>
             <p>No menu selected yet</p>
-            <a href="/menu" class="widget-link" style="font-size:.8rem;margin-top:.25rem;">Select menu -></a>
+            <a href="@Href" class="widget-link" style="font-size:.8rem;margin-top:.25rem;">Select menu</a>
         </div>
     }
 
     <div class="quick-details">
-        <div class="qd-row">
-            <span class="qd-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg></span>
-            <span class="qd-label">Venue</span><span class="qd-value">@VenueName</span>
-        </div>
-        <div class="qd-row">
-            <span class="qd-icon">@SvgIcons.Users</span>
-            <span class="qd-label">Expected guests</span><span class="qd-value">@ExpectedGuests</span>
-        </div>
-        <div class="qd-row">
-            <span class="qd-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
-            <span class="qd-label">Seating plan</span>
-            <span class="qd-value @(TablesConfirmed ? "qd-ok" : "qd-pending")">@(TablesConfirmed ? "Ready" : $"{SeatedGuests}/{SeatingTotalGuests} seated")</span>
-        </div>
-        <div class="qd-row">
-            <span class="qd-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>
-            <span class="qd-label">Budget status</span>
-            <span class="qd-value @(BudgetPercent <= 80 ? "qd-ok" : "qd-warn")">@(BudgetPercent <= 80 ? "On track" : BudgetPercent <= 100 ? "Watch it" : "Over budget")</span>
-        </div>
+        <QuickDetailLink Href="@VenueHref" Label="Venue" Value="@VenueName">
+            <Icon>
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+            </Icon>
+        </QuickDetailLink>
+        <QuickDetailLink Href="@GuestsHref" Label="Expected guests" Value="@ExpectedGuests.ToString()">
+            <Icon>@SvgIcons.Users</Icon>
+        </QuickDetailLink>
+        <QuickDetailLink Href="@TablesHref"
+                         Label="Seating plan"
+                         Value="@(TablesConfirmed ? "Ready" : $"{SeatedGuests}/{SeatingTotalGuests} seated")"
+                         ValueClass="@(TablesConfirmed ? "qd-ok" : "qd-pending")">
+            <Icon>@SvgIcons.Lock</Icon>
+        </QuickDetailLink>
+        <QuickDetailLink Href="@BudgetHref"
+                         Label="Budget status"
+                         Value="@(BudgetPercent <= 80 ? "On track" : BudgetPercent <= 100 ? "Watch it" : "Over budget")"
+                         ValueClass="@(BudgetPercent <= 80 ? "qd-ok" : "qd-warn")">
+            <Icon>@SvgIcons.DollarSign</Icon>
+        </QuickDetailLink>
     </div>
 </div>
 
@@ -71,5 +75,10 @@
     [Parameter] public int SeatingTotalGuests { get; set; }
     [Parameter] public bool TablesConfirmed { get; set; }
     [Parameter] public int BudgetPercent { get; set; }
+    [Parameter] public string Href { get; set; } = "/menu";
+    [Parameter] public string VenueHref { get; set; } = "/venues";
+    [Parameter] public string GuestsHref { get; set; } = "/guests";
+    [Parameter] public string TablesHref { get; set; } = "/tables";
+    [Parameter] public string BudgetHref { get; set; } = "/budget";
 
 }

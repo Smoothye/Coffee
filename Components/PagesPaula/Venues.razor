@@ -49,9 +49,10 @@
                             <h1 class="venues-h1">@selected.Name</h1>
                             <p class="venues-sub">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
-                                @selected.Address &nbsp;·&nbsp; @selected.MinCapacity–@selected.MaxCapacity guests
+                                @selected.Address &nbsp;-&nbsp; @selected.MinCapacity-@selected.MaxCapacity guests
                                 @if (selected.EstimatedPrice > 0)
                                 { <span class="venue-inline-price">est. $@selected.EstimatedPrice.ToString("N0")</span> }
+                                <span class="venue-inline-review">@SvgIcons.Star @AdminReviewLabel(selected)</span>
                             </p>
                         </div>
                         <div style="display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;flex-shrink:0;">
@@ -101,6 +102,7 @@
                             <p class="carousel-name">@venue.Name</p>
                             <p class="carousel-meta">@VenueType(venue) - @venue.MinCapacity-@venue.MaxCapacity guests</p>
                             @if (venue.EstimatedPrice > 0) { <p class="carousel-price">est. $@venue.EstimatedPrice.ToString("N0")</p> }
+                            <p class="venue-card-score">@SvgIcons.Star @AdminReviewLabel(venue)</p>
                         </div>
                     </button>
                 }
@@ -152,6 +154,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                                 @detail.Address - @detail.MinCapacity-@detail.MaxCapacity guests
                                 @if (detail.EstimatedPrice > 0) { <span class="venue-inline-price">est. $@detail.EstimatedPrice.ToString("N0")</span> }
+                                <span class="venue-inline-review">@SvgIcons.Star @AdminReviewLabel(detail)</span>
                             </p>
                         </div>
                     </div>
@@ -172,6 +175,13 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
                                 </div>
                                 <div><p class="vinfo-label">Est. Price</p><p class="vinfo-val">$@detail.EstimatedPrice.ToString("N0")</p></div>
+                            </div>
+                        }
+                        @if (detail.Rating.HasValue)
+                        {
+                            <div class="vinfo-card">
+                                <div class="vinfo-icon">@SvgIcons.Star</div>
+                                <div><p class="vinfo-label">Admin Score</p><p class="vinfo-val">@detail.Rating/5</p></div>
                             </div>
                         }
                     </div>
@@ -215,6 +225,7 @@
                                 <p class="sidebar-venue-name">@s.Name</p>
                                 <p class="sidebar-venue-meta">@VenueType(s) - @s.MinCapacity-@s.MaxCapacity guests</p>
                                 @if (s.EstimatedPrice > 0) { <p class="sidebar-venue-price">est. $@s.EstimatedPrice.ToString("N0")</p> }
+                                <p class="venue-card-score">@SvgIcons.Star @AdminReviewLabel(s)</p>
                             </div>
                         </button>
                     }
@@ -285,6 +296,9 @@
 
     static string VenueType(VenueDto venue) =>
         venue.Tags?.ToString() ?? "Venue";
+
+    static string AdminReviewLabel(VenueDto venue) =>
+        venue.Rating.HasValue ? $"Admin review {venue.Rating}/5" : "Admin review pending";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

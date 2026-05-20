@@ -9,6 +9,7 @@ public sealed class AdminVenueModel
     public int MinCapacity { get; set; }
     public int MaxCapacity { get; set; }
     public decimal EstimatedPrice { get; set; }
+    public int? Rating { get; set; }
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
     public string ImagePath { get; set; } = "";

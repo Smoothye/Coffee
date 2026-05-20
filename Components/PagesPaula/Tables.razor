@@ -8,6 +8,7 @@
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using System.Text
 @using Microsoft.AspNetCore.Components.Authorization
+@using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Components.PagesPaula.TableComponents
@@ -130,11 +131,13 @@
                         BrideName="@brideName"
                         GroomName="@groomName"
                         GodparentCouples="@godparentCouples"
+                        HeadTableLocked="@headTableLocked"
                         SeatedCount="seatedCount"
                         TotalGuests="totalGuests"
                         TotalSeats="totalSeats"
                         SeatContent="RenderSeat"
                         OnConfigureHeadTable="OpenHeadConfig"
+                        OnToggleHeadLock="@(() => headTableLocked = !headTableLocked)"
                         OnCsvGuide="OpenCsvGuide"
                         OnImport="ImportCSV"
                         OnExport="ExportCSV"
@@ -150,6 +153,7 @@
                     OnDragOver="@(() => dragOverPool = true)"
                     OnDragLeave="@(() => dragOverPool = false)"
                     OnDrop="DropOnPool"
+                    OnAutoArrange="AutoArrangeGuests"
                     OnRemove="RemoveFromPool" />
 
 </div>
@@ -182,7 +186,11 @@
         ["colleagues"] = new("#f5f3ff", "#c4b5fd", "#5b21b6", "#8b5cf6", "#c4b5fd", "#a78bfa"),
         ["other"] = new("#fffbeb", "#fcd34d", "#92400e", "#f59e0b", "#fcd34d", "#fbbf24"),
     };
+    const string CoupleNotePrefix = "Wedding couple:";
+    const string HeadConfigPrefix = "[[head-godparents:";
+    const string HeadConfigSuffix = "]]";
     int godparentCouples = 2;
+    bool headTableLocked = true;
     string brideName = "Bride";
     string groomName = "Groom";
     List<EventTable> tables = new();
@@ -218,6 +226,7 @@
     string pendingDeleteType = "";
     int pendingDeleteId;
     string loadError = "";
+    EventDto? currentEvent;
     bool seatPickerOpen = false;
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
@@ -357,6 +366,13 @@
             CloseSeatPicker();
             return;
         }
+        if (headTableLocked && pickerTable.IsHeadTable && pickerTable.Seats[pickerSeatIndex] is not null)
+        {
+            ShowToast("Unlock the head table before changing those seats.", error: true);
+            CloseSeatPicker();
+            return;
+        }
+
         foreach (var t in tables)
         {
             for (int i = 0; i < t.Seats.Count; i++)
@@ -377,21 +393,12 @@
         CloseSeatPicker();
     }
 
-    async Task PersistGuestPlacement(TableGuest guest, int? tableId, int? seatNumber)
+    Task PersistGuestPlacement(TableGuest guest, int? tableId, int? seatNumber)
     {
-        if (guest.Id <= 0) return;
-
+        // WeddingTable API is not exposed yet, so the visual seating plan stays local for now.
         guest.TableId = tableId;
         guest.SeatNumber = seatNumber;
-
-        try
-        {
-            await Api.UpdateGuestAsync(EventId, guest.Id, ToUpdateDto(guest, tableId, seatNumber));
-        }
-        catch (Exception ex)
-        {
-            ShowToast($"Could not save seat assignment: {ex.Message}", error: true);
-        }
+        return Task.CompletedTask;
     }
 
     IEnumerable<TableGuest> PickerGuests()
@@ -439,6 +446,13 @@
                 return;
             }
 
+            currentEvent = ownEvent;
+            brideName = CoupleDisplayName(ownEvent.BrideName, "Bride");
+            groomName = CoupleDisplayName(ownEvent.GroomName, "Groom");
+            godparentCouples = ReadGodparentCount(ownEvent.Notes);
+            pendingGodparentCount = godparentCouples;
+            BuildHeadTable();
+
             var guests = await Api.GetGuestsAsync(EventId);
             ConfigureRoundTablesForGuests(guests);
             LoadGuestsIntoPlan(guests);
@@ -458,6 +472,7 @@
 
         var activeGuests = guests
             .Where(g => g.RsvpStatus != RsvpStatus.Declined)
+            .Where(g => !IsCoupleGuest(g))
             .ToList();
 
         var assignedTableIds = activeGuests
@@ -483,7 +498,7 @@
             }
         }
 
-        var unassignedGuests = activeGuests.Count(g => !g.TableId.HasValue || g.TableId <= 0);
+        var unassignedGuests = activeGuests.Count(g => !g.TableId.HasValue || g.TableId < 0);
         var remainingSeats = Math.Max(0, unassignedGuests);
         while (remainingSeats > 0)
         {
@@ -516,11 +531,11 @@
                 table.Seats[i] = null;
         }
 
-        foreach (var dto in guestDtos.Where(g => g.RsvpStatus != RsvpStatus.Declined))
+        foreach (var dto in guestDtos.Where(g => g.RsvpStatus != RsvpStatus.Declined && !IsCoupleGuest(g)))
         {
             var guest = ToTableGuest(dto);
             var table = dto.TableId.HasValue
-                ? tables.FirstOrDefault(t => t.Id == dto.TableId.Value && !t.IsHeadTable)
+                ? tables.FirstOrDefault(t => t.Id == dto.TableId.Value)
                 : null;
             var seatIndex = dto.SeatNumber.GetValueOrDefault() - 1;
 
@@ -540,6 +555,10 @@
         var capacity = 2 + godparentCouples * 2;
         var existing = tables.FirstOrDefault(t => t.IsHeadTable);
         var oldSeats = existing?.Seats ?? new List<TableGuest?>();
+        var movableHeadGuests = oldSeats
+            .Where(g => g is not null && !IsLockedHeadGuest(g))
+            .Cast<TableGuest>()
+            .ToList();
 
         var ht = new EventTable
         {
@@ -550,16 +569,23 @@
             Seats = new List<TableGuest?>(Enumerable.Repeat<TableGuest?>(null, capacity))
         };
 
-        for (int i = 0; i < Math.Min(oldSeats.Count, capacity); i++)
-            ht.Seats[i] = oldSeats[i];
+        var movableIndex = 0;
+        for (int i = 0; i < capacity && movableIndex < movableHeadGuests.Count; i++)
+        {
+            if (IsCoupleSeat(i))
+                continue;
 
-        ht.Seats[0] = MakeGuest(-1, brideName, "", "family");
-        ht.Seats[1] = MakeGuest(-2, groomName, "", "family");
+            ht.Seats[i] = movableHeadGuests[movableIndex++];
+        }
+
+        ht.Seats[BrideSeatIndex()] = MakeGuest(-1, brideName, "", "family");
+        ht.Seats[GroomSeatIndex()] = MakeGuest(-2, groomName, "", "family");
 
         if (existing != null)
         {
-            for (int i = capacity; i < oldSeats.Count; i++)
-                if (oldSeats[i] != null) pool.Add(oldSeats[i]!);
+            for (; movableIndex < movableHeadGuests.Count; movableIndex++)
+                pool.Add(movableHeadGuests[movableIndex]);
+
             tables.Remove(existing);
         }
 
@@ -672,12 +698,16 @@
 
     List<string> HeadLabels()
     {
-        var labels = new List<string> { brideName, groomName };
-        for (int i = 1; i <= godparentCouples; i++)
-        {
+        var labels = new List<string>();
+        for (int i = godparentCouples; i >= 1; i--)
             labels.Add($"Godmother {i}");
+
+        labels.Add(brideName);
+        labels.Add(groomName);
+
+        for (int i = 1; i <= godparentCouples; i++)
             labels.Add($"Godfather {i}");
-        }
+
         return labels;
     }
 
@@ -689,19 +719,44 @@
         headConfigOpen = true;
     }
 
-    void ApplyHeadConfig()
+    async Task ApplyHeadConfig()
     {
         godparentCouples = pendingGodparentCount;
         brideName = string.IsNullOrWhiteSpace(pendingBrideName) ? "Bride" : pendingBrideName.Trim();
         groomName = string.IsNullOrWhiteSpace(pendingGroomName) ? "Groom" : pendingGroomName.Trim();
         BuildHeadTable();
         headConfigOpen = false;
+        await SaveHeadNamesAsync();
         ShowToast($"Head table updated - {2 + godparentCouples * 2} seats total.");
+    }
+
+    async Task SaveHeadNamesAsync()
+    {
+        if (currentEvent is null)
+            return;
+
+        var notes = WithHeadConfig(currentEvent.Notes, godparentCouples);
+        await Api.UpdateEventAsync(currentEvent.EventId, new EventUpdateDto
+        {
+            VenueId = currentEvent.VenueId,
+            MenuIds = currentEvent.MenuIds,
+            Name = currentEvent.Name,
+            BrideName = brideName,
+            GroomName = groomName,
+            EventDate = currentEvent.EventDate,
+            EstimatedGuests = currentEvent.EstimatedGuests,
+            TotalBudget = currentEvent.TotalBudget,
+            Notes = notes
+        });
+
+        currentEvent.BrideName = brideName;
+        currentEvent.GroomName = groomName;
+        currentEvent.Notes = notes;
     }
 
     void StartDrag(TableGuest guest, DragSource source)
     {
-        if (IsLockedHeadGuest(guest))
+        if (IsLockedHeadGuest(guest) || IsLockedHeadSource(source))
         {
             draggedGuest = null;
             dragSource = null;
@@ -724,6 +779,13 @@
         if (IsLockedHeadSeat(targetTable, seatIndex) || IsLockedHeadGuest(existing))
         {
             ShowToast("Bride and groom stay at the head table.", error: true);
+            draggedGuest = null;
+            dragSource = null;
+            return;
+        }
+        if ((headTableLocked && targetTable.IsHeadTable && existing is not null) || IsLockedHeadSource(dragSource))
+        {
+            ShowToast("Unlock the head table before changing those seats.", error: true);
             draggedGuest = null;
             dragSource = null;
             return;
@@ -766,6 +828,14 @@
             ShowToast("Bride and groom stay at the head table.", error: true);
             return;
         }
+        if (IsLockedHeadSource(dragSource))
+        {
+            draggedGuest = null;
+            dragSource = null;
+            ShowToast("Unlock the head table before changing those seats.", error: true);
+            return;
+        }
+
         if (dragSource.Type == "pool") { draggedGuest = null; dragSource = null; return; }
 
         var srcTable = tables.FirstOrDefault(t => t.Id == dragSource.TableId);
@@ -790,6 +860,12 @@
             ShowToast("Bride and groom stay at the head table.", error: true);
             return;
         }
+        if (headTableLocked && table.IsHeadTable)
+        {
+            ShowToast("Unlock the head table before changing those seats.", error: true);
+            return;
+        }
+
         table.Seats[idx] = null;
         pool.Add(g);
         await PersistGuestPlacement(g, null, null);
@@ -1123,11 +1199,72 @@
     IEnumerable<TableGuest> AllGuests() =>
         pool.Concat(tables.SelectMany(t => t.Seats.Where(s => s != null).Cast<TableGuest>()));
 
+    static string CoupleDisplayName(string? name, string fallback) =>
+        string.IsNullOrWhiteSpace(name) ? fallback : name.Trim();
+
+    static bool IsCoupleGuest(GuestDto guest) =>
+        guest.Notes?.StartsWith(CoupleNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
+    static int ReadGodparentCount(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return 2;
+
+        var start = notes.IndexOf(HeadConfigPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return 2;
+
+        start += HeadConfigPrefix.Length;
+        var end = notes.IndexOf(HeadConfigSuffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return 2;
+
+        return int.TryParse(notes[start..end], out var count)
+            ? Math.Clamp(count, 1, 4)
+            : 2;
+    }
+
+    static string? WithHeadConfig(string? notes, int godparentCount)
+    {
+        var cleaned = RemoveHeadConfig(notes).Trim();
+        var marker = $"{HeadConfigPrefix}{Math.Clamp(godparentCount, 1, 4)}{HeadConfigSuffix}";
+        var next = string.IsNullOrWhiteSpace(cleaned) ? marker : $"{cleaned} {marker}";
+        return next.Length <= 256 ? next : marker;
+    }
+
+    static string RemoveHeadConfig(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return "";
+
+        var start = notes.IndexOf(HeadConfigPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return notes;
+
+        var end = notes.IndexOf(HeadConfigSuffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return notes[..start];
+
+        return (notes[..start] + notes[(end + HeadConfigSuffix.Length)..]).Trim();
+    }
+
     static bool IsLockedHeadGuest(TableGuest? guest) =>
         guest?.Id is -1 or -2;
 
-    static bool IsLockedHeadSeat(EventTable table, int seatIndex) =>
-        table.IsHeadTable && seatIndex is 0 or 1;
+    int BrideSeatIndex() => Math.Max(0, godparentCouples);
+
+    int GroomSeatIndex() => Math.Max(1, godparentCouples + 1);
+
+    bool IsCoupleSeat(int seatIndex) =>
+        seatIndex == BrideSeatIndex() || seatIndex == GroomSeatIndex();
+
+    bool IsLockedHeadSeat(EventTable table, int seatIndex) =>
+        table.IsHeadTable && IsCoupleSeat(seatIndex);
+
+    bool IsLockedHeadSource(DragSource? source) =>
+        source?.Type == "table" &&
+        tables.FirstOrDefault(t => t.Id == source.TableId)?.IsHeadTable == true &&
+        headTableLocked;
 
     RenderFragment RenderSeat(TableGuest? guest, EventTable table, int idx, string? label) =>
     @<div class="seat-wrap @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-wrap-over" : "")"
@@ -1138,10 +1275,12 @@
         @if (guest != null)
         {
             var g = guest;
-            var isLocked = IsLockedHeadGuest(g);
+            var isCouple = IsLockedHeadGuest(g);
+            var isHeadLocked = headTableLocked && table.IsHeadTable;
+            var isLocked = isCouple || isHeadLocked;
             var col = GroupDefs[g.Group];
             var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} - {label ?? $"Seat {idx + 1}"}";
-            <div class="seat-guest @(isLocked ? "seat-guest-couple" : "") @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
+            <div class="seat-guest @(isCouple ? "seat-guest-couple" : isHeadLocked ? "seat-guest-head-locked" : "") @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
                  style="background:linear-gradient(135deg,@col.SeatFrom,@col.SeatTo);box-shadow:0 2px 8px rgba(0,0,0,.2);"
                  title="@title"
                  draggable="@(!isLocked)"

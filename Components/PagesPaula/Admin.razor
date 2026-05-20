@@ -193,6 +193,17 @@
                     <input type="number" class="input @(HasVenueError(nameof(newVenue.EstimatedPrice)) ? "field-invalid" : "")" min="0" @bind="newVenue.EstimatedPrice" @bind:event="oninput" />
                     @VenueFieldError(nameof(newVenue.EstimatedPrice))
                 </div>
+                <div class="field">
+                    <label>Admin Score</label>
+                    <select class="input select-input @(HasVenueError(nameof(newVenue.Rating)) ? "field-invalid" : "")" @bind="newVenue.Rating">
+                        <option value="">No score</option>
+                        @for (var score = 0; score <= 5; score++)
+                        {
+                            <option value="@score">@score / 5</option>
+                        }
+                    </select>
+                    @VenueFieldError(nameof(newVenue.Rating))
+                </div>
             </div>
 
             <button class="btn-add-guest" @onclick="SaveVenue">
@@ -447,6 +458,7 @@
         MinCapacity = venue.MinCapacity,
         MaxCapacity = venue.MaxCapacity,
         EstimatedPrice = venue.EstimatedPrice,
+        Rating = venue.Rating,
         Latitude = venue.Latitude,
         Longitude = venue.Longitude,
         ImagePath = venue.ImagePath ?? "",
@@ -609,6 +621,7 @@
         if (newVenue.MinCapacity <= 0) venueFieldErrors[nameof(newVenue.MinCapacity)] = "Min guests must be greater than 0.";
         if (newVenue.MaxCapacity < newVenue.MinCapacity) venueFieldErrors[nameof(newVenue.MaxCapacity)] = "Max guests must be at least the min guests value.";
         if (newVenue.EstimatedPrice < 0) venueFieldErrors[nameof(newVenue.EstimatedPrice)] = "Estimated price cannot be negative.";
+        if (newVenue.Rating is < 0 or > 5) venueFieldErrors[nameof(newVenue.Rating)] = "Admin score must be between 0 and 5.";
         if (newVenue.Latitude is null) venueFieldErrors[nameof(newVenue.Latitude)] = "Latitude is required.";
         else if (newVenue.Latitude is < -90 or > 90) venueFieldErrors[nameof(newVenue.Latitude)] = "Latitude must be between -90 and 90.";
         if (newVenue.Longitude is null) venueFieldErrors[nameof(newVenue.Longitude)] = "Longitude is required.";
@@ -632,6 +645,7 @@
                     MinCapacity = newVenue.MinCapacity,
                     MaxCapacity = newVenue.MaxCapacity,
                     EstimatedPrice = newVenue.EstimatedPrice,
+                    Rating = newVenue.Rating,
                     Latitude = latitude,
                     Longitude = longitude,
                     ImagePath = newVenue.ImagePath,
@@ -658,6 +672,7 @@
                 MinCapacity = newVenue.MinCapacity,
                 MaxCapacity = newVenue.MaxCapacity,
                 EstimatedPrice = newVenue.EstimatedPrice,
+                Rating = newVenue.Rating,
                 Latitude = latitude,
                 Longitude = longitude,
                 ImagePath = newVenue.ImagePath,
@@ -781,14 +796,23 @@
 
         if (editingMenuId is int menuId)
         {
-            savedMenu.Id = menuId;
+            try
+            {
+                await Api.UpdateMenuAsync(menuId, ToMenuEntity(newMenu));
+                savedMenu.Id = menuId;
 
-            var index = menus.FindIndex(menu => menu.Id == menuId);
-            if (index >= 0)
-                menus[index] = savedMenu;
+                var index = menus.FindIndex(menu => menu.Id == menuId);
+                if (index >= 0)
+                    menus[index] = savedMenu;
 
-            CloseMenuModal();
-            ShowToast($"\"{savedMenu.Name}\" updated locally.");
+                CloseMenuModal();
+                ShowToast($"\"{savedMenu.Name}\" updated.");
+            }
+            catch (Exception ex)
+            {
+                menuModalError = $"Could not update menu: {ex.Message}";
+            }
+
             return;
         }
 
@@ -874,6 +898,7 @@
         MinCapacity = venue.MinCapacity,
         MaxCapacity = venue.MaxCapacity,
         EstimatedPrice = venue.EstimatedPrice,
+        Rating = venue.Rating,
         Latitude = venue.Latitude,
         Longitude = venue.Longitude,
         ImagePath = venue.ImagePath,

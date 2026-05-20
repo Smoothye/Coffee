@@ -1,0 +1,19 @@
+<div class="supplier-stats">
+    <div class="supplier-stat"><span class="supplier-stat-val">@Available</span><span class="supplier-stat-label">Available</span></div>
+    <div class="supplier-stat"><span class="supplier-stat-val" style="color:#16a34a">@Confirmed</span><span class="supplier-stat-label">Confirmed</span></div>
+    <div class="supplier-stat"><span class="supplier-stat-val" style="color:#d97706">@Pending</span><span class="supplier-stat-label">In contact</span></div>
+    <div class="supplier-stat"><span class="supplier-stat-val">@NotSelected</span><span class="supplier-stat-label">Not selected</span></div>
+    <div class="supplier-stat"><span class="supplier-stat-val">@Money(Estimated)</span><span class="supplier-stat-label">Estimated</span></div>
+    <div class="supplier-stat"><span class="supplier-stat-val">@Money(Actual)</span><span class="supplier-stat-label">Actual</span></div>
+</div>
+
+@code {
+    [Parameter] public int Available { get; set; }
+    [Parameter] public int Confirmed { get; set; }
+    [Parameter] public int Pending { get; set; }
+    [Parameter] public int NotSelected { get; set; }
+    [Parameter] public decimal Estimated { get; set; }
+    [Parameter] public decimal Actual { get; set; }
+
+    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "-";
+}

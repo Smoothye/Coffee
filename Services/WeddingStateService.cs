@@ -1,35 +1,18 @@
 ﻿namespace WeddingPlannerApp.Services
 {
-    /// <summary>
-    /// Scoped service shared across Dashboard, Tasks, Budget and Menu pages.
-    /// Inject via DI — register in Program.cs as:
-    ///     builder.Services.AddScoped&lt;WeddingStateService&gt;();
-    /// </summary>
     public class WeddingStateService
     {
-        // ── Events ────────────────────────────────────────────
         public event Action? OnChange;
         void Notify() => OnChange?.Invoke();
 
-        // ── Wedding info ──────────────────────────────────────
-        public DateTime WeddingDate { get; set; } = new DateTime(2026, 9, 12);
-        public string VenueName { get; set; } = "Rosewood Gardens";
-        public int ExpectedGuests { get; set; } = 120;
+        public DateTime WeddingDate { get; set; } = DateTime.Today;
+        public string VenueName { get; set; } = "";
+        public int ExpectedGuests { get; set; }
         public string SelectedMenu { get; set; } = "";
 
-        // ── Budget ────────────────────────────────────────────
-        public int BudgetTotal { get; set; } = 20000;
+        public int BudgetTotal { get; set; }
 
-        private List<BudgetItem> _budgetItems = new()
-        {
-            new BudgetItem { Id=1, Name="Venue deposit",   Category="Venue",       Estimated=5000, Actual=5000, Paid=true  },
-            new BudgetItem { Id=2, Name="Catering",        Category="Catering",    Estimated=6000, Actual=5800, Paid=false },
-            new BudgetItem { Id=3, Name="Photography",     Category="Photography", Estimated=2500, Actual=2200, Paid=false },
-            new BudgetItem { Id=4, Name="Floral decor",    Category="Florals",     Estimated=1200, Actual=900,  Paid=true  },
-            new BudgetItem { Id=5, Name="Music / DJ",      Category="Music",       Estimated=1500, Actual=0,    Paid=false },
-            new BudgetItem { Id=6, Name="Wedding cake",    Category="Catering",    Estimated=600,  Actual=0,    Paid=false },
-            new BudgetItem { Id=7, Name="Transportation",  Category="Transport",   Estimated=400,  Actual=300,  Paid=true  },
-        };
+        private List<BudgetItem> _budgetItems = [];
 
         public IReadOnlyList<BudgetItem> BudgetItems => _budgetItems;
 
@@ -167,20 +150,7 @@
             Notify();
         }
 
-        // ── Tasks ─────────────────────────────────────────────
-        private List<WeddingTask> _tasks = new()
-        {
-            new WeddingTask { Id=1,  Title="Final headcount to caterer",    Category="Catering",     DueDate=DateTime.Today.AddDays(3),  Priority="high"   },
-            new WeddingTask { Id=2,  Title="Confirm florist order",         Category="Florals",      DueDate=DateTime.Today.AddDays(5),  Priority="high"   },
-            new WeddingTask { Id=3,  Title="Send final seating chart",      Category="Tables",       DueDate=DateTime.Today.AddDays(7),  Priority="high"   },
-            new WeddingTask { Id=4,  Title="Pay venue balance",             Category="Venue",        DueDate=DateTime.Today.AddDays(10), Priority="high"   },
-            new WeddingTask { Id=5,  Title="Review ceremony timeline",      Category="Schedule",     DueDate=DateTime.Today.AddDays(14), Priority="medium" },
-            new WeddingTask { Id=6,  Title="Collect dietary requirements",  Category="Catering",     DueDate=DateTime.Today.AddDays(4),  Priority="medium" },
-            new WeddingTask { Id=7,  Title="Book hair & makeup",            Category="Beauty",       DueDate=DateTime.Today.AddDays(21), Priority="medium" },
-            new WeddingTask { Id=8,  Title="Order wedding favors",          Category="Decor",        DueDate=DateTime.Today.AddDays(30), Priority="low",   Done=true },
-            new WeddingTask { Id=9,  Title="Send save-the-dates",           Category="Invitations",  DueDate=DateTime.Today.AddDays(-5), Priority="high",  Done=true },
-            new WeddingTask { Id=10, Title="Plan honeymoon",                Category="Travel",       DueDate=DateTime.Today.AddDays(60), Priority="low"   },
-        };
+        private List<WeddingTask> _tasks = [];
 
         public IReadOnlyList<WeddingTask> Tasks => _tasks;
 
@@ -207,7 +177,6 @@
             Notify();
         }
 
-        // ── Menu selection ────────────────────────────────────
         public string SelectedMenuId { get; private set; } = "";
         public string SelectedMenuName { get; private set; } = "";
 
@@ -219,8 +188,6 @@
             Notify();
         }
     }
-
-    // ── Models ─────────────────────────────────────────────────
 
     public class BudgetItem
     {
@@ -240,7 +207,7 @@
         public string Title { get; set; } = "";
         public string Category { get; set; } = "General";
         public DateTime DueDate { get; set; } = DateTime.Today.AddDays(7);
-        public string Priority { get; set; } = "medium"; // high | medium | low
+        public string Priority { get; set; } = "medium";
         public bool Done { get; set; }
 
         public bool IsUrgent => !Done && (DueDate - DateTime.Today).Days <= 14;

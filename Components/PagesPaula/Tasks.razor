@@ -45,123 +45,129 @@
         </div>
     </div>
 
-    <div class="toolbar tasks-toolbar">
+    <div class="tasks-window">
+        <div class="toolbar tasks-toolbar">
 
-        <div class="search-wrap">
-            <span class="search-icon">@SvgIcons.Search</span>
+            <div class="search-wrap">
+                <span class="search-icon">@SvgIcons.Search</span>
 
-            <input class="input search-input"
-                   placeholder="Search tasks..."
-                   @bind="searchQuery"
-                   @bind:event="oninput" />
-        </div>
+                <input class="input search-input"
+                       placeholder="Search tasks..."
+                       @bind="searchQuery"
+                       @bind:event="oninput" />
+            </div>
 
-        <label class="budget-filter-field">
-            <span>Category</span>
-            <select class="input select-input filter-select" @bind="activeCat">
-                <option value="">All</option>
-                @foreach (var cat in categories)
+            <label class="budget-filter-field">
+                <span>Category</span>
+                <select class="input select-input filter-select" @bind="activeCat">
+                    <option value="">All</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+            </label>
+
+            <label class="budget-filter-field">
+                <span>Status</span>
+                <select class="input select-input filter-select" @bind="activeStatus">
+                    @foreach (var f in statusFilters)
+                    {
+                        <option value="@f.Key">@f.Label</option>
+                    }
+                </select>
+            </label>
+
+            <div class="toolbar-actions">
+                @if (HasActiveFilters)
                 {
-                    <option value="@cat">@cat</option>
+                    <button class="btn-outline" @onclick="ResetFilters">
+                        Clear filters
+                    </button>
                 }
-            </select>
-        </label>
-
-        <label class="budget-filter-field">
-            <span>Status</span>
-            <select class="input select-input filter-select" @bind="activeStatus">
-                @foreach (var f in statusFilters)
-                {
-                    <option value="@f.Key">@f.Label</option>
-                }
-            </select>
-        </label>
-
-        <div class="toolbar-actions">
-            @if (HasActiveFilters)
-            {
-                <button class="btn-outline" @onclick="ResetFilters">
-                    Clear filters
+                <button class="btn-add" @onclick="@(() => addOpen = true)">
+                    @SvgIcons.Plus Add Task
                 </button>
-            }
-            <button class="btn-add" @onclick="@(() => addOpen = true)">
-                @SvgIcons.Plus Add Task
-            </button>
+            </div>
         </div>
-    </div>
 
-    <div class="task-list-wrap">
+        <div class="task-list-wrap">
 
-        @foreach (var task in filteredTasks)
-        {
-            var t = task;
+            @foreach (var task in filteredTasks)
+            {
+                var t = task;
 
-            <div class="task-card
+                <div class="task-card
                 @(t.Done ? "task-card-done" : "")
                 @(t.IsUrgent ? "task-card-urgent" : "")
                 @(t.IsOverdue ? "task-card-overdue" : "")
                 priority-border-@t.Priority"
                  @key="t.Id">
 
-                <button class="task-checkbox @(t.Done ? "checkbox-done" : "")"
-                        @onclick="@(() => State.ToggleTask(t.Id))">
+                    <button class="task-checkbox @(t.Done ? "checkbox-done" : "")"
+                            @onclick="@(() => State.ToggleTask(t.Id))">
 
-                    @if (t.Done)
-                    {
-                        @SvgIcons.CheckSmall
-                    }
-                </button>
-
-                <div class="task-content">
-
-                    <span class="task-title">@t.Title</span>
-
-                    <div class="task-meta">
-
-                        <span class="task-cat-tag">@t.Category</span>
-
-                        @if (t.IsOverdue)
+                        @if (t.Done)
                         {
-                            <span class="task-date-tag tag-overdue">
-                                Overdue - @t.DueDate.ToString("MMM d")
-                            </span>
+                            @SvgIcons.CheckSmall
                         }
-                        else
-                        {
-                            <span class="task-date-tag @(t.IsUrgent ? "tag-urgent" : "")">
-                                @t.DueDate.ToString("MMM d")
-                            </span>
-                        }
+                    </button>
 
+                    <div class="task-content">
+
+                        <span class="task-title">@t.Title</span>
+
+                        <div class="task-meta">
+
+                            <span class="task-cat-tag">@t.Category</span>
+
+                            @if (t.IsOverdue)
+                            {
+                                <span class="task-date-tag tag-overdue">
+                                    Overdue - @t.DueDate.ToString("MMM d")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="task-date-tag @(t.IsUrgent ? "tag-urgent" : "")">
+                                    @t.DueDate.ToString("MMM d")
+                                </span>
+                            }
+
+                        </div>
                     </div>
+
+                    <span class="task-priority-badge badge-@t.Priority">
+                        @(char.ToUpper(t.Priority[0]) + t.Priority[1..])
+                    </span>
+
+                    <button class="task-delete"
+                            @onclick="@(() => RemoveTask(t.Id))"
+                            title="Remove">
+
+                        @SvgIcons.Trash
+                    </button>
+
                 </div>
+            }
 
-                <span class="task-priority-badge badge-@t.Priority">
-                    @(char.ToUpper(t.Priority[0]) + t.Priority[1..])
-                </span>
+            @if (!filteredTasks.Any())
+            {
+                <div class="tasks-empty">
+                    @SvgIcons.CheckCircleLarge
+                    <p>@(HasActiveFilters ? "No tasks match these filters." : "No tasks added yet.")</p>
+                    @if (!HasActiveFilters)
+                    {
+                        <span>Add a task when you are ready to plan the next step.</span>
+                    }
+                    @if (HasActiveFilters)
+                    {
+                        <button class="btn-outline" @onclick="ResetFilters">Clear filters</button>
+                    }
+                </div>
+            }
 
-                <button class="task-delete"
-                        @onclick="@(() => RemoveTask(t.Id))"
-                        title="Remove">
-
-                    @SvgIcons.Trash
-                </button>
-
-            </div>
-        }
-
-        @if (!filteredTasks.Any())
-        {
-            <div class="tasks-empty">
-                @SvgIcons.UsersLarge
-                <p>@(HasActiveFilters ? "No tasks match these filters." : "No tasks here. Add one!")</p>
-                @if (HasActiveFilters)
-                {
-                    <button class="btn-outline" @onclick="ResetFilters">Clear filters</button>
-                }
-            </div>
-        }
-
+        </div>
     </div>
 </div>
 
@@ -201,9 +207,9 @@
             <label>Priority</label>
 
             <select class="input select-input" @bind="newPriority">
-                <option value="high">?? High</option>
-                <option value="medium">?? Medium</option>
-                <option value="low">?? Low</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
             </select>
         </div>
 
@@ -244,8 +250,7 @@
     };
 
     static readonly string[] categories = {
-        "Venue","Catering","Florals","Music","Photography",
-        "Beauty","Invitations","Decor","Tables","Schedule","Travel","General"
+        "General","Venue","Invitations","Catering","Vendors","Decor","Travel","Details"
     };
 
     string activeStatus = "all";
@@ -364,6 +369,16 @@
         if (newDueDate.Date < DateTime.Today)
         {
             addFieldErrors[nameof(newDueDate)] = "Due date cannot be in the past.";
+        }
+
+        if (!categories.Contains(newCategory))
+        {
+            addFieldErrors[nameof(newCategory)] = "Choose one of the available categories.";
+        }
+
+        if (newPriority is not ("low" or "medium" or "high"))
+        {
+            addFieldErrors[nameof(newPriority)] = "Choose one of the available priorities.";
         }
 
         if (addFieldErrors.Count > 0)

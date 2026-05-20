@@ -44,7 +44,11 @@ public class GuestsUnitTests
             EventId = eventItem.EventId,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegetarian
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         context.Guests.Add(guestItem);
@@ -96,7 +100,11 @@ public class GuestsUnitTests
             EventId = eventItem.EventId,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         context.Guests.Add(guestItem);
@@ -147,7 +155,11 @@ public class GuestsUnitTests
             Email = "jane@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard,
+=======
+            DietaryRequirements = DietaryRequirements.Fasting,
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
             HasPlusOne = false
         };
 
@@ -302,7 +314,11 @@ public class GuestsUnitTests
             EventId = 1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         context.Guests.Add(guest);
@@ -349,7 +365,11 @@ public class GuestsUnitTests
             Email = "test@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard,
+=======
+            DietaryRequirements = DietaryRequirements.Vegan,
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
             HasPlusOne = false
         };
 
@@ -375,7 +395,11 @@ public class GuestsUnitTests
             EventId = 2,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         });
 
         await context.SaveChangesAsync();
@@ -389,7 +413,11 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Fasting
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Update(1, 1, model);
@@ -419,7 +447,11 @@ public class GuestsUnitTests
             EventId = eventItem.EventId,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         context.Guests.Add(guestItem);
@@ -470,7 +502,11 @@ public class GuestsUnitTests
             EventId = 1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         context.Guests.Add(guest);
@@ -577,7 +613,11 @@ public class GuestsUnitTests
             Age = 20,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         });
 
         await context.SaveChangesAsync();
@@ -625,7 +665,11 @@ public class GuestsUnitTests
             TableId = -1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegetarian
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Create(model, 1);
@@ -657,7 +701,11 @@ public class GuestsUnitTests
             TableId = -1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegetarian
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Create(model, 1);
@@ -717,7 +765,11 @@ public class GuestsUnitTests
             Email = "test@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Fasting
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
         var result = await controller.Create(model, 1);
 
@@ -745,7 +797,11 @@ public class GuestsUnitTests
             EventId = 1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Fasting
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         });
 
         await context.SaveChangesAsync();
@@ -759,7 +815,11 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegetarian
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Update(1, 1, model);
@@ -829,7 +889,11 @@ public class GuestsUnitTests
             Email = "john@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegan
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Create(model, 1);
@@ -869,7 +933,11 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Fasting
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Update(1, 1, model);
@@ -938,7 +1006,11 @@ public class GuestsUnitTests
             Email = "john@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Vegetarian
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Create(model, 1);
@@ -978,7 +1050,11 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
+<<<<<<< HEAD
             DietaryRequirements = DietaryRequirements.Standard
+=======
+            DietaryRequirements = DietaryRequirements.Fasting
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
         };
 
         var result = await controller.Update(1, 1, model);

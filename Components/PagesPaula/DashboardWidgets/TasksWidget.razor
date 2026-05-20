@@ -6,10 +6,22 @@
             <div class="widget-icon wicon-amber">@SvgIcons.AlertTriangle</div>
             <h3 class="widget-title">Urgent Tasks</h3>
         </div>
-        <span class="widget-badge wbadge-amber">@Tasks.Count(t => !t.Done && t.IsUrgent) urgent</span>
+        <div class="widget-head-actions">
+            <span class="widget-badge wbadge-amber">@Tasks.Count(t => !t.Done && t.IsUrgent) urgent</span>
+            <a href="@Href" class="widget-link-icon" title="Open tasks" aria-label="Open tasks">@SvgIcons.ArrowRight</a>
+        </div>
     </div>
 
     <div class="task-list">
+        @if (!Tasks.Any())
+        {
+            <div class="task-row">
+                <div class="task-info">
+                    <span class="task-title">No tasks yet</span>
+                    <span class="task-meta">Add tasks from the Tasks page.</span>
+                </div>
+            </div>
+        }
         @foreach (var task in Tasks.OrderBy(t => t.Done).ThenBy(t => t.DueDate).Take(6))
         {
             var tk = task;
@@ -51,6 +63,7 @@
 @code {
     [Parameter] public IReadOnlyList<DashboardTaskItem> Tasks { get; set; } = [];
     [Parameter] public EventCallback<int> OnToggleTask { get; set; }
+    [Parameter] public string Href { get; set; } = "/tasks";
 
     int CompletedPercent => Tasks.Count > 0 ? Tasks.Count(t => t.Done) * 100 / Tasks.Count : 0;
 }

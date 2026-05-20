@@ -6,10 +6,10 @@
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IJSRuntime JS
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.BudgetComponents
+@using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Services
@@ -82,7 +82,7 @@
     bool addOpen;
     bool confirmDeleteOpen;
     int pendingRemoveId;
-    string budgetStorageKey = "everafter.budget.total";
+    EventDto? currentEvent;
     List<MenuBudgetRow> menuBudgetRows = [];
 
     IReadOnlyList<BudgetCategoryTotal> CategoryTotals =>
@@ -123,8 +123,18 @@
             return;
         }
 
+        var previousTotal = State.BudgetTotal;
         State.UpdateBudgetTotal(total);
-        await SaveBudgetTotalAsync(total);
+
+        try
+        {
+            await SaveBudgetTotalAsync(total);
+        }
+        catch
+        {
+            State.UpdateBudgetTotal(previousTotal);
+            _toast.Show("Could not save the total budget. Please check the event details and try again.", true);
+        }
     }
 
     void SaveItem(BudgetItem item)
@@ -168,19 +178,13 @@
 
         await SyncMenuBudgetAsync();
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-            await LoadBudgetTotalAsync();
-    }
-
     void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => State.OnChange -= Refresh;
 
     async Task SyncMenuBudgetAsync()
     {
         var eventItem = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+        currentEvent = eventItem;
         if (eventItem is null)
         {
             menuBudgetRows.Clear();
@@ -188,7 +192,7 @@
             return;
         }
 
-        budgetStorageKey = $"everafter.budget.{eventItem.EventId}.total";
+        State.UpdateBudgetTotal((int)Math.Round(eventItem.TotalBudget));
 
         var venue = await Api.GetVenueAsync(eventItem.VenueId);
         if (venue is not null)
@@ -222,30 +226,25 @@
         State.UpsertMenuBudgetItem((int)Math.Round(menuBudgetRows.Sum(row => row.Total)));
     }
 
-    async Task LoadBudgetTotalAsync()
-    {
-        try
-        {
-            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", budgetStorageKey);
-            if (int.TryParse(stored, out var total) && total >= State.BudgetSpent)
-                State.UpdateBudgetTotal(total);
-        }
-        catch
-        {
-            // Budget still works if browser storage is unavailable.
-        }
-    }
-
     async Task SaveBudgetTotalAsync(int total)
     {
-        try
+        if (currentEvent is null)
+            return;
+
+        await Api.UpdateEventAsync(currentEvent.EventId, new EventUpdateDto
         {
-            await JS.InvokeVoidAsync("localStorage.setItem", budgetStorageKey, total.ToString());
-        }
-        catch
-        {
-            // Budget still works if browser storage is unavailable.
-        }
+            VenueId = currentEvent.VenueId,
+            MenuIds = currentEvent.MenuIds,
+            Name = currentEvent.Name,
+            BrideName = currentEvent.BrideName,
+            GroomName = currentEvent.GroomName,
+            EventDate = currentEvent.EventDate,
+            EstimatedGuests = currentEvent.EstimatedGuests,
+            TotalBudget = total,
+            Notes = currentEvent.Notes
+        });
+
+        currentEvent.TotalBudget = total;
     }
 
     static Dictionary<MenuDietaryType, int> BuildMenuCounts(
