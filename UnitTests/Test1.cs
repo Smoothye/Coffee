@@ -29,7 +29,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+               
                 Name = "Test",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -62,7 +62,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "Event 1",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -73,7 +73,7 @@ namespace UnitTests
             {
                 EventId = 2,
                 VenueId = 1,
-                MenuId = 1,
+               
                 Name = "Event 2",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 20,
@@ -123,7 +123,7 @@ namespace UnitTests
             var dto = new EventCreateDto
             {
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -155,7 +155,7 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "Wedding Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -186,7 +186,7 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
-                MenuId = 999,
+                
                 Name = "Wedding Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -236,7 +236,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+               
                 Name = " Test Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -278,7 +278,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+               
                 Name = "Old",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -292,7 +292,7 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -312,7 +312,7 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 1,
-                MenuId = 1,
+               
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -336,7 +336,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "Old",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -350,7 +350,7 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 999,
-                MenuId = 1,
+               
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -369,7 +369,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "Old",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -383,7 +383,7 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 1,
-                MenuId = 999,
+               
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -424,7 +424,6 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
-                MenuId = 1,
                 Name = "Event",
                 EventDate = DateTime.UtcNow.AddDays(-1),
                 EstimatedGuests = 100,
@@ -465,7 +464,7 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
-                MenuId = 1,
+               
                 Name = "Existing Event",
                 EventDate = DateTime.UtcNow.AddDays(10),
                 EstimatedGuests = 50,
@@ -481,7 +480,7 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
-                MenuId = 1,
+                
                 Name = "New Event",
                 EventDate = DateTime.UtcNow.AddDays(10),
                 EstimatedGuests = 100,
