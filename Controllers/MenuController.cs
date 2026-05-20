@@ -18,6 +18,19 @@ public class MenusController(ApplicationDbContext context) : ControllerBase
             .ToListAsync());
     }
 
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<Menu>> GetById(int id)
+    {
+        var menu = await context.Menus
+            .Include(menu => menu.MenuItems)
+            .SingleOrDefaultAsync(m => m.MenuId == id);
+        
+        if (menu == null)
+            return NotFound($"Menu with id: {id} was not found.");
+        
+        return Ok(menu);
+    }
+
     // POST: api/Menus
     [HttpPost]
     public async Task<IActionResult> Create()
