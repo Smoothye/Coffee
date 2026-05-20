@@ -181,6 +181,10 @@
                                     {
                                         <p class="venue-meta">est. $@venue.EstimatedPrice.ToString("N0")</p>
                                     }
+                                    @if (venue.Rating.HasValue)
+                                    {
+                                        <p class="venue-admin-score-mini">@SvgIcons.Star Admin score @venue.Rating/5</p>
+                                    }
                                 </div>
                             </button>
                         }
@@ -211,6 +215,10 @@
                                         @if (v.EstimatedPrice > 0)
                                         {
                                             <p class="venue-meta">est. $@v.EstimatedPrice.ToString("N0")</p>
+                                        }
+                                        @if (v.Rating.HasValue)
+                                        {
+                                            <p class="venue-admin-score-mini">@SvgIcons.Star Admin score @v.Rating/5</p>
                                         }
                                         <p class="venue-meta">@UnavailableReason(v)</p>
                                     </div>
@@ -243,7 +251,7 @@
 
 @code {
     int step = 0;
-    int stepDir = 1; // 1 = forward, -1 = backward
+    int stepDir = 1;
     string errorMsg = "";
     Dictionary<string, string> fieldErrors = new();
 

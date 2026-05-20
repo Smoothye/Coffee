@@ -27,7 +27,7 @@ public sealed class EventUpdateDto
     [Range(0, int.MaxValue)]
     public int EstimatedGuests { get; set; }
 
-    [Range(typeof(decimal), "0", "99_999_999.99")]
+    [Range(typeof(decimal), "0", "99999999.99")]
     public decimal TotalBudget { get; set; }
 
     [MaxLength(256)]

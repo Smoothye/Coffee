@@ -6,7 +6,10 @@
             </div>
             <h3 class="widget-title">Budget</h3>
         </div>
-        <span class="widget-badge wbadge-green">@BudgetPercent% used</span>
+        <div class="widget-head-actions">
+            <span class="widget-badge wbadge-green">@BudgetPercent% used</span>
+            <a href="@Href" class="widget-link-icon" title="Open budget" aria-label="Open budget">@SvgIcons.ArrowRight</a>
+        </div>
     </div>
 
     <div class="budget-amounts">
@@ -48,6 +51,7 @@
     [Parameter] public int BudgetTotal { get; set; }
     [Parameter] public int BudgetSpent { get; set; }
     [Parameter] public IReadOnlyList<DashboardBudgetCategory> Categories { get; set; } = [];
+    [Parameter] public string Href { get; set; } = "/budget";
 
     int BudgetRemaining => BudgetTotal - BudgetSpent;
     int BudgetPercent => BudgetTotal > 0 ? BudgetSpent * 100 / BudgetTotal : 0;

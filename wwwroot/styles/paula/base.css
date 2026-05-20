@@ -1,0 +1,137 @@
+﻿*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body:has(.dash-body),
+body:has(.venues-page),
+body:has(.guests-wrap),
+body:has(.tables-page),
+body:has(.menu-page),
+body:has(.suppliers-page),
+body:has(.budget-page),
+body:has(.tasks-page),
+body:has(.admin-wrap),
+body:has(.admin-body) {
+    background: var(--page-glow), var(--page-bg);
+}
+
+#app, [blazor-ssr-component], .blazor-error-boundary {
+    height: 100%;
+}
+
+:root {
+    --sage: #7d9b76;
+    --sage-dark: #4f6b4a;
+    --sage-light: #c8dbc5;
+    --sage-muted: rgba(125,155,118,.15);
+    --page-bg: linear-gradient(180deg, #eef6ed 0%, #f7f9f6 44%, #edf5ec 100%);
+    --page-glow: radial-gradient(circle at top left, rgba(200,219,197,.42), transparent 28rem);
+    --sage-panel: #e8f1e5;
+    --sage-panel-strong: #dfeedd;
+    --glass-bg: rgba(255,255,255,.55);
+    --glass-blur: 18px;
+    --radius: 1rem;
+    --shadow: 0 8px 32px rgba(79,107,74,.18);
+    --text: #2c3e28;
+    --muted: #6b7c67;
+    --error: #c0392b;
+}
+
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid rgba(255,255,255,.6);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 2.5rem;
+}
+
+.input {
+    width: 100%;
+    padding: .65rem .9rem;
+    border: 1.5px solid var(--sage-light);
+    border-radius: .6rem;
+    background: rgba(255,255,255,.5);
+    font-size: 1rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+    .input:focus {
+        border-color: var(--sage);
+        box-shadow: 0 0 0 3px rgba(125,155,118,.2);
+    }
+
+.input.field-invalid,
+.field-invalid .input,
+.field-invalid.input {
+    border-color: var(--error) !important;
+    background: rgba(192,57,43,.06) !important;
+}
+
+.admin-tag-picker.field-invalid,
+.venue-upload-zone.field-invalid {
+    border: 1.5px solid var(--error) !important;
+    border-radius: .75rem;
+    background: rgba(192,57,43,.05) !important;
+}
+
+.input.field-invalid:focus,
+.field-invalid .input:focus {
+    border-color: var(--error) !important;
+    box-shadow: 0 0 0 3px rgba(192,57,43,.16) !important;
+}
+
+.field-error {
+    color: var(--error);
+    font-size: .75rem;
+    font-weight: 700;
+    margin: .35rem 0 0;
+    line-height: 1.25;
+}
+
+.field {
+    margin-bottom: 1.25rem;
+}
+
+    .field label {
+        display: block;
+        font-size: .85rem;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: .4rem;
+        letter-spacing: .02em;
+    }
+
+.error-banner {
+    background: rgba(192,57,43,.12);
+    border: 1px solid rgba(192,57,43,.35);
+    color: var(--error);
+    border-radius: .6rem;
+    padding: .6rem 1rem;
+    font-size: .875rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.select-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7c67' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right .75rem center;
+    padding-right: 2rem;
+    cursor: pointer;
+}
+

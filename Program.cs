@@ -65,9 +65,19 @@ public class Program
         builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
         builder.Services.AddScoped<WeddingStateService>();
-        builder.Services.AddScoped(sp => new HttpClient
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped(sp =>
         {
-            BaseAddress = new Uri(sp.GetRequiredService<NavigationManager>().BaseUri)
+            var http = new HttpClient
+            {
+                BaseAddress = new Uri(sp.GetRequiredService<NavigationManager>().BaseUri)
+            };
+
+            var cookies = sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.Request.Headers.Cookie.ToString();
+            if (!string.IsNullOrWhiteSpace(cookies))
+                http.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", cookies);
+
+            return http;
         });
         builder.Services.AddScoped<WeddingApiClient>();
 

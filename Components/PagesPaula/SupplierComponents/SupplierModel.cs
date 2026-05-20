@@ -1,4 +1,4 @@
-namespace WeddingPlannerApp.Components.PagesPaula.VendorComponents;
+namespace WeddingPlannerApp.Components.PagesPaula.SupplierComponents;
 
 public sealed class SupplierModel
 {

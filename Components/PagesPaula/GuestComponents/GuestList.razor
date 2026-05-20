@@ -8,24 +8,40 @@
     {
         <div class="empty-state">
             <span class="empty-state-icon">@SvgIcons.UsersLarge</span>
-            <p>No guests found.</p>
+            <p>No guests added yet.</p>
+            <span>Add guests manually or import a CSV when you are ready.</span>
         </div>
     }
     else
     {
-        @foreach (var guest in Guests.Where(g => !IsPlusOneGuest(g)))
+        @foreach (var guest in Guests
+            .Where(g => !IsPlusOneGuest(g))
+            .OrderBy(g => CoupleSort(g))
+            .ThenBy(g => g.FirstName)
+            .ThenBy(g => g.LastName))
         {
             var g = guest;
             var companion = FindCompanion(g.GuestId);
             var companionOpen = companion is not null && IsCompanionOpen(g.GuestId);
+            var isCouple = IsCoupleGuest(g);
             <div class="guest-row-stack">
-                <div class="guest-row">
+                <div class="guest-row @(isCouple ? "guest-row-couple" : "")">
                     <div class="guest-avatar">@Initials(g)</div>
                     <div class="guest-info">
-                        <p class="guest-name">@g.FirstName @g.LastName</p>
+                        <p class="guest-name">@DisplayName(g)</p>
                         <div class="guest-meta">
-                            <span>@g.Email</span>
-                            <span class="guest-tag guest-tag-group @GroupBadgeClass(g.Group)">@g.Group</span>
+                            @if (!isCouple)
+                            {
+                                <span>@g.Email</span>
+                            }
+                            @if (isCouple)
+                            {
+                                <span class="guest-tag guest-tag-couple">@CoupleRole(g)</span>
+                            }
+                            @if (!isCouple)
+                            {
+                                <span class="guest-tag guest-tag-group @GroupBadgeClass(g.Group)">@g.Group</span>
+                            }
                             <span class="guest-tag guest-tag-menu @MenuCategoryClass(g.DietaryRequirements)">Menu: @MenuCategoryLabel(g.DietaryRequirements)</span>
                             @if (g.HasPlusOne)
                             {
@@ -35,7 +51,7 @@
                     </div>
                     <div class="guest-actions">
                         @MenuSelect(g)
-                        @if (companion is not null)
+                        @if (!isCouple && companion is not null)
                         {
                             <button type="button"
                                     class="plus-one-toggle-row companion-view-toggle @(companionOpen ? "plus-one-active" : "")"
@@ -48,7 +64,7 @@
                                 Remove
                             </button>
                         }
-                        else
+                        else if (!isCouple)
                         {
                             <button type="button"
                                     class="plus-one-toggle-row"
@@ -56,8 +72,11 @@
                                 Add companion
                             </button>
                         }
-                        @RsvpButtons(g)
-                        <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
+                        @if (!isCouple)
+                        {
+                            @RsvpButtons(g)
+                            <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
+                        }
                     </div>
                 </div>
 
@@ -92,6 +111,7 @@
     [Parameter] public EventCallback<int> OnRemove { get; set; }
     [Parameter] public IReadOnlyList<GuestMenuOption> MenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
     const string PlusOneNotePrefix = "Plus one for guest ";
+    const string CoupleNotePrefix = "Wedding couple:";
     readonly HashSet<int> openCompanions = new();
 
     static string Initials(GuestDto guest)
@@ -99,6 +119,14 @@
         var first = string.IsNullOrEmpty(guest.FirstName) ? "" : guest.FirstName[0].ToString();
         var last = string.IsNullOrEmpty(guest.LastName) ? "" : guest.LastName[0].ToString();
         return $"{first}{last}";
+    }
+
+    static string DisplayName(GuestDto guest)
+    {
+        if (IsCoupleGuest(guest) && guest.LastName is "Bride" or "Groom")
+            return guest.FirstName;
+
+        return $"{guest.FirstName} {guest.LastName}".Trim();
     }
 
     static string GroupBadgeClass(Group group) => group switch
@@ -128,6 +156,23 @@
 
     static bool IsPlusOneGuest(GuestDto guest) =>
         guest.Notes?.StartsWith(PlusOneNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
+    static bool IsCoupleGuest(GuestDto guest) =>
+        guest.Notes?.StartsWith(CoupleNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
+    static string CoupleRole(GuestDto guest) =>
+        guest.Notes?.Contains("groom", StringComparison.OrdinalIgnoreCase) == true ? "Groom" : "Bride";
+
+    static int CoupleSort(GuestDto guest)
+    {
+        if (guest.Notes?.Contains("bride", StringComparison.OrdinalIgnoreCase) == true)
+            return 0;
+
+        if (guest.Notes?.Contains("groom", StringComparison.OrdinalIgnoreCase) == true)
+            return 1;
+
+        return 2;
+    }
 
     static int? PlusOneOwnerId(GuestDto guest)
     {
