@@ -1,0 +1,61 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="toolbar vendor-filter-toolbar">
+    <div class="search-wrap">
+        <span class="search-icon">@SvgIcons.Search</span>
+        <input class="input search-input" placeholder="Search suppliers..."
+               value="@Search"
+               @oninput="HandleSearch" />
+    </div>
+    <label class="budget-filter-field vendor-filter-field">
+        <span>Category</span>
+        <select class="input select-input filter-select"
+                value="@Category"
+                @onchange="HandleCategory">
+            <option value="">All</option>
+            @foreach (var c in Categories)
+            {
+                <option value="@c">@c</option>
+            }
+        </select>
+    </label>
+    <label class="budget-filter-field vendor-filter-field">
+        <span>Status</span>
+        <select class="input select-input filter-select"
+                value="@Status"
+                @onchange="HandleStatus">
+            <option value="all">All</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="pending">In contact</option>
+            <option value="none">Not selected</option>
+        </select>
+    </label>
+    <div class="vendor-toolbar-actions">
+        <button class="btn-outline" title="CSV Guide" @onclick="OnCsvGuide">@SvgIcons.FileText CSV Guide</button>
+        <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
+            @SvgIcons.Upload Import
+            <InputFile OnChange="OnImport" accept=".csv" style="display:none;" />
+        </label>
+        <button class="btn-outline" title="Export CSV" @onclick="OnExport">@SvgIcons.Download Export</button>
+        <button class="btn-add" title="Add Supplier" @onclick="OnAddSupplier">@SvgIcons.Plus Add</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Search { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+    [Parameter] public string Category { get; set; } = "";
+    [Parameter] public EventCallback<string> CategoryChanged { get; set; }
+    [Parameter] public string Status { get; set; } = "all";
+    [Parameter] public EventCallback<string> StatusChanged { get; set; }
+    [Parameter] public IReadOnlyList<string> Categories { get; set; } = Array.Empty<string>();
+    [Parameter] public EventCallback OnCsvGuide { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnImport { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+    [Parameter] public EventCallback OnAddSupplier { get; set; }
+
+    Task HandleSearch(ChangeEventArgs e) => SearchChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task HandleCategory(ChangeEventArgs e) => CategoryChanged.InvokeAsync(e.Value?.ToString() ?? "");
+    Task HandleStatus(ChangeEventArgs e) => StatusChanged.InvokeAsync(e.Value?.ToString() ?? "all");
+}

@@ -1,0 +1,42 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+
+<div class="paula-layout @LayoutClass">
+    @if (ShowAppHeartfall)
+    {
+        <GreenHeartfall Class="app-heartfall" />
+    }
+
+    @if (ShowDrawer)
+    {
+        <NavDrawer />
+    }
+
+    <main class="paula-layout-body">
+        @Body
+    </main>
+</div>
+
+@code {
+    string LayoutClass => ShowDrawer ? "paula-layout-app" : IsAdminRoute ? "paula-layout-admin" : "paula-layout-public";
+
+    bool ShowAppHeartfall => ShowDrawer;
+
+    bool IsAdminRoute
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
+            return path == "/admin";
+        }
+    }
+
+    bool ShowDrawer
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLowerInvariant();
+            return path is not ("" or "/login" or "/onboarding" or "/admin");
+        }
+    }
+}

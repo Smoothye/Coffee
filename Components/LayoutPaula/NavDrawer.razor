@@ -1,0 +1,208 @@
+@rendermode InteractiveServer
+@implements IDisposable
+@inject NavigationManager Nav
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
+
+<HeadContent>
+    <link rel="stylesheet" href="styles/NavDrawer.css" />
+</HeadContent>
+
+<button class="drawer-fab" @onclick="ToggleDrawer" title="Menu">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+</button>
+
+@if (drawerOpen)
+{
+    <div class="drawer-overlay" @onclick="CloseDrawer"></div>
+}
+
+<div class="drawer-panel @(drawerOpen ? "drawer-open" : "")">
+    <div class="drawer-header">
+        <div class="drawer-brand">
+            <div class="drawer-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+            </div>
+            <div>
+                <span class="drawer-app-name"><em>Ever</em>After</span>
+                <span class="drawer-app-sub">Wedding Planner</span>
+            </div>
+        </div>
+        <button class="drawer-close" @onclick="CloseDrawer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
+    </div>
+
+    <nav class="drawer-nav">
+        @foreach (var item in navItems)
+        {
+            var i = item;
+            var href = HrefFor(i);
+            var isActive = IsActive(i);
+            <a href="@href"
+               class="drawer-link @(isActive ? "drawer-link-active" : "")"
+               @onclick="CloseDrawer">
+                <span class="drawer-link-icon">@((MarkupString)i.Svg)</span>
+                <span class="drawer-link-label">@i.Label</span>
+            </a>
+        }
+
+    </nav>
+
+    <div class="drawer-footer">
+        <div class="countdown-pill" style="width:100%;justify-content:center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </svg>
+            @if (weddingDate.HasValue)
+            {
+                <span>@daysUntilWedding days to your wedding</span>
+            }
+            else
+            {
+                <span>Wedding date not set</span>
+            }
+        </div>
+        <form action="Account/Logout" method="post" class="drawer-logout-form">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="" />
+            <button type="submit" class="btn-signout drawer-logout-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Log Out
+            </button>
+        </form>
+    </div>
+</div>
+
+@code {
+    bool drawerOpen = false;
+    void ToggleDrawer() => drawerOpen = !drawerOpen;
+    void CloseDrawer() => drawerOpen = false;
+
+    int? currentEventId;
+    DateTime? weddingDate;
+    int daysUntilWedding => weddingDate.HasValue ? Math.Max(0, (weddingDate.Value.Date - DateTime.Today).Days) : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += HandleLocationChanged;
+        await LoadCurrentEventDateAsync();
+    }
+
+    async void HandleLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadCurrentEventDateAsync();
+            StateHasChanged();
+        });
+    }
+
+    async Task LoadCurrentEventDateAsync()
+    {
+        try
+        {
+            var eventId = EventIdFromUri();
+            if (eventId is null)
+            {
+                var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
+                eventId = firstEvent?.EventId;
+                weddingDate = firstEvent?.EventDate;
+            }
+            else
+            {
+                var eventItem = await Api.GetEventAsync(eventId.Value);
+                weddingDate = eventItem?.EventDate;
+            }
+
+            currentEventId = eventId;
+        }
+        catch
+        {
+            currentEventId = null;
+            weddingDate = null;
+        }
+    }
+
+    int? EventIdFromUri()
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.Trim('/');
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length >= 3 &&
+            segments[0].Equals("venues", StringComparison.OrdinalIgnoreCase) &&
+            segments[1].Equals("event", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(segments[2], out var venueEventId))
+            return venueEventId;
+
+        if (segments.Length >= 2 &&
+            IsEventPage(segments[0]) &&
+            int.TryParse(segments[1], out var eventId))
+            return eventId;
+
+        return null;
+    }
+
+    static bool IsEventPage(string segment) =>
+        segment.Equals("dashboard", StringComparison.OrdinalIgnoreCase) ||
+        segment.Equals("guests", StringComparison.OrdinalIgnoreCase) ||
+        segment.Equals("tables", StringComparison.OrdinalIgnoreCase) ||
+        segment.Equals("menu", StringComparison.OrdinalIgnoreCase);
+
+    string HrefFor(NavItem item)
+    {
+        if (currentEventId is not int eventId)
+            return item.Href;
+
+        return item.Label switch
+        {
+            "Dashboard" => $"/dashboard/{eventId}",
+            "Venues" => $"/venues/event/{eventId}",
+            "Guests" => $"/guests/{eventId}",
+            "Tables" => $"/tables/{eventId}",
+            "Menu" => $"/menu/{eventId}",
+            _ => item.Href
+        };
+    }
+
+    bool IsActive(NavItem item)
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
+        var basePath = item.Href.Trim('/').ToLowerInvariant();
+        return path == basePath || path.StartsWith($"{basePath}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    record NavItem(string Label, string Href, string Svg);
+
+    List<NavItem> navItems = new()
+    {
+        new("Dashboard", "/dashboard", SvgIcons.AdminNav),
+        new("Venues", "/venues", SvgIcons.VenuesNav),
+        new("Guests", "/guests", SvgIcons.GuestListNav),
+        new("Tables", "/tables", SvgIcons.TablesNav),
+        new("Menu", "/menu", SvgIcons.MenuNav),
+        new("Suppliers", "/suppliers", SvgIcons.VendorsNav),
+        new("Budget", "/budget", SvgIcons.BudgetNav),
+        new("Tasks", "/tasks", SvgIcons.TasksNav),
+    };
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= HandleLocationChanged;
+    }
+}

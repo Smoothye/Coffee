@@ -1,51 +1,42 @@
-﻿@page "/guests"
-@layout UserLayout
+@page "/guests"
+@page "/guests/{EventId:int}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@layout PaulaLayout
 @using System.Text
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Components.PagesPaula.GuestComponents
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.Models
+@using WeddingPlannerApp.Services
 @inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject WeddingApiClient Api
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageNav Title="Guest List"
          Subtitle="Manage &amp; track RSVPs"
          IconSvg="@SvgIcons.GuestListNav" />
 
-<ModalShell IsOpen="csvGuideOpen"
-            Title="Import Guests"
-            ExtraClass="csv-guide-box"
-            OnClose="@(() => { csvGuideOpen = false; dragActive = false; })">
-    <div class="csv-two-col">
-        <div class="csv-left">
-            <p class="csv-section-title">Accepted formats</p>
-            <div class="csv-formats">
-                <span class="csv-format-tag">.csv</span>
-                <span class="csv-format-note">Only .csv files are accepted. Excel files must be saved as CSV first.</span>
-            </div>
-            <p class="csv-section-title" style="margin-top:1rem;">Columns</p>
-            <div class="csv-col-table">
-                <div class="csv-col-head"><span>Column</span><span>Req.</span><span>Valid values</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">FirstName</span><span class="csv-req yes">Yes</span><span class="csv-col-vals">Any text</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">LastName</span><span class="csv-req yes">Yes</span><span class="csv-col-vals">Any text</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Email</span><span class="csv-req no">No</span><span class="csv-col-vals">Duplicate check</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Phone</span><span class="csv-req no">No</span><span class="csv-col-vals">Any format</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Age</span><span class="csv-req no">No</span><span class="csv-col-vals">Number</span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Gender</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-other">male</span> <span class="csv-tag csv-other">female</span> <span class="csv-tag csv-other">other</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Dietary</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-other">none</span> <span class="csv-tag csv-other">vegan</span> <span class="csv-tag csv-other">vegetarian</span> <span class="csv-tag csv-other">gluten-free</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Group</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-family">family</span> <span class="csv-tag csv-friends">friends</span> <span class="csv-tag csv-colleagues">colleagues</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">Status</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-friends">confirmed</span> <span class="csv-tag csv-other">pending</span></span></div>
-                <div class="csv-col-row"><span class="csv-col-name">PlusOne</span><span class="csv-req no">No</span><span class="csv-col-vals"><span class="csv-tag csv-friends">Yes</span> <span class="csv-tag csv-other">No</span></span></div>
-            </div>
+<CsvGuideModal IsOpen="csvGuideOpen"
+               Title="Import Guests"
+               AcceptedTitle="Accepted formats"
+               Columns="guestCsvColumns"
+               OnClose="@(() => { csvGuideOpen = false; dragActive = false; })">
+    <LeftFooter>
             <div class="csv-rules">
                 <p class="csv-rules-title">@SvgIcons.AlertCircle Duplicate rules</p>
                 <ul class="csv-rules-list">
-                    <li>Same <strong>email</strong> or <strong>phone</strong> → skipped</li>
-                    <li>Same <strong>full name</strong> → allowed (shown as duplicate)</li>
+                    <li>Same <strong>email</strong> or <strong>phone</strong> -> skipped</li>
+                    <li>Same <strong>full name</strong> -> allowed (shown as duplicate)</li>
                 </ul>
             </div>
             <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
                 @SvgIcons.Download Download blank template
             </button>
-        </div>
-        <div class="csv-right">
+    </LeftFooter>
+    <UploadContent>
             <p class="csv-section-title">Upload file</p>
             <div class="csv-dropzone @(dragActive ? "csv-dropzone-active" : "")"
                  @ondragenter="@((e) => dragActive = true)"
@@ -78,64 +69,21 @@
             {
                 <button class="btn-add-guest" style="margin-top:.75rem;"
                         @onclick="@(() => { csvGuideOpen = false; dragActive = false; importResult = null; })">
-                    @SvgIcons.Check Done — View Guests
+                    @SvgIcons.Check Done - View Guests
                 </button>
             }
-        </div>
-    </div>
-</ModalShell>
+    </UploadContent>
+</CsvGuideModal>
 
-<ModalShell IsOpen="dialogOpen" Title="Add New Guest" OnClose="CloseDialog">
-    @if (!string.IsNullOrEmpty(formError))
-    {
-        <div class="error-banner">@SvgIcons.AlertCircle @formError</div>
-    }
-    <div class="form-grid-2">
-        <div class="field"><label>First Name *</label><input class="input" @bind="newGuest.FirstName" @bind:event="oninput" placeholder="First name" /></div>
-        <div class="field"><label>Last Name *</label><input class="input" @bind="newGuest.LastName" @bind:event="oninput" placeholder="Last name" /></div>
-    </div>
-    <div class="form-grid-2">
-        <div class="field"><label>Email</label><input class="input" @bind="newGuest.Email" @bind:event="oninput" placeholder="email@example.com" /></div>
-        <div class="field"><label>Phone</label><input class="input" @bind="newGuest.Phone" @bind:event="oninput" placeholder="+1234567890" /></div>
-    </div>
-    <div class="form-grid-3">
-        <div class="field"><label>Age</label><input class="input" type="number" min="0" @bind="newGuest.Age" @bind:event="oninput" /></div>
-        <div class="field">
-            <label>Gender</label>
-            <select class="input select-input" @bind="newGuest.Gender">
-                <option value="">—</option><option value="male">Male</option>
-                <option value="female">Female</option><option value="other">Other</option>
-            </select>
-        </div>
-        <div class="field">
-            <label>Dietary</label>
-            <select class="input select-input" @bind="newGuest.DietaryRequirements">
-                @foreach (var d in DietaryOptions) { <option value="@d.Value">@d.Label</option> }
-            </select>
-        </div>
-        <div class="field">
-            <label>Menu</label>
-            <select class="input select-input" @bind="newGuest.MenuType">
-                @foreach (var m in MenuOptions) { <option value="@m.Value">@m.Label</option> }
-            </select>
-        </div>
-    </div>
-    <div class="field">
-        <label>Group</label>
-        <select class="input select-input" @bind="newGuest.Group">
-            <option value="family">Family</option><option value="friends">Friends</option>
-            <option value="colleagues">Colleagues</option><option value="other">Other</option>
-        </select>
-    </div>
-    <div class="field">
-        <label class="field-label">Plus One</label>
-        <div class="plusone-toggle">
-            <button type="button" class="toggle-opt @(!newGuest.PlusOne ? "toggle-active-no" : "toggle-inactive")" @onclick="@(() => newGuest.PlusOne = false)">@SvgIcons.XSmall No</button>
-            <button type="button" class="toggle-opt @(newGuest.PlusOne ? "toggle-active-yes" : "toggle-inactive")" @onclick="@(() => newGuest.PlusOne = true)">@SvgIcons.Check Yes</button>
-        </div>
-    </div>
-    <button class="btn-add-guest" @onclick="AddGuest">Add Guest</button>
-</ModalShell>
+<GuestAddModal IsOpen="dialogOpen"
+               NewGuest="newGuest"
+               FormError="@formError"
+               FieldErrors="guestFieldErrors"
+               AvailableMenuOptions="availableMenuOptions"
+               PlusOneDietary="plusOneDietary"
+               PlusOneDietaryChanged="@((value) => plusOneDietary = value)"
+               OnAdd="AddGuest"
+               OnClose="CloseDialog" />
 
 @if (!string.IsNullOrEmpty(importSummary))
 {
@@ -146,213 +94,469 @@
     </div>
 }
 
+<ConfirmDialog IsOpen="confirmDeleteOpen"
+               Title="Delete guest?"
+               Message="@confirmDeleteMessage"
+               ConfirmText="Delete guest"
+               OnCancel="@(() => confirmDeleteOpen = false)"
+               OnConfirm="ConfirmRemoveGuest" />
+
 <div class="guests-wrap">
+    @if (isLoading)
+    {
+        <div class="import-toast import-toast-ok">@SvgIcons.CheckCircle Loading guests...</div>
+    }
+    else if (!string.IsNullOrEmpty(loadError))
+    {
+        <div class="import-toast import-toast-warn">@SvgIcons.AlertCircle @loadError</div>
+    }
 
-    <div class="stats-grid">
-        <div class="stat-card"><span class="stat-icon">@SvgIcons.Users</span><div><p class="stat-value">@guests.Count</p><p class="stat-label">Total Guests</p></div></div>
-        <div class="stat-card"><span class="stat-icon confirmed-icon">@SvgIcons.UserCheck</span><div><p class="stat-value">@guests.Count(g => g.Status == "confirmed")</p><p class="stat-label">Confirmed</p></div></div>
-        <div class="stat-card"><span class="stat-icon pending-icon">@SvgIcons.Clock</span><div><p class="stat-value">@guests.Count(g => g.Status == "pending")</p><p class="stat-label">Pending</p></div></div>
-        <div class="stat-card"><span class="stat-icon declined-icon">@SvgIcons.UserX</span><div><p class="stat-value">@guests.Count(g => g.Status == "declined")</p><p class="stat-label">Declined</p></div></div>
+    <GuestStats Total="@guests.Count"
+                Confirmed="@guests.Count(g => g.RsvpStatus == RsvpStatus.Confirmed)"
+                Pending="@guests.Count(g => g.RsvpStatus == RsvpStatus.Pending)"
+                Declined="@guests.Count(g => g.RsvpStatus == RsvpStatus.Declined)" />
+
+    <div class="guest-tools-row guest-toolbar-shell">
+        <GuestFilters Search="@search"
+                      SearchChanged="@((value) => search = value)"
+                      Group="@filterGroup"
+                      GroupChanged="@((value) => filterGroup = value)"
+                      Status="@filterStatus"
+                      StatusChanged="@((value) => filterStatus = value)" />
+
+        <GuestCommandBar OnCsvGuide="@OpenCsvGuide"
+                         OnImport="HandleImport"
+                         OnExport="ExportCSV"
+                         OnAddGuest="OpenDialog" />
     </div>
 
-    <div class="toolbar guests-filter-toolbar">
-        <div class="search-wrap">
-            <span class="search-icon">@SvgIcons.Search</span>
-            <input class="input search-input" placeholder="Search guests..." @bind="search" @bind:event="oninput" />
-        </div>
-        <select class="input select-input filter-select" @bind="filterGroup">
-            <option value="all">All Groups</option>
-            <option value="family">Family</option><option value="friends">Friends</option>
-            <option value="colleagues">Colleagues</option><option value="other">Other</option>
-        </select>
-    </div>
-
-    <div class="guest-command-bar">
-        <button class="btn-outline" @onclick="@(() => { csvGuideOpen = true; importResult = null; })">@SvgIcons.FileText CSV Guide</button>
-        <label class="btn-outline" style="cursor:pointer;" title="Import CSV">
-            @SvgIcons.Upload Import
-            <InputFile OnChange="HandleImport" accept=".csv" style="display:none;" />
-        </label>
-        <button class="btn-outline" @onclick="ExportCSV">@SvgIcons.Download Export</button>
-        <button class="btn-add" @onclick="OpenDialog">@SvgIcons.Plus Add Guest</button>
-    </div>
-
-    <div class="guest-list">
-        @if (!FilteredGuests.Any())
-        {
-            <div class="empty-state">
-                <span class="empty-state-icon">@SvgIcons.UsersLarge</span>
-                <p>No guests found.</p>
-            </div>
-        }
-        else
-        {
-            @foreach (var guest in FilteredGuests)
-            {
-                var g = guest;
-                <div class="guest-row">
-                    <div class="guest-avatar">@g.FirstName[0]@g.LastName[0]</div>
-                    <div class="guest-info">
-                        <p class="guest-name">@g.FirstName @g.LastName</p>
-                        <div class="guest-meta">
-                            <span>@g.Email</span>
-                            @if (g.IsPlusOne) { <span class="badge plus-one-guest-badge">Plus one</span> }
-                            @if (g.DietaryRequirements != "none") { <span class="badge badge-dietary">@g.DietaryRequirements</span> }
-                        </div>
-                    </div>
-                    <div class="guest-actions">
-                        <span class="badge @GroupBadgeClass(g.Group)">@g.Group</span>
-                        <select class="input select-input guest-menu-select" @bind="g.MenuType">
-                            @foreach (var m in MenuOptions) { <option value="@m.Value">@m.Label</option> }
-                        </select>
-                        @if (!g.IsPlusOne)
-                        {
-                            <button type="button"
-                                    class="plus-one-toggle-row @(g.PlusOne ? "plus-one-active" : "")"
-                                    @onclick="@(() => TogglePlusOne(g.Id))">
-                                @(g.PlusOne ? "Remove +1" : "Add +1")
-                            </button>
-                        }
-                        <div class="rsvp-btns">
-                            <button class="rsvp-btn rsvp-confirmed @(g.Status == "confirmed" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => SetStatus(g.Id, "confirmed"))">@SvgIcons.Check</button>
-                            <button class="rsvp-btn rsvp-pending @(g.Status == "pending" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => SetStatus(g.Id, "pending"))">@SvgIcons.ClockSmall</button>
-                            <button class="rsvp-btn rsvp-declined @(g.Status == "declined" ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => SetStatus(g.Id, "declined"))">@SvgIcons.XSmall</button>
-                        </div>
-                        <button class="delete-btn" @onclick="@(() => RemoveGuest(g.Id))">@SvgIcons.Trash</button>
-                    </div>
-                </div>
-            }
-        }
-    </div>
+    <GuestList Guests="FilteredGuests.ToList()"
+               OnTogglePlusOne="TogglePlusOne"
+               OnSetStatus="SetStatus"
+               OnSetDietary="SetDietary"
+               OnRemove="RemoveGuest"
+               MenuOptions="availableMenuOptions" />
 </div>
 
 @code {
+    [Parameter] public int EventId { get; set; }
 
     bool   dialogOpen      = false;
     string formError       = "";
     string search          = "";
     string filterGroup     = "all";
+    string filterStatus    = "all";
     string importSummary   = "";
     bool   importHasWarning = false;
     bool   csvGuideOpen    = false;
     bool   dragActive      = false;
+    bool   confirmDeleteOpen = false;
+    bool   isLoading      = true;
+    int    pendingDeleteGuestId;
+    string confirmDeleteMessage = "Delete this guest? This cannot be undone.";
+    string loadError = "";
     ImportResult? importResult = null;
+    Dictionary<string, string> guestFieldErrors = new();
+    DietaryRequirements plusOneDietary = DietaryRequirements.Standard;
+    const string PlusOneNotePrefix = "Plus one for guest ";
+    List<GuestMenuOption> availableMenuOptions = [new(DietaryRequirements.Standard, "Standard")];
 
-    record ImportResult(string Message, bool HasWarning);
-
-    record DietaryOption(string Value, string Label);
-    static readonly DietaryOption[] DietaryOptions =
+    static readonly CsvGuideColumn[] guestCsvColumns =
     {
-        new("none","None"), new("vegan","Vegan"), new("vegetarian","Vegetarian"),
-        new("gluten-free","Gluten-Free"), new("halal","Halal"), new("kosher","Kosher"), new("other","Other"),
+        new() { Name = "FirstName", Required = true, ValidValues = "Any text" },
+        new() { Name = "LastName", Required = true, ValidValues = "Any text" },
+        new() { Name = "Email", ValidValues = "Duplicate check" },
+        new() { Name = "Phone", ValidValues = "Any format" },
+        new() { Name = "Age", ValidValues = "Number" },
+        new() { Name = "Gender", ValidValues = "male, female, other" },
+        new() { Name = "Dietary", ValidValues = "standard, vegan, vegetarian, fasting" },
+        new() { Name = "Group", ValidValues = "family, friends, colleagues" },
+        new() { Name = "Status", ValidValues = "confirmed, pending" },
+        new() { Name = "PlusOne", ValidValues = "Yes, No" },
     };
 
-    record MenuOption(string Value, string Label);
-    static readonly MenuOption[] MenuOptions =
-    {
-        new("casual","Casual"), new("vegetarian","Vegetarian"),
-        new("vegan","Vegan"), new("fasting","Fasting"), new("kids","Kids"),
-    };
+    List<GuestDto> guests = new();
 
-    class Guest
+    GuestCreateDto newGuest = EmptyGuestCreateDto();
+
+    protected override async Task OnParametersSetAsync()
     {
-        public int     Id { get; set; }
-        public string  FirstName { get; set; } = "";
-        public string  LastName  { get; set; } = "";
-        public string  Email     { get; set; } = "";
-        public string  Phone     { get; set; } = "";
-        public int?    Age       { get; set; }
-        public string  Gender    { get; set; } = "";
-        public string  DietaryRequirements { get; set; } = "none";
-        public string  MenuType  { get; set; } = "casual";
-        public string  Group     { get; set; } = "friends";
-        public string  Status    { get; set; } = "pending";
-        public bool    PlusOne   { get; set; }
-        public bool    IsPlusOne { get; set; }
-        public int?    PlusOneForId { get; set; }
+        await EnsureEventAndLoadGuests();
     }
 
-    List<Guest> guests = new()
-    {
-        new Guest { Id=1, FirstName="Emma",   LastName="Johnson",  Email="emma@email.com",   Phone="+1234567890", Age=28, Gender="female", DietaryRequirements="none",        MenuType="casual",     Group="family",     Status="confirmed" },
-        new Guest { Id=2, FirstName="Liam",   LastName="Smith",    Email="liam@email.com",   Phone="+1234567891", Age=30, Gender="male",   DietaryRequirements="vegetarian",  MenuType="vegetarian", Group="friends",    Status="pending"   },
-        new Guest { Id=3, FirstName="Sophia", LastName="Williams", Email="sophia@email.com", Phone="+1234567892", Age=26, Gender="female", DietaryRequirements="gluten-free", MenuType="casual",     Group="colleagues", Status="confirmed" },
-        new Guest { Id=4, FirstName="Oliver", LastName="Brown",    Email="oliver@email.com", Phone="+1234567893", Age=35, Gender="male",   DietaryRequirements="none",        MenuType="casual",     Group="family",     Status="declined"  },
-        new Guest { Id=5, FirstName="Mia",    LastName="Davis",    Email="mia@email.com",    Phone="+1234567894", Age=24, Gender="female", DietaryRequirements="vegan",       MenuType="vegan",      Group="friends",    Status="pending"   },
-    };
-
-    Guest newGuest = new();
-
-    IEnumerable<Guest> FilteredGuests => guests.Where(g =>
+    IEnumerable<GuestDto> FilteredGuests => guests.Where(g =>
     {
         var name = $"{g.FirstName} {g.LastName}".ToLower();
         var matchSearch = string.IsNullOrEmpty(search) || name.Contains(search.ToLower()) || g.Email.Contains(search, StringComparison.OrdinalIgnoreCase);
-        var matchGroup  = filterGroup == "all" || g.Group == filterGroup;
-        return matchSearch && matchGroup;
-    });
+        var matchGroup  = filterGroup == "all" || g.Group == ToGroup(filterGroup);
+        var matchStatus = filterStatus == "all" || g.RsvpStatus == ToRsvpStatus(filterStatus);
+        return matchSearch && matchGroup && matchStatus;
+    })
+    .OrderBy(g => g.FirstName)
+    .ThenBy(g => g.LastName);
 
-    void OpenDialog()  { newGuest = new Guest { Group = "friends", DietaryRequirements = "none", MenuType = "casual" }; formError = ""; dialogOpen = true; }
-    void CloseDialog() { dialogOpen = false; formError = ""; }
+    async Task EnsureEventAndLoadGuests()
+    {
+        loadError = "";
+        isLoading = true;
+
+        try
+        {
+            if (await RedirectAdminAsync())
+                return;
+
+            var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+            if (ownEvent is null)
+            {
+                guests.Clear();
+                loadError = "No event exists yet. Create an event first, then add guests.";
+                return;
+            }
+
+            if (EventId <= 0 || EventId != ownEvent.EventId)
+            {
+                EventId = ownEvent.EventId;
+                Nav.NavigateTo($"/guests/{EventId}", replace: true);
+                return;
+            }
+
+            await LoadAvailableMenuOptionsAsync(ownEvent.MenuIds);
+            guests = await Api.GetGuestsAsync(EventId);
+            await EnsurePlusOneRowsAsync();
+            await NormalizeGuestMenuPreferencesAsync();
+        }
+        catch (Exception ex)
+        {
+            guests.Clear();
+            loadError = $"Could not load guests: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    static GuestCreateDto EmptyGuestCreateDto() => new()
+    {
+        FirstName = "",
+        LastName = "",
+        Email = "",
+        Group = Group.Friends,
+        DietaryRequirements = DietaryRequirements.Standard,
+        RsvpStatus = RsvpStatus.Pending
+    };
+
+    static GuestCreateDto CleanCreateDto(GuestCreateDto guest) => new()
+    {
+        TableId = guest.TableId,
+        FirstName = guest.FirstName.Trim(),
+        LastName = guest.LastName.Trim(),
+        Age = guest.Age,
+        Email = guest.Email.Trim(),
+        Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+        Gender = guest.Gender,
+        RsvpStatus = guest.RsvpStatus,
+        Group = guest.Group,
+        DietaryRequirements = guest.DietaryRequirements,
+        HasPlusOne = guest.HasPlusOne,
+        SeatNumber = guest.SeatNumber,
+        Notes = string.IsNullOrWhiteSpace(guest.Notes) ? null : guest.Notes,
+    };
+
+    static GuestUpdateDto ToUpdateDto(GuestDto guest) => new()
+    {
+        TableId = guest.TableId,
+        FirstName = guest.FirstName.Trim(),
+        LastName = guest.LastName.Trim(),
+        Age = guest.Age,
+        Email = guest.Email.Trim(),
+        Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+        Gender = guest.Gender,
+        RsvpStatus = guest.RsvpStatus,
+        Group = guest.Group,
+        DietaryRequirements = guest.DietaryRequirements,
+        HasPlusOne = guest.HasPlusOne,
+        SeatNumber = guest.SeatNumber,
+        Notes = string.IsNullOrWhiteSpace(guest.Notes) ? null : guest.Notes,
+    };
+
+    static GuestCreateDto BuildPlusOneCreateDto(GuestDto owner, DietaryRequirements dietary) => new()
+    {
+        FirstName = "Companion",
+        LastName = $"of {owner.FirstName} {owner.LastName}".Trim(),
+        Email = $"plusone-{owner.EventId}-{owner.GuestId}@wedding.local",
+        Phone = null,
+        Age = null,
+        Gender = null,
+        RsvpStatus = owner.RsvpStatus,
+        Group = owner.Group,
+        DietaryRequirements = dietary,
+        HasPlusOne = false,
+        Notes = PlusOneNote(owner.GuestId)
+    };
+
+    static string PlusOneNote(int ownerId) => $"{PlusOneNotePrefix}{ownerId}";
+
+    static bool IsPlusOneGuest(GuestDto? guest) =>
+        guest?.Notes?.StartsWith(PlusOneNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
+    static int? PlusOneOwnerId(GuestDto guest)
+    {
+        if (!IsPlusOneGuest(guest))
+            return null;
+
+        var idText = guest.Notes![PlusOneNotePrefix.Length..].Trim();
+        return int.TryParse(idText, out var ownerId) ? ownerId : null;
+    }
+
+    async Task<bool> RedirectAdminAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (!authState.User.IsInRole("Admin"))
+            return false;
+
+        Nav.NavigateTo("/admin", replace: true);
+        return true;
+    }
+
+    GuestDto? FindPlusOneFor(int ownerId) =>
+        guests.FirstOrDefault(g => string.Equals(g.Notes?.Trim(), PlusOneNote(ownerId), StringComparison.OrdinalIgnoreCase));
+
+    async Task EnsurePlusOneRowsAsync()
+    {
+        var ownersMissingPlusOneRows = guests
+            .Where(g => g.HasPlusOne && !IsPlusOneGuest(g) && FindPlusOneFor(g.GuestId) is null)
+            .ToList();
+
+        foreach (var owner in ownersMissingPlusOneRows)
+        {
+            var plusOne = await Api.CreateGuestAsync(EventId, BuildPlusOneCreateDto(owner, owner.DietaryRequirements));
+            if (plusOne != null)
+                guests.Add(plusOne);
+        }
+    }
+
+    static Gender? ToGender(string value) => value switch
+    {
+        "male" => Gender.Male,
+        "female" => Gender.Female,
+        "other" => Gender.Other,
+        _ => null,
+    };
+
+    static Group ToGroup(string value) => value switch
+    {
+        "family" => Group.Family,
+        "friends" => Group.Friends,
+        "colleagues" => Group.Colleagues,
+        _ => Group.Other,
+    };
+
+    static DietaryRequirements ToDietary(string value) => value switch
+    {
+        "standard" => DietaryRequirements.Standard,
+        "casual" => DietaryRequirements.Standard,
+        "vegan" => DietaryRequirements.Vegan,
+        "vegetarian" => DietaryRequirements.Vegetarian,
+        "fasting" => DietaryRequirements.Fasting,
+        _ => DietaryRequirements.Standard,
+    };
+
+    void OpenDialog()
+    {
+        newGuest = EmptyGuestCreateDto();
+        newGuest.DietaryRequirements = DefaultAvailableDietary();
+        plusOneDietary = DefaultAvailableDietary();
+        formError = "";
+        guestFieldErrors.Clear();
+        dialogOpen = true;
+    }
+    void CloseDialog() { dialogOpen = false; formError = ""; guestFieldErrors.Clear(); }
 
     bool IsDuplicate(string fn, string ln, string email, string phone) =>
         guests.Any(g =>
             $"{g.FirstName.ToLower()} {g.LastName.ToLower()}" == $"{fn.Trim().ToLower()} {ln.Trim().ToLower()}"
             || (!string.IsNullOrWhiteSpace(email) && g.Email.Trim().ToLower() == email.Trim().ToLower())
-            || (!string.IsNullOrWhiteSpace(phone) && g.Phone.Trim() == phone.Trim()));
+            || (!string.IsNullOrWhiteSpace(phone) && (g.Phone ?? "").Trim() == phone.Trim()));
 
-    void AddGuest()
+    async Task AddGuest()
     {
-        if (string.IsNullOrWhiteSpace(newGuest.FirstName) || string.IsNullOrWhiteSpace(newGuest.LastName))
-        { formError = "Please enter first and last name."; return; }
-        if (IsDuplicate(newGuest.FirstName, newGuest.LastName, newGuest.Email, newGuest.Phone))
-        { formError = "A guest with the same name, email or phone already exists."; return; }
-        newGuest.Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue);
-        newGuest.Status = "pending";
-        guests.Add(newGuest);
-        if (newGuest.PlusOne) AddPlusOneGuest(newGuest);
-        CloseDialog();
-    }
-
-    void SetStatus(int id, string status) { var g = guests.FirstOrDefault(x => x.Id == id); if (g != null) g.Status = status; }
-
-    void TogglePlusOne(int id)
-    {
-        var g = guests.FirstOrDefault(x => x.Id == id);
-        if (g is null) return;
-        if (g.PlusOne) { guests.RemoveAll(x => x.PlusOneForId == id); g.PlusOne = false; }
-        else           { g.PlusOne = true; AddPlusOneGuest(g); }
-    }
-
-    void AddPlusOneGuest(Guest guest)
-    {
-        if (guests.Any(g => g.PlusOneForId == guest.Id)) return;
-        guests.Add(new Guest
+        formError = "";
+        guestFieldErrors.Clear();
+        if (string.IsNullOrWhiteSpace(newGuest.FirstName) || string.IsNullOrWhiteSpace(newGuest.LastName) || string.IsNullOrWhiteSpace(newGuest.Email))
         {
-            Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + guests.Count + 1,
-            FirstName = $"{guest.FirstName}'s", LastName = "+1",
-            Group = guest.Group, Status = guest.Status,
-            DietaryRequirements = "none", MenuType = guest.MenuType,
-            IsPlusOne = true, PlusOneForId = guest.Id,
-        });
+            if (string.IsNullOrWhiteSpace(newGuest.FirstName)) guestFieldErrors[nameof(newGuest.FirstName)] = "First name is required.";
+            if (string.IsNullOrWhiteSpace(newGuest.LastName)) guestFieldErrors[nameof(newGuest.LastName)] = "Last name is required.";
+            if (string.IsNullOrWhiteSpace(newGuest.Email)) guestFieldErrors[nameof(newGuest.Email)] = "Email is required.";
+        }
+        if (!string.IsNullOrWhiteSpace(newGuest.Email) && !newGuest.Email.Contains('@'))
+            guestFieldErrors[nameof(newGuest.Email)] = "Enter a valid email address.";
+        if (newGuest.Age is < 0)
+            guestFieldErrors[nameof(newGuest.Age)] = "Age cannot be negative.";
+        if (!string.IsNullOrWhiteSpace(newGuest.Email) && guests.Any(g => g.Email.Trim().Equals(newGuest.Email.Trim(), StringComparison.OrdinalIgnoreCase)))
+            guestFieldErrors[nameof(newGuest.Email)] = "A guest with this email already exists.";
+        if (!string.IsNullOrWhiteSpace(newGuest.Phone) && guests.Any(g => (g.Phone ?? "").Trim() == newGuest.Phone.Trim()))
+            guestFieldErrors[nameof(newGuest.Phone)] = "A guest with this phone already exists.";
+        if (!string.IsNullOrWhiteSpace(newGuest.FirstName) &&
+            !string.IsNullOrWhiteSpace(newGuest.LastName) &&
+            guests.Any(g => $"{g.FirstName.ToLower()} {g.LastName.ToLower()}" == $"{newGuest.FirstName.Trim().ToLower()} {newGuest.LastName.Trim().ToLower()}"))
+            guestFieldErrors[nameof(newGuest.FirstName)] = "A guest with this full name already exists.";
+        if (guestFieldErrors.Count > 0) { formError = "Please fix the highlighted fields."; return; }
+        newGuest.RsvpStatus = RsvpStatus.Pending;
+        try
+        {
+            var wantsPlusOne = newGuest.HasPlusOne;
+            var ownerToCreate = CleanCreateDto(newGuest);
+            ownerToCreate.DietaryRequirements = NormalizeDietaryForSelectedMenus(ownerToCreate.DietaryRequirements);
+            ownerToCreate.HasPlusOne = wantsPlusOne;
+            var created = await Api.CreateGuestAsync(EventId, ownerToCreate);
+            if (created != null)
+            {
+                guests.Add(created);
+                if (wantsPlusOne)
+                {
+                    var plusOne = await Api.CreateGuestAsync(EventId, BuildPlusOneCreateDto(created, NormalizeDietaryForSelectedMenus(plusOneDietary)));
+                    if (plusOne != null)
+                        guests.Add(plusOne);
+                }
+            }
+            CloseDialog();
+        }
+        catch (Exception ex)
+        {
+            formError = $"Could not add guest: {ex.Message}";
+        }
+    }
+
+    async Task SetDietary(int id, DietaryRequirements dietary)
+    {
+        var g = guests.FirstOrDefault(x => x.GuestId == id);
+        if (g == null) return;
+
+        dietary = NormalizeDietaryForSelectedMenus(dietary);
+        var previous = g.DietaryRequirements;
+        g.DietaryRequirements = dietary;
+        try
+        {
+            await Api.UpdateGuestAsync(EventId, id, ToUpdateDto(g));
+        }
+        catch (Exception ex)
+        {
+            g.DietaryRequirements = previous;
+            importSummary = $"Could not update menu preference: {ex.Message}";
+            importHasWarning = true;
+        }
+    }
+
+    Task SetDietary((int Id, DietaryRequirements Dietary) change) => SetDietary(change.Id, change.Dietary);
+
+    async Task SetStatus(int id, RsvpStatus status)
+    {
+        var g = guests.FirstOrDefault(x => x.GuestId == id);
+        if (g == null) return;
+
+        var previous = g.RsvpStatus;
+        g.RsvpStatus = status;
+        try
+        {
+            await Api.UpdateGuestAsync(EventId, id, ToUpdateDto(g));
+        }
+        catch (Exception ex)
+        {
+            g.RsvpStatus = previous;
+            importSummary = $"Could not update guest status: {ex.Message}";
+            importHasWarning = true;
+        }
+    }
+
+    Task SetStatus((int Id, RsvpStatus Status) change) => SetStatus(change.Id, change.Status);
+
+    async Task TogglePlusOne(int id)
+    {
+        var g = guests.FirstOrDefault(x => x.GuestId == id);
+        if (g is null) return;
+
+        var previous = g.HasPlusOne;
+        var linkedPlusOne = FindPlusOneFor(g.GuestId);
+        var shouldAddPlusOne = !g.HasPlusOne;
+        g.HasPlusOne = shouldAddPlusOne;
+        try
+        {
+            await Api.UpdateGuestAsync(EventId, id, ToUpdateDto(g));
+            if (shouldAddPlusOne && linkedPlusOne is null)
+            {
+                var createdPlusOne = await Api.CreateGuestAsync(EventId, BuildPlusOneCreateDto(g, g.DietaryRequirements));
+                if (createdPlusOne != null)
+                    guests.Add(createdPlusOne);
+            }
+            else if (!shouldAddPlusOne && linkedPlusOne is not null)
+            {
+                await Api.DeleteGuestAsync(EventId, linkedPlusOne.GuestId);
+                guests.Remove(linkedPlusOne);
+            }
+        }
+        catch (Exception ex)
+        {
+            g.HasPlusOne = previous;
+            importSummary = $"Could not update plus one: {ex.Message}";
+            importHasWarning = true;
+        }
     }
 
     void RemoveGuest(int id)
     {
-        var g = guests.FirstOrDefault(x => x.Id == id);
-        if (g?.PlusOneForId is int ownerId)
+        var g = guests.FirstOrDefault(x => x.GuestId == id);
+        confirmDeleteMessage = g?.HasPlusOne == true || IsPlusOneGuest(g)
+            ? "Delete this guest and their plus one? This cannot be undone."
+            : "Delete this guest? This cannot be undone.";
+        pendingDeleteGuestId = id;
+        confirmDeleteOpen = true;
+    }
+
+    async Task ConfirmRemoveGuest()
+    {
+        var id = pendingDeleteGuestId;
+        try
         {
-            var owner = guests.FirstOrDefault(x => x.Id == ownerId);
-            if (owner != null) owner.PlusOne = false;
+            var guest = guests.FirstOrDefault(g => g.GuestId == id);
+            if (guest is not null && IsPlusOneGuest(guest))
+            {
+                var ownerId = PlusOneOwnerId(guest);
+                var owner = ownerId.HasValue ? guests.FirstOrDefault(g => g.GuestId == ownerId.Value) : null;
+                if (owner is not null)
+                {
+                    owner.HasPlusOne = false;
+                    await Api.UpdateGuestAsync(EventId, owner.GuestId, ToUpdateDto(owner));
+                }
+            }
+            else if (guest is not null)
+            {
+                var linkedPlusOne = FindPlusOneFor(guest.GuestId);
+                if (linkedPlusOne is not null)
+                {
+                    await Api.DeleteGuestAsync(EventId, linkedPlusOne.GuestId);
+                    guests.Remove(linkedPlusOne);
+                }
+            }
+
+            await Api.DeleteGuestAsync(EventId, id);
+            guests.RemoveAll(g => g.GuestId == id);
+            confirmDeleteOpen = false;
         }
-        guests.RemoveAll(g => g.Id == id || g.PlusOneForId == id);
+        catch (Exception ex)
+        {
+            confirmDeleteOpen = false;
+            importSummary = $"Could not delete guest: {ex.Message}";
+            importHasWarning = true;
+        }
     }
 
     async Task ExportCSV()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("FirstName,LastName,Email,Phone,Age,Gender,Dietary,Menu,Group,Status,PlusOne");
+        sb.AppendLine("FirstName,LastName,Email,Phone,Age,Gender,Dietary,Group,Status,PlusOne");
         foreach (var g in guests)
-            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Email},{g.Phone},{g.Age},{g.Gender},{g.DietaryRequirements},{g.MenuType},{g.Group},{g.Status},{(g.PlusOne ? "Yes" : "No")}");
+            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Email},{g.Phone},{g.Age},{g.Gender},{DietaryExportLabel(g.DietaryRequirements)},{g.Group},{g.RsvpStatus},{(g.HasPlusOne ? "Yes" : "No")}");
         var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='guest_list.csv';a.click()");
     }
@@ -365,10 +569,10 @@
         { importResult = new ImportResult("Only .csv files are accepted.", true); return; }
         using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
         var text = await reader.ReadToEndAsync();
-        int imported = 0, skipped = 0, counter = 0;
+        int imported = 0, skipped = 0;
+        var guestsToCreate = new List<GuestCreateDto>();
         var validGroups   = new[] { "family", "friends", "colleagues", "other" };
-        var validDietary  = new[] { "none", "vegan", "vegetarian", "gluten-free", "halal", "kosher", "other" };
-        var validMenus    = MenuOptions.Select(m => m.Value).ToArray();
+        var validDietary  = new[] { "none", "standard", "casual", "vegan", "vegetarian", "fasting" };
         var validStatuses = new[] { "confirmed", "pending", "declined" };
         foreach (var line in text.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
         {
@@ -380,28 +584,46 @@
             var ageStr    = c.ElementAtOrDefault(4)?.Trim() ?? "";
             var gender    = c.ElementAtOrDefault(5)?.Trim().ToLower() ?? "";
             var dietary   = c.ElementAtOrDefault(6)?.Trim().ToLower() ?? "";
-            var menu      = c.ElementAtOrDefault(7)?.Trim().ToLower() ?? "";
-            var group     = c.ElementAtOrDefault(8)?.Trim().ToLower() ?? "";
-            var status    = c.ElementAtOrDefault(9)?.Trim().ToLower() ?? "";
-            var plusOne   = c.ElementAtOrDefault(10)?.Trim().ToLower() ?? "";
-            if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName)) { skipped++; continue; }
+            var group     = c.ElementAtOrDefault(7)?.Trim().ToLower() ?? "";
+            var status    = c.ElementAtOrDefault(8)?.Trim().ToLower() ?? "";
+            var plusOne   = c.ElementAtOrDefault(9)?.Trim().ToLower() ?? "";
+            if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName) || string.IsNullOrWhiteSpace(email)) { skipped++; continue; }
             if (IsDuplicate(firstName, lastName, email, phone)) { skipped++; continue; }
-            var imported_guest = new Guest
+            var importedGuest = new GuestCreateDto
             {
-                Id = (int)(DateTime.UtcNow.Ticks % int.MaxValue) + counter++,
                 FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
                 Age = int.TryParse(ageStr, out var age) ? age : null,
-                Gender = new[] { "male", "female", "other" }.Contains(gender) ? gender : "",
-                DietaryRequirements = validDietary.Contains(dietary) ? dietary : "none",
-                MenuType  = validMenus.Contains(menu) ? menu : "casual",
-                Group     = validGroups.Contains(group) ? group : "other",
-                Status    = validStatuses.Contains(status) ? status : "pending",
-                PlusOne   = plusOne is "yes" or "true" or "1",
+                Gender = ToGender(gender),
+                DietaryRequirements = NormalizeDietaryForSelectedMenus(validDietary.Contains(dietary) ? ToDietary(dietary) : DietaryRequirements.Standard),
+                Group = validGroups.Contains(group) ? ToGroup(group) : Group.Other,
+                RsvpStatus = validStatuses.Contains(status) ? ToRsvpStatus(status) : RsvpStatus.Pending,
+                HasPlusOne = plusOne is "yes" or "true" or "1",
             };
-            guests.Add(imported_guest);
-            if (imported_guest.PlusOne) AddPlusOneGuest(imported_guest);
+            guestsToCreate.Add(CleanCreateDto(importedGuest));
             imported++;
         }
+
+        if (guestsToCreate.Count > 0)
+        {
+            try
+            {
+                var result = await Api.CreateGuestsBulkAsync(EventId, guestsToCreate);
+                if (result != null)
+                {
+                    guests.AddRange(result.Guests);
+                    imported = result.CreatedCount;
+                    await EnsurePlusOneRowsAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                importResult = new ImportResult($"Could not import guests: {ex.Message}", true);
+                importSummary = importResult.Message;
+                importHasWarning = true;
+                return;
+            }
+        }
+
         var msg = skipped > 0
             ? $"Imported {imported} guest(s). Skipped {skipped} duplicate(s)."
             : $"Successfully imported {imported} guest(s).";
@@ -412,18 +634,89 @@
 
     async Task DownloadTemplate()
     {
-        var csv = "FirstName,LastName,Email,Phone,Age,Gender,Dietary,Menu,Group,Status,PlusOne\n" +
-                  "Maria,Ionescu,maria@@example.com,+40721000001,30,female,none,casual,family,confirmed,No\n" +
-                  "Andrei,Pop,andrei@@example.com,,28,male,vegetarian,vegetarian,friends,pending,Yes\n";
+        var csv = "FirstName,LastName,Email,Phone,Age,Gender,Dietary,Group,Status,PlusOne\n" +
+                  "Maria,Ionescu,maria@@example.com,+40721000001,30,female,standard,family,confirmed,No\n" +
+                  "Andrei,Pop,andrei@@example.com,,28,male,vegetarian,friends,pending,Yes\n";
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='guests_template.csv';a.click()");
     }
 
-    static string GroupBadgeClass(string group) => group switch
+    static string DietaryExportLabel(DietaryRequirements dietary) => dietary switch
     {
-        "family"     => "badge-family",
-        "friends"    => "badge-friends",
-        "colleagues" => "badge-colleagues",
-        _            => "badge-other",
+        DietaryRequirements.Vegan => "vegan",
+        DietaryRequirements.Vegetarian => "vegetarian",
+        DietaryRequirements.Fasting => "fasting",
+        _ => "standard"
+    };
+
+    void OpenCsvGuide()
+    {
+        csvGuideOpen = true;
+        importResult = null;
+    }
+
+    static RsvpStatus ToRsvpStatus(string value) => value switch
+    {
+        "confirmed" => RsvpStatus.Confirmed,
+        "declined" => RsvpStatus.Declined,
+        _ => RsvpStatus.Pending,
+    };
+
+    async Task LoadAvailableMenuOptionsAsync(IReadOnlyCollection<int> menuIds)
+    {
+        if (menuIds.Count == 0)
+        {
+            availableMenuOptions = [new(DietaryRequirements.Standard, "Standard")];
+            return;
+        }
+
+        var menus = await Api.GetMenusAsync();
+        var selectedTypes = menus
+            .Where(menu => menuIds.Contains(menu.MenuId))
+            .Select(menu => menu.DietaryType)
+            .Distinct()
+            .OrderBy(type => type == MenuDietaryType.Standard ? 0 : 1)
+            .ThenBy(type => type.ToString())
+            .ToList();
+
+        availableMenuOptions = selectedTypes.Count == 0
+            ? [new(DietaryRequirements.Standard, "Standard")]
+            : selectedTypes.Select(ToGuestMenuOption).ToList();
+    }
+
+    async Task NormalizeGuestMenuPreferencesAsync()
+    {
+        foreach (var guest in guests.ToList())
+        {
+            var normalized = NormalizeDietaryForSelectedMenus(guest.DietaryRequirements);
+            if (normalized == guest.DietaryRequirements)
+                continue;
+
+            guest.DietaryRequirements = normalized;
+            await Api.UpdateGuestAsync(EventId, guest.GuestId, ToUpdateDto(guest));
+        }
+    }
+
+    DietaryRequirements DefaultAvailableDietary() =>
+        availableMenuOptions.FirstOrDefault()?.Value ?? DietaryRequirements.Standard;
+
+    DietaryRequirements NormalizeDietaryForSelectedMenus(DietaryRequirements dietary)
+    {
+        if (availableMenuOptions.Any(option => option.Value == dietary))
+            return dietary;
+
+        var standard = availableMenuOptions.FirstOrDefault(option => option.Value == DietaryRequirements.Standard);
+        if (standard is not null)
+            return standard.Value;
+
+        return DefaultAvailableDietary();
+    }
+
+    static GuestMenuOption ToGuestMenuOption(MenuDietaryType type) => type switch
+    {
+        MenuDietaryType.Vegan => new(DietaryRequirements.Vegan, "Vegan"),
+        MenuDietaryType.Vegetarian => new(DietaryRequirements.Vegetarian, "Vegetarian"),
+        MenuDietaryType.Fasting => new(DietaryRequirements.Fasting, "Fasting"),
+        _ => new(DietaryRequirements.Standard, "Standard")
     };
 }

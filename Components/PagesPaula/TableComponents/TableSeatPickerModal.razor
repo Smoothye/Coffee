@@ -1,0 +1,50 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<ModalShell IsOpen="IsOpen" Title="@Title" OnClose="OnClose" ExtraClass="seat-picker-box">
+    <div class="seat-picker-search-wrap">
+        <input class="input seat-picker-search"
+               placeholder="Search guests..."
+               value="@Search"
+               @oninput="SetSearch" />
+    </div>
+    @if (Guests.Count == 0)
+    {
+        <div class="seat-picker-empty">No guests found.</div>
+    }
+    else
+    {
+        <div class="seat-picker-list">
+            @foreach (var guest in Guests)
+            {
+                var g = guest;
+                var colors = Groups[g.Group];
+                var isSeated = SeatedGuestIds.Contains(g.Id);
+                <button class="seat-picker-item" @onclick="@(() => OnAssign.InvokeAsync(g))">
+                    <div class="pool-avatar" style="background:linear-gradient(135deg,@colors.SeatFrom,@colors.SeatTo);flex-shrink:0;">
+                        @TableDisplay.Initials(g)
+                    </div>
+                    <div class="seat-picker-info">
+                        <span class="seat-picker-name">@TableDisplay.DisplayName(g)</span>
+                        <span class="seat-picker-meta" style="color:@colors.DotColor;">@g.Group@(isSeated ? " · currently seated" : " · in pool")</span>
+                    </div>
+                    <span class="seat-picker-assign-icon">@SvgIcons.CheckSmall</span>
+                </button>
+            }
+        </div>
+    }
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public IReadOnlyList<TableGuest> Guests { get; set; } = Array.Empty<TableGuest>();
+    [Parameter] public IReadOnlySet<int> SeatedGuestIds { get; set; } = new HashSet<int>();
+    [Parameter] public IReadOnlyDictionary<string, GroupColors> Groups { get; set; } =
+        new Dictionary<string, GroupColors>();
+    [Parameter] public string Search { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+    [Parameter] public EventCallback<TableGuest> OnAssign { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    Task SetSearch(ChangeEventArgs e) => SearchChanged.InvokeAsync(e.Value?.ToString() ?? "");
+}

@@ -1,39 +1,21 @@
-﻿@page "/login"
+@page "/login"
+@layout PaulaLayout
 @rendermode InteractiveServer
-@inject NavigationManager Nav
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@inject IJSRuntime JS
 
 <div class="auth-wrap">
-
-    <!-- Page transition overlay -->
-    <div class="auth-transition-overlay @(transitioning ? "auth-overlay-active" : "")"></div>
-
-    <!-- Background -->
     <div class="auth-bg">
         <div class="auth-bg-img"></div>
         <div class="auth-bg-overlay"></div>
     </div>
 
-    <!-- Floating blobs -->
+    <GreenHeartfall Class="login-heartfall" />
+
     <div class="auth-blob auth-blob-1"></div>
     <div class="auth-blob auth-blob-2"></div>
 
-    <!-- Fullscreen curtain — slides in on submit -->
-    @if (transitioning)
-    {
-        <div class="auth-curtain">
-            <div class="auth-curtain-logo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="white" stroke="none">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-                <span>EverAfter</span>
-            </div>
-        </div>
-    }
-
-    <!-- Card -->
-    <div class="auth-card @(transitioning ? "auth-card-exit" : "")">
-
-        <!-- Logo -->
+    <div class="auth-card">
         <div class="auth-logo">
             <div class="auth-logo-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -46,68 +28,55 @@
             </div>
         </div>
 
-        <!-- Sign In / Create Account toggle -->
         <div class="auth-mode-toggle @(!isLogin ? "slide-right" : "")">
-            <button class="auth-mode-btn @(isLogin ? "mode-active" : "")"
-                    @onclick='@(() => { isLogin = true; errorMsg = ""; })'>
+            <button type="button" class="auth-mode-btn @(isLogin ? "mode-active" : "")" @onclick="@(() => SetMode(true))">
                 Sign In
             </button>
-            <button class="auth-mode-btn @(!isLogin ? "mode-active" : "")"
-                    @onclick='@(() => { isLogin = false; errorMsg = ""; })'>
+            <button type="button" class="auth-mode-btn @(!isLogin ? "mode-active" : "")" @onclick="@(() => SetMode(false))">
                 Create Account
             </button>
         </div>
 
-        <!-- Error -->
-        @if (!string.IsNullOrEmpty(errorMsg))
-        {
-            <div class="error-banner">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                @errorMsg
-            </div>
-        }
+        <div class="error-banner auth-error-banner @(string.IsNullOrEmpty(errorMsg) ? "auth-error-hidden" : "")" data-auth-error>
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span data-auth-error-text>@errorMsg</span>
+        </div>
 
-        <!-- Form -->
-        <div class="auth-form">
+        <form class="auth-form" method="post" action="@AuthAction" data-auth-form>
+            <AntiforgeryToken />
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
 
-            <!-- Name fields (register only) -->
-            @if (!isLogin)
-            {
-                <div class="form-grid-2 auth-field-enter">
-                    <div class="field">
-                        <label class="auth-label">First Name</label>
-                        <div class="auth-input-wrap">
-                            <span class="auth-input-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                    <circle cx="12" cy="7" r="4" />
-                                </svg>
-                            </span>
-                            <input class="input auth-input" placeholder="Maria"
-                                   @bind="firstName" @bind:event="oninput" />
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label class="auth-label">Last Name</label>
-                        <div class="auth-input-wrap">
-                            <span class="auth-input-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                    <circle cx="12" cy="7" r="4" />
-                                </svg>
-                            </span>
-                            <input class="input auth-input" placeholder="Ionescu"
-                                   @bind="lastName" @bind:event="oninput" />
-                        </div>
+            <div class="form-grid-2 auth-register-fields @(isLogin ? "auth-register-hidden" : "auth-register-visible")">
+                <div class="field">
+                    <label class="auth-label">First Name</label>
+                    <div class="auth-input-wrap">
+                        <span class="auth-input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                        </span>
+                        <input class="input auth-input" name="firstName" placeholder="Maria" autocomplete="given-name" tabindex="@(isLogin ? "-1" : "0")" required="@(!isLogin)" data-name-field data-name-label="First name" />
                     </div>
                 </div>
-            }
+                <div class="field">
+                    <label class="auth-label">Last Name</label>
+                    <div class="auth-input-wrap">
+                        <span class="auth-input-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                            </svg>
+                        </span>
+                        <input class="input auth-input" name="lastName" placeholder="Ionescu" autocomplete="family-name" tabindex="@(isLogin ? "-1" : "0")" required="@(!isLogin)" data-name-field data-name-label="Last name" />
+                    </div>
+                </div>
+            </div>
 
-            <!-- Email -->
             <div class="field">
                 <label class="auth-label">Email</label>
                 <div class="auth-input-wrap">
@@ -117,13 +86,10 @@
                             <polyline points="22,6 12,13 2,6" />
                         </svg>
                     </span>
-                    <input class="input auth-input" type="email"
-                           placeholder="maria@example.com"
-                           @bind="email" @bind:event="oninput" />
+                    <input class="input auth-input" name="email" type="email" value="@Email" placeholder="maria@example.com" autocomplete="username" required />
                 </div>
             </div>
 
-            <!-- Password -->
             <div class="field">
                 <label class="auth-label">Password</label>
                 <div class="auth-input-wrap">
@@ -133,84 +99,225 @@
                             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                         </svg>
                     </span>
-                    <input class="input auth-input" type="password"
-                           placeholder="••••••••"
-                           @bind="password" @bind:event="oninput" />
+                    <input class="input auth-input auth-password-input" name="password" type="password" placeholder="********" autocomplete="@(isLogin ? "current-password" : "new-password")" required data-password-input />
+                    <button class="auth-password-toggle" type="button" aria-label="Show password" title="Show password" data-password-toggle>
+                        <span data-eye-open>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </span>
+                        <span data-eye-closed hidden>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a20.3 20.3 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A10.45 10.45 0 0 1 12 4c6.5 0 10 7 10 7a20.5 20.5 0 0 1-2.16 3.19" />
+                                <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+                                <line x1="3" y1="3" x2="21" y2="21" />
+                            </svg>
+                        </span>
+                    </button>
                 </div>
             </div>
 
-            <!-- Submit -->
-            <button class="auth-submit" @onclick="async () => await Submit()">
+            <div class="field auth-register-fields @(isLogin ? "auth-register-hidden" : "auth-register-visible")">
+                <label class="auth-label">Confirm Password</label>
+                <div class="auth-input-wrap">
+                    <span class="auth-input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                    </span>
+                    <input class="input auth-input auth-password-input" name="confirmPassword" type="password" placeholder="********" autocomplete="new-password" tabindex="@(isLogin ? "-1" : "0")" required="@(!isLogin)" data-password-input data-confirm-password />
+                    <button class="auth-password-toggle" type="button" aria-label="Show confirm password" title="Show password" data-password-toggle>
+                        <span data-eye-open>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </span>
+                        <span data-eye-closed hidden>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a20.3 20.3 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A10.45 10.45 0 0 1 12 4c6.5 0 10 7 10 7a20.5 20.5 0 0 1-2.16 3.19" />
+                                <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+                                <line x1="3" y1="3" x2="21" y2="21" />
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            @if (!isLogin)
+            {
+                <div class="auth-info-box">
+                    <span class="auth-info-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                    </span>
+                    <span>Use at least 8 characters with uppercase, lowercase, number and special character.</span>
+                </div>
+            }
+
+            <button class="auth-submit" type="submit" data-auth-submit>
                 <span>@(isLogin ? "Sign In" : "Create Account")</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12" />
                     <polyline points="12 5 19 12 12 19" />
                 </svg>
             </button>
-
-        </div>
+        </form>
     </div>
 </div>
 
+<script>
+    (() => {
+        if (window.everAfterAuthSubmitReady) return;
+        window.everAfterAuthSubmitReady = true;
+
+        document.addEventListener("submit", async (event) => {
+            const form = event.target.closest("form[data-auth-form]");
+            if (!form) return;
+
+            event.preventDefault();
+
+            const submit = form.querySelector("[data-auth-submit]");
+            const submitText = submit?.querySelector("span");
+            const errorBox = document.querySelector("[data-auth-error]");
+            const errorText = document.querySelector("[data-auth-error-text]");
+            const originalText = submitText?.textContent || "";
+            const isRegister = form.action.endsWith("/auth/register");
+            const password = form.querySelector("input[name='password']");
+            const confirmPassword = form.querySelector("input[name='confirmPassword']");
+            const namePattern = /^(?=.*\p{L})[\p{L}\s'’-]+$/u;
+
+            errorBox?.classList.add("auth-error-hidden");
+
+            if (isRegister) {
+                for (const field of form.querySelectorAll("[data-name-field]")) {
+                    field.value = field.value.trim().replace(/\s+/g, " ");
+                    if (!namePattern.test(field.value)) {
+                        const label = field.dataset.nameLabel || "Name";
+                        if (errorText) errorText.textContent = `${label} can include only letters, spaces, accents, hyphens and apostrophes.`;
+                        errorBox?.classList.remove("auth-error-hidden");
+                        field.focus();
+                        return;
+                    }
+                }
+            }
+
+            if (isRegister && password?.value !== confirmPassword?.value) {
+                if (errorText) errorText.textContent = "Passwords do not match.";
+                errorBox?.classList.remove("auth-error-hidden");
+                confirmPassword?.focus();
+                return;
+            }
+
+            form.classList.add("auth-form-loading");
+            if (submit) submit.disabled = true;
+            if (submitText) submitText.textContent = "Checking...";
+
+            try {
+                const response = await fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                    credentials: "same-origin",
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                const data = await response.json();
+
+                if (data.succeeded) {
+                    window.location.assign(data.redirectUrl || "/onboarding");
+                    return;
+                }
+
+                if (data.mode === "register") {
+                    document.querySelectorAll(".auth-mode-btn")[1]?.click();
+                } else {
+                    document.querySelectorAll(".auth-mode-btn")[0]?.click();
+                }
+
+                const email = form.querySelector("input[name='email']");
+                if (email && data.email) email.value = data.email;
+
+                if (errorText) errorText.textContent = data.message || "Something went wrong. Please try again.";
+                errorBox?.classList.remove("auth-error-hidden");
+                history.replaceState(null, "", "/login");
+            } catch {
+                if (errorText) errorText.textContent = "Something went wrong. Please try again.";
+                errorBox?.classList.remove("auth-error-hidden");
+            } finally {
+                form.classList.remove("auth-form-loading");
+                if (submit) submit.disabled = false;
+                if (submitText) submitText.textContent = originalText;
+            }
+        });
+
+        document.addEventListener("click", (event) => {
+            const toggle = event.target.closest("[data-password-toggle]");
+            if (!toggle) return;
+
+            const wrap = toggle.closest(".auth-input-wrap");
+            const input = wrap?.querySelector("[data-password-input]");
+            if (!input) return;
+
+            const show = input.type === "password";
+            input.type = show ? "text" : "password";
+            toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+            toggle.setAttribute("title", show ? "Hide password" : "Show password");
+            toggle.querySelector("[data-eye-open]").hidden = show;
+            toggle.querySelector("[data-eye-closed]").hidden = !show;
+        });
+    })();
+</script>
+
 @code {
-
-    // ── Admin credentials — move to appsettings/secrets in production ──
-    const string AdminEmail = "admin@everafter.com";
-    const string AdminPassword = "EverAfter2026!";
-
     bool isLogin = true;
-    bool transitioning = false;
-    string email = "";
-    string password = "";
-    string firstName = "";
-    string lastName = "";
     string errorMsg = "";
+    bool shouldCleanUrl;
 
-    async Task AnimateAndNavigate(string url)
+    [SupplyParameterFromQuery(Name = "mode")] public string? Mode { get; set; }
+    [SupplyParameterFromQuery(Name = "error")] public string? Error { get; set; }
+    [SupplyParameterFromQuery(Name = "email")] public string? Email { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+
+    string AuthAction => isLogin ? "/auth/login" : "/auth/register";
+
+    protected override void OnParametersSet()
     {
-        transitioning = true;
-        StateHasChanged();
-        await Task.Delay(420);
-        Nav.NavigateTo(url);
+        if (!string.IsNullOrWhiteSpace(Mode))
+            isLogin = !Mode.Equals("register", StringComparison.OrdinalIgnoreCase);
+
+        errorMsg = ErrorMessage(Error);
+        shouldCleanUrl = !string.IsNullOrWhiteSpace(Error);
     }
 
-    async Task Submit()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (!shouldCleanUrl)
+            return;
+
+        shouldCleanUrl = false;
+        await JS.InvokeVoidAsync("history.replaceState", null, "", "/login");
+    }
+
+    void SetMode(bool loginMode)
+    {
+        isLogin = loginMode;
         errorMsg = "";
-
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
-        {
-            errorMsg = "Please enter your email and password.";
-            return;
-        }
-
-        // ── Admin detection — same form, invisible to outsiders ──
-        if (email.Trim().Equals(AdminEmail, StringComparison.OrdinalIgnoreCase)
-            && password == AdminPassword)
-        {
-            await AnimateAndNavigate("/admin");
-            return;
-        }
-
-        // ── User login ────────────────────────────────────────────
-        if (isLogin)
-        {
-            // TODO: verify credentials against DB
-            await AnimateAndNavigate("/dashboard");
-            return;
-        }
-
-        // ── User register ─────────────────────────────────────────
-        if (string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(lastName))
-        { errorMsg = "Please enter your first and last name."; return; }
-
-        if (!email.Contains('@'))
-        { errorMsg = "Please enter a valid email address."; return; }
-
-        if (password.Length < 8)
-        { errorMsg = "Password must be at least 8 characters."; return; }
-
-        // TODO: create account in DB
-        Nav.NavigateTo("/onboarding");
     }
+
+    static string ErrorMessage(string? error) => error switch
+    {
+        "invalid-login" => "Maybe the e-mail or password is not correct, or the account does not exist.",
+        "missing-fields" => "Please fill in all required fields.",
+        "duplicate-account" => "An account with this e-mail already exists. Please sign in instead.",
+        "password-rules" => "Password must include uppercase and lowercase letters, a number, and a special character.",
+        "register-failed" => "We could not create this account. Please check the details and try again.",
+        null or "" => "",
+        _ => "Something went wrong. Please try again."
+    };
 }

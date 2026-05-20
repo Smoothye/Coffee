@@ -1,16 +1,18 @@
-﻿@page "/admin"
+@page "/admin"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 @inject IWebHostEnvironment Env
-@inject IJSRuntime JS
-@using System.Text
-@implements IDisposable
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
+@using Microsoft.AspNetCore.Components.Forms
+@using WeddingPlannerApp.DTOs.Event
+@using WeddingPlannerApp.DTOs.Venue
+@using WeddingPlannerApp.Models
+@using WeddingPlannerApp.Services
+@using WeddingPlannerApp.Components.PagesPaula.AdminComponents
 
 <div class="admin-wrap">
-
-    <!-- ══════════════════════════════════════════════════════
-         NAVBAR  (same style as Tables / Guests)
-         ══════════════════════════════════════════════════════ -->
     <nav class="tables-nav">
         <div class="tables-nav-brand">
             <div class="tables-nav-icon">
@@ -23,11 +25,14 @@
             </div>
             <div>
                 <span class="tables-nav-title">Application Manager</span>
-                <span class="tables-nav-sub">Review events &amp; manage venues</span>
+                <span class="tables-nav-sub">Review events, venues &amp; menus</span>
             </div>
         </div>
         <div class="tables-nav-actions">
-            <button class="btn-signout" @onclick="SignOut">
+            <form action="Account/Logout" method="post">
+                <AntiforgeryToken />
+                <input type="hidden" name="ReturnUrl" value="" />
+            <button type="submit" class="btn-signout">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                     <polyline points="16 17 21 12 16 7" />
@@ -35,470 +40,39 @@
                 </svg>
                 Sign Out
             </button>
+            </form>
         </div>
     </nav>
 
     <div class="admin-body">
+        <AdminStatsRow TotalEvents="@events.Count"
+                       UpcomingEvents="@UpcomingEventCount"
+                       TotalGuests="@TotalGuestCount"
+                       TotalBudget="@TotalBudget" />
 
-        <!-- ── Stats ─────────────────────────────────────── -->
-        <div class="stats-row">
-            <div class="stat-tile">
-                <div class="stat-tile-icon tile-sage">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="stat-tile-val">@events.Count</p>
-                    <p class="stat-tile-label">Total Events</p>
-                </div>
-            </div>
-            <div class="stat-tile">
-                <div class="stat-tile-icon tile-amber">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <polyline points="12 6 12 12 16 14" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="stat-tile-val">@events.Count(e => e.Status == "pending")</p>
-                    <p class="stat-tile-label">Pending</p>
-                </div>
-            </div>
-            <div class="stat-tile">
-                <div class="stat-tile-icon tile-green">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                        <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="stat-tile-val">@events.Count(e => e.Status == "confirmed")</p>
-                    <p class="stat-tile-label">Confirmed</p>
-                </div>
-            </div>
-            <div class="stat-tile">
-                <div class="stat-tile-icon tile-blue">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="stat-tile-val">@events.Sum(e => e.GuestCount)</p>
-                    <p class="stat-tile-label">Total Guests</p>
-                </div>
-            </div>
-        </div>
+        <AdminEventsPanel Events="EventList"
+                          ExpandedEventId="expandedEventId"
+                          OnToggleExpand="ToggleExpand"
+                          OnDelete="DeleteEvent" />
 
-        <!-- ── Events Panel ───────────────────────────────── -->
-        <div class="panel">
-            <div class="panel-head">
-                <div class="panel-head-left">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                        <line x1="16" y1="2" x2="16" y2="6" />
-                        <line x1="8" y1="2" x2="8" y2="6" />
-                        <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                    <h2>Events</h2>
-                </div>
-                <!-- Filter pills only — admin does NOT create events -->
-                <div class="filter-pills">
-                    @foreach (var s in new[] { "all", "pending", "confirmed", "rejected", "completed" })
-                    {
-                        var sf = s;
-                        <button class="pill @(filterStatus == sf ? "pill-active" : "")"
-                                @onclick="@(() => filterStatus = sf)">
-                            @(sf == "all" ? "All" : char.ToUpper(sf[0]) + sf[1..])
-                        </button>
-                    }
-                </div>
-            </div>
+        <AdminVenuesPanel Venues="venues"
+                          OnAddVenue="OpenNewVenueModal"
+                          OnEditVenue="OpenEditVenueModal"
+                          OnDeleteVenue="DeleteVenue" />
 
-            <div class="event-list">
-                @if (!filteredEvents.Any())
-                {
-                    <div class="admin-empty">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
-                        <p>@(filterStatus == "all" ? "No events submitted yet." : $"No {filterStatus} events.")</p>
-                    </div>
-                }
-
-                @foreach (var ev in filteredEvents)
-                {
-                    var e = ev;
-                    <div class="event-card @(e.Status == "pending" ? "is-pending" : e.Status == "confirmed" ? "is-confirmed" : "")">
-                        <div class="event-card-main">
-                            <div class="event-type-icon @(e.Status == "pending" ? "tile-amber" : "tile-sage")">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                    <line x1="16" y1="2" x2="16" y2="6" />
-                                    <line x1="8" y1="2" x2="8" y2="6" />
-                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                </svg>
-                            </div>
-                            <div class="event-info">
-                                <p class="event-name">@e.Name</p>
-                                <div class="event-meta-row">
-                                    <span class="event-meta-item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                            <line x1="16" y1="2" x2="16" y2="6" />
-                                            <line x1="8" y1="2" x2="8" y2="6" />
-                                            <line x1="3" y1="10" x2="21" y2="10" />
-                                        </svg>
-                                        @e.EventDate.ToString("MMM d, yyyy")
-                                    </span>
-                                    <span class="event-meta-item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                            <circle cx="12" cy="10" r="3" />
-                                        </svg>
-                                        @e.VenueName
-                                    </span>
-                                    <span class="event-meta-item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                                            <circle cx="9" cy="7" r="4" />
-                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                                        </svg>
-                                        @e.GuestCount guests
-                                    </span>
-                                    @if (!string.IsNullOrEmpty(e.OwnerEmail))
-                                    {
-                                        <span class="event-meta-item" style="color:var(--sage-dark);font-weight:500;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                                <circle cx="12" cy="7" r="4" />
-                                            </svg>
-                                            @e.OwnerEmail
-                                        </span>
-                                    }
-                                </div>
-                            </div>
-                            <div class="event-actions">
-                                <span class="status-badge @StatusBadgeClass(e.Status)">
-                                    @StatusIcon(e.Status)
-                                    @(char.ToUpper(e.Status[0]) + e.Status[1..])
-                                </span>
-                                @if (e.Status == "pending")
-                                {
-                                    <button class="icon-btn accept" title="Confirm" @onclick="@(() => ConfirmEvent(e.Id))">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                    </button>
-                                    <button class="icon-btn reject" title="Reject" @onclick="@(() => RejectEvent(e.Id))">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                    </button>
-                                }
-                                @if (e.Status == "confirmed")
-                                {
-                                    <button class="icon-btn complete" title="Mark completed" @onclick="@(() => CompleteEvent(e.Id))">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                                    </button>
-                                }
-                                <button class="icon-btn expand" title="@(expandedEventId == e.Id ? "Collapse" : "Details")" @onclick="@(() => ToggleExpand(e.Id))">
-                                    @if (expandedEventId == e.Id)
-                                    {
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
-                                    }
-                                    else
-                                    {
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-                                    }
-                                </button>
-                                <button class="icon-btn delete" title="Delete" @onclick="@(() => DeleteEvent(e.Id))">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="3 6 5 6 21 6" />
-                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                        <path d="M10 11v6" />
-                                        <path d="M14 11v6" />
-                                        <path d="M9 6V4h6v2" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-
-                        @if (expandedEventId == e.Id)
-                        {
-                            <div class="event-detail">
-                                <div class="detail-item"><span class="detail-label">Event Type</span><span class="detail-value">@e.Type</span></div>
-                                <div class="detail-item"><span class="detail-label">Menu</span><span class="detail-value">@(string.IsNullOrEmpty(e.MenuName) ? "Not selected" : e.MenuName)</span></div>
-                                <div class="detail-item"><span class="detail-label">Owner Name</span><span class="detail-value">@(string.IsNullOrEmpty(e.OwnerName) ? "—" : e.OwnerName)</span></div>
-                                <div class="detail-item"><span class="detail-label">Owner Email</span><span class="detail-value">@(string.IsNullOrEmpty(e.OwnerEmail) ? "—" : e.OwnerEmail)</span></div>
-                                <div class="detail-item"><span class="detail-label">Total Budget</span><span class="detail-value">@(e.TotalBudget > 0 ? $"${e.TotalBudget:N0}" : "Not set")</span></div>
-                                <div class="detail-item"><span class="detail-label">Created</span><span class="detail-value">@e.CreatedAt.ToString("MMM d, yyyy")</span></div>
-                                @if (!string.IsNullOrEmpty(e.Notes))
-                                {
-                                    <div class="detail-item" style="grid-column:1/-1;">
-                                        <span class="detail-label">Notes</span>
-                                        <span class="detail-value notes-text">@e.Notes</span>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-
-        <!-- ── Venues Panel ───────────────────────────────── -->
-        <div class="panel">
-            <div class="panel-head">
-                <div class="panel-head-left">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                        <circle cx="12" cy="10" r="3" />
-                    </svg>
-                    <h2>Venues</h2>
-                </div>
-                <button class="btn-add" @onclick="OpenNewVenueModal">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Add Venue
-                </button>
-            </div>
-
-            <div class="venue-list">
-                @foreach (var v in venues)
-                {
-                    var venue = v;
-                    <div class="venue-tile">
-                        @if (!string.IsNullOrEmpty(venue.ImagePath))
-                        {
-                            <img src="@venue.ImagePath" alt="@venue.Name" class="venue-tile-img" />
-                        }
-                        else
-                        {
-                            <div class="venue-tile-img venue-tile-img-placeholder">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                                    <circle cx="8.5" cy="8.5" r="1.5" />
-                                    <polyline points="21 15 16 10 5 21" />
-                                </svg>
-                            </div>
-                        }
-                        <div class="venue-tile-info">
-                            <h4>@venue.Name</h4>
-                            <p>@venue.Type · @venue.Address</p>
-                            @if (venue.EstimatedPrice > 0)
-                            {
-                                <p style="color:var(--sage-dark);font-weight:600;margin-top:.2rem;">est. $@venue.EstimatedPrice.ToString("N0")</p>
-                            }
-                        </div>
-                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;padding:.5rem .75rem .5rem 0;">
-                            <span class="venue-tile-cap">@venue.MinCapacity–@venue.MaxCapacity guests</span>
-                            <button class="icon-btn delete" title="Remove venue" @onclick="@(() => DeleteVenue(venue.Id))">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                    <path d="M10 11v6" />
-                                    <path d="M14 11v6" />
-                                    <path d="M9 6V4h6v2" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <!-- ── Suppliers Panel ────────────────────────────────── -->
-        <div class="panel">
-            <div class="panel-head">
-                <div class="panel-head-left">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    <h2>Suppliers</h2>
-                </div>
-                <button class="btn-add" @onclick="OpenSupplierModal">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.3rem">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Add Supplier
-                </button>
-            </div>
-
-            <div class="venue-list">
-                @foreach (var s in suppliers)
-                {
-                    var sup = s;
-                    <div class="venue-tile">
-                        <div class="supplier-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                                <polyline points="9 22 9 12 15 12 15 22" />
-                            </svg>
-                        </div>
-                        <div class="venue-tile-info">
-                            <h4>@sup.Name</h4>
-                            <p>@sup.Category @(!string.IsNullOrEmpty(sup.Phone) ? $"· {sup.Phone}" : "") @(!string.IsNullOrEmpty(sup.Email) ? $"· {sup.Email}" : "")</p>
-                            @if (!string.IsNullOrEmpty(sup.Description))
-                            {
-                                <p style="font-size:.75rem;color:var(--muted);margin-top:.15rem;">@sup.Description</p>
-                            }
-                        </div>
-                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0;padding:.5rem .75rem .5rem 0;">
-                            <span class="vendor-cat-badge">@sup.Category</span>
-                            <button class="icon-btn delete" title="Remove supplier" @onclick="@(() => suppliers.Remove(sup))">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                    <path d="M10 11v6" />
-                                    <path d="M14 11v6" />
-                                    <path d="M9 6V4h6v2" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                }
-                @if (!suppliers.Any())
-                {
-                    <div class="admin-empty" style="padding:1.5rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                            <polyline points="9 22 9 12 15 12 15 22" />
-                        </svg>
-                        <p>No suppliers yet. Add one so users can select them.</p>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <!-- ── Venue Change Requests Panel ───────────────────── -->
-        <div class="panel">
-            <div class="panel-head">
-                <div class="panel-head-left">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--sage-dark)">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
-                    <h2>Venue Change Requests</h2>
-                </div>
-                @if (venueRequests.Any(r => r.Status == "pending"))
-                {
-                    <span class="badge-pending" style="font-size:.75rem;padding:.25rem .65rem;border-radius:999px;">
-                        @venueRequests.Count(r => r.Status == "pending") pending
-                    </span>
-                }
-            </div>
-
-            <div class="event-list">
-                @if (!venueRequests.Any())
-                {
-                    <div class="admin-empty">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                        </svg>
-                        <p>No venue change requests.</p>
-                    </div>
-                }
-
-                @foreach (var req in venueRequests.OrderByDescending(r => r.Status == "pending"))
-                {
-                    var r = req;
-                    <div class="event-card @(r.Status == "pending" ? "is-pending" : "")">
-                        <div class="event-card-main">
-
-                            <!-- Venue images side by side -->
-                            <div class="vreq-venues">
-                                <div class="vreq-venue-block">
-                                    <span class="vreq-label">Current</span>
-                                    <img src="@r.FromImagePath" alt="@r.FromVenueName" class="vreq-img" />
-                                    <p class="vreq-name">@r.FromVenueName</p>
-                                </div>
-                                <div class="vreq-arrow">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <line x1="5" y1="12" x2="19" y2="12" />
-                                        <polyline points="12 5 19 12 12 19" />
-                                    </svg>
-                                </div>
-                                <div class="vreq-venue-block">
-                                    <span class="vreq-label vreq-label-new">Requested</span>
-                                    <img src="@r.ToImagePath" alt="@r.ToVenueName" class="vreq-img" />
-                                    <p class="vreq-name">@r.ToVenueName</p>
-                                </div>
-                            </div>
-
-                            <div class="event-info">
-                                <p class="event-name">@r.EventName</p>
-                                <div class="event-meta-row">
-                                    <span class="event-meta-item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                            <circle cx="12" cy="7" r="4" />
-                                        </svg>
-                                        @r.OwnerName
-                                    </span>
-                                    <span class="event-meta-item">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                            <line x1="16" y1="2" x2="16" y2="6" />
-                                            <line x1="8" y1="2" x2="8" y2="6" />
-                                            <line x1="3" y1="10" x2="21" y2="10" />
-                                        </svg>
-                                        @r.RequestedAt.ToString("MMM d, yyyy")
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="event-actions">
-                                <span class="status-badge @StatusBadgeClass(r.Status)">
-                                    @StatusIcon(r.Status)
-                                    @(char.ToUpper(r.Status[0]) + r.Status[1..])
-                                </span>
-                                @if (r.Status == "pending")
-                                {
-                                    <button class="icon-btn accept" title="Approve" @onclick="@(() => ApproveVenueRequest(r.Id))">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                                    </button>
-                                    <button class="icon-btn reject" title="Reject" @onclick="@(() => RejectVenueRequest(r.Id))">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                    </button>
-                                }
-                                <button class="icon-btn delete" title="Remove" @onclick="@(() => venueRequests.Remove(r))">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <polyline points="3 6 5 6 21 6" />
-                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                        <path d="M10 11v6" />
-                                        <path d="M14 11v6" />
-                                        <path d="M9 6V4h6v2" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-
+        <AdminMenusPanel Menus="menus"
+                         OnAddMenu="OpenNewMenuModal"
+                         OnEditMenu="OpenEditMenuModal"
+                         OnDeleteMenu="DeleteMenu" />
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
-     MODAL — Add Venue  (local image upload)
-     ══════════════════════════════════════════════════════════ -->
 @if (showVenueModal)
 {
     <div class="modal-backdrop" @onclick="CloseVenueModal">
         <div class="modal-box" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>Add New Venue</h3>
+                <h3>@(editingVenueId.HasValue ? "Edit Venue" : "Add New Venue")</h3>
                 <button class="modal-close" @onclick="CloseVenueModal">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
@@ -515,28 +89,53 @@
             <div class="form-grid-2">
                 <div class="field">
                     <label>Venue Name</label>
-                    <input class="input" placeholder="Rosewood Gardens" @bind="newVenue.Name" @bind:event="oninput" />
+                    <input class="input @(HasVenueError(nameof(newVenue.Name)) ? "field-invalid" : "")" placeholder="Rosewood Gardens" @bind="newVenue.Name" @bind:event="oninput" />
+                    @VenueFieldError(nameof(newVenue.Name))
                 </div>
-                <div class="field">
-                    <label>Type</label>
-                    <select class="input select-input" @bind="newVenue.Type">
-                        @foreach (var t in new[] { "Garden", "Indoor", "Waterfront", "Countryside", "Rooftop", "Other" })
-                        {
-                            <option value="@t">@t</option>
-                        }
-                    </select>
+                <div class="field admin-primary-tag">
+                    <label>Primary Type</label>
+                    <div class="admin-primary-tag-value">@PrimaryVenueTag</div>
+                    <p class="admin-field-hint">The first selected tag is used as the venue type.</p>
                 </div>
+            </div>
+
+            <div class="field admin-tags-field">
+                <label>Venue Tags</label>
+                <div class="admin-tag-picker @(HasVenueError(nameof(newVenue.Tags)) ? "field-invalid" : "")">
+                    @foreach (var tag in venueTypes)
+                    {
+                        <button type="button"
+                                class="admin-tag-chip @(IsVenueTagSelected(tag) ? "admin-tag-chip-selected" : "")"
+                                @onclick="@(() => ToggleVenueTag(tag))">
+                            @tag
+                        </button>
+                    }
+                </div>
+                @VenueFieldError(nameof(newVenue.Tags))
             </div>
 
             <div class="field">
                 <label>Address</label>
-                <input class="input" placeholder="123 Rose Lane, City" @bind="newVenue.Address" @bind:event="oninput" />
+                <input class="input @(HasVenueError(nameof(newVenue.Address)) ? "field-invalid" : "")" placeholder="123 Rose Lane, City" @bind="newVenue.Address" @bind:event="oninput" />
+                @VenueFieldError(nameof(newVenue.Address))
             </div>
 
-            <!-- Image upload zone -->
+            <div class="form-grid-2">
+                <div class="field">
+                    <label>Latitude *</label>
+                    <input type="number" class="input @(HasVenueError(nameof(newVenue.Latitude)) ? "field-invalid" : "")" min="-90" max="90" step="0.000001" placeholder="44.4268" @bind="newVenue.Latitude" @bind:event="oninput" />
+                    @VenueFieldError(nameof(newVenue.Latitude))
+                </div>
+                <div class="field">
+                    <label>Longitude *</label>
+                    <input type="number" class="input @(HasVenueError(nameof(newVenue.Longitude)) ? "field-invalid" : "")" min="-180" max="180" step="0.000001" placeholder="26.1025" @bind="newVenue.Longitude" @bind:event="oninput" />
+                    @VenueFieldError(nameof(newVenue.Longitude))
+                </div>
+            </div>
+
             <div class="field">
                 <label>Venue Image</label>
-                <div class="venue-upload-zone @(uploadDragActive ? "venue-upload-active" : "")"
+                <div class="venue-upload-zone @(uploadDragActive ? "venue-upload-active" : "") @(HasVenueError(nameof(newVenue.ImagePath)) ? "field-invalid" : "")"
                      @ondragenter="@(() => uploadDragActive = true)"
                      @ondragleave="@(() => uploadDragActive = false)"
                      @ondragover:preventDefault="true"
@@ -546,8 +145,7 @@
                     {
                         <div style="position:relative;width:100%;height:100%;">
                             <img src="@newVenue.ImagePath" alt="preview" class="venue-upload-preview" />
-                            <button type="button" class="venue-upload-clear" @onclick="ClearImage"
-                                    @onclick:stopPropagation="true">
+                            <button type="button" class="venue-upload-clear" @onclick="ClearImage" @onclick:stopPropagation="true">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                     <line x1="18" y1="6" x2="6" y2="18" />
                                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -564,7 +162,7 @@
                                 <polyline points="21 15 16 10 5 21" />
                             </svg>
                             <p class="venue-upload-title">Drag &amp; drop or browse</p>
-                            <p class="venue-upload-sub">JPG, PNG, WebP · max 5 MB</p>
+                            <p class="venue-upload-sub">JPG, PNG, WebP - max 5 MB</p>
                             <label class="btn-outline" style="cursor:pointer;margin-top:.35rem;font-size:.82rem;padding:.35rem .8rem;">
                                 Browse
                                 <InputFile OnChange="HandleVenueImageUpload" accept=".jpg,.jpeg,.png,.webp" style="display:none;" />
@@ -576,95 +174,150 @@
                 {
                     <p style="font-size:.78rem;color:var(--error);margin:.35rem 0 0;">@uploadError</p>
                 }
+                @VenueFieldError(nameof(newVenue.ImagePath))
             </div>
 
             <div class="form-grid-3">
                 <div class="field">
                     <label>Min Guests</label>
-                    <input type="number" class="input" min="1" @bind="newVenue.MinCapacity" @bind:event="oninput" />
+                    <input type="number" class="input @(HasVenueError(nameof(newVenue.MinCapacity)) ? "field-invalid" : "")" min="1" @bind="newVenue.MinCapacity" @bind:event="oninput" />
+                    @VenueFieldError(nameof(newVenue.MinCapacity))
                 </div>
                 <div class="field">
                     <label>Max Guests</label>
-                    <input type="number" class="input" min="1" @bind="newVenue.MaxCapacity" @bind:event="oninput" />
+                    <input type="number" class="input @(HasVenueError(nameof(newVenue.MaxCapacity)) ? "field-invalid" : "")" min="1" @bind="newVenue.MaxCapacity" @bind:event="oninput" />
+                    @VenueFieldError(nameof(newVenue.MaxCapacity))
                 </div>
                 <div class="field">
                     <label>Est. Price ($)</label>
-                    <input type="number" class="input" min="0" @bind="newVenue.EstimatedPrice" @bind:event="oninput" />
+                    <input type="number" class="input @(HasVenueError(nameof(newVenue.EstimatedPrice)) ? "field-invalid" : "")" min="0" @bind="newVenue.EstimatedPrice" @bind:event="oninput" />
+                    @VenueFieldError(nameof(newVenue.EstimatedPrice))
                 </div>
             </div>
 
-            <button class="btn-add-guest" @onclick="AddVenue">
+            <button class="btn-add-guest" @onclick="SaveVenue">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.35rem">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                Add Venue
+                @(editingVenueId.HasValue ? "Save Venue" : "Add Venue")
             </button>
         </div>
     </div>
 }
 
-<!-- ══════════════════════════════════════════════════════════
-     MODAL — Add Supplier
-     ══════════════════════════════════════════════════════════ -->
-@if (showSupplierModal)
+@if (showMenuModal)
 {
-    <div class="modal-backdrop" @onclick="CloseSupplierModal">
-        <div class="modal-box" @onclick:stopPropagation="true">
+    <div class="modal-backdrop" @onclick="CloseMenuModal">
+        <div class="modal-box admin-menu-modal" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>Add Supplier</h3>
-                <button class="modal-close" @onclick="CloseSupplierModal">
+                <h3>@(editingMenuId.HasValue ? "Edit Menu" : "Add New Menu")</h3>
+                <button class="modal-close" @onclick="CloseMenuModal">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                 </button>
             </div>
-            @if (!string.IsNullOrEmpty(supplierModalError))
+
+            @if (!string.IsNullOrEmpty(menuModalError))
             {
-                <div class="error-banner">@supplierModalError</div>
+                <div class="error-banner">@menuModalError</div>
             }
+
             <div class="form-grid-2">
                 <div class="field">
-                    <label>Name *</label>
-                    <input class="input" placeholder="Sweet Bliss Bakery" @bind="newSupplier.Name" @bind:event="oninput" />
+                    <label>Menu Name</label>
+                    <input class="input @(HasMenuError(nameof(newMenu.Name)) ? "field-invalid" : "")" placeholder="Classic Elegance" @bind="newMenu.Name" @bind:event="oninput" />
+                    @MenuFieldError(nameof(newMenu.Name))
                 </div>
                 <div class="field">
-                    <label>Category</label>
-                    <select class="input select-input" @bind="newSupplier.Category">
-                        @foreach (var c in supplierCategories)
-                        {
-                            <option value="@c">@c</option>
-                        }
+                    <label>Dietary Type</label>
+                    <select class="input select-input" @bind="newMenu.DietaryType">
+                        <option value="standard">Casual</option>
+                        <option value="vegetarian">Vegetarian</option>
+                        <option value="vegan">Vegan</option>
+                        <option value="fasting">Fasting</option>
                     </select>
                 </div>
             </div>
+
             <div class="form-grid-2">
                 <div class="field">
-                    <label>Phone</label>
-                    <input class="input" placeholder="+40 7xx xxx xxx" @bind="newSupplier.Phone" @bind:event="oninput" />
+                    <label>Price Per Person ($)</label>
+                    <input type="number" class="input @(HasMenuError(nameof(newMenu.PricePerPerson)) ? "field-invalid" : "")" min="0" @bind="newMenu.PricePerPerson" @bind:event="oninput" />
+                    @MenuFieldError(nameof(newMenu.PricePerPerson))
                 </div>
                 <div class="field">
-                    <label>Email</label>
-                    <input class="input" type="email" placeholder="contact@supplier.com" @bind="newSupplier.Email" @bind:event="oninput" />
+                    <label>Description</label>
+                    <input class="input @(HasMenuError(nameof(newMenu.Description)) ? "field-invalid" : "")" placeholder="A refined menu for a full wedding dinner" @bind="newMenu.Description" @bind:event="oninput" />
+                    @MenuFieldError(nameof(newMenu.Description))
                 </div>
             </div>
-            <div class="field">
-                <label>Description</label>
-                <input class="input" placeholder="Short description visible to users..." @bind="newSupplier.Description" @bind:event="oninput" />
+
+            <div class="admin-menu-builder">
+                <div class="admin-menu-builder-head">
+                    <h4>Courses</h4>
+                    <button type="button" class="btn-outline" @onclick="AddCourse">Add Course</button>
+                </div>
+
+                @for (var courseIndex = 0; courseIndex < newMenu.Courses.Count; courseIndex++)
+                {
+                    var currentCourseIndex = courseIndex;
+                    var course = newMenu.Courses[currentCourseIndex];
+                    <div class="admin-course-box">
+                        <div class="admin-course-head">
+                            <div class="field">
+                                <label>Course Name</label>
+                                <input class="input" placeholder="Starters" @bind="course.Label" @bind:event="oninput" />
+                            </div>
+                            <button type="button" class="icon-btn delete" title="Remove course" @onclick="@(() => RemoveCourse(currentCourseIndex))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                    <path d="M10 11v6" />
+                                    <path d="M14 11v6" />
+                                    <path d="M9 6V4h6v2" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="admin-item-list">
+                            @for (var itemIndex = 0; itemIndex < course.Items.Count; itemIndex++)
+                            {
+                                var currentItemIndex = itemIndex;
+                                var menuItem = course.Items[currentItemIndex];
+                                <div class="admin-item-row">
+                                    <div class="admin-item-fields">
+                                        <input class="input" placeholder="Item name" @bind="menuItem.Name" @bind:event="oninput" />
+                                        <input class="input" placeholder="Item description" @bind="menuItem.Description" @bind:event="oninput" />
+                                    </div>
+                                    <button type="button" class="icon-btn delete" title="Remove item" @onclick="@(() => RemoveItem(currentCourseIndex, currentItemIndex))">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <button type="button" class="btn-outline admin-add-item" @onclick="@(() => AddItem(currentCourseIndex))">Add Item</button>
+                    </div>
+                }
             </div>
-            <button class="btn-add-guest" @onclick="AddSupplier">
+
+            <button class="btn-add-guest" @onclick="SaveMenu">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.35rem">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-                Add Supplier
+                @(editingMenuId.HasValue ? "Save Menu" : "Add Menu")
             </button>
         </div>
     </div>
 }
 
-<!-- Toast -->
 @if (!string.IsNullOrEmpty(toastMessage))
 {
     <div class="toast @(toastIsError ? "toast-error" : "toast-success")">
@@ -687,224 +340,220 @@
     </div>
 }
 
+<ConfirmDialog IsOpen="confirmOpen"
+               Title="@confirmTitle"
+               Message="@confirmMessage"
+               ConfirmText="@confirmText"
+               OnCancel="CloseConfirm"
+               OnConfirm="ConfirmDelete" />
+
 @code {
+    readonly string[] venueTypes =
+    [
+        "Garden",
+        "OpenSpace",
+        "Indoor",
+        "Outdoor",
+        "Ballroom",
+        "BanquetHall",
+        "Restaurant",
+        "Hotel",
+        "Barn",
+        "Beach",
+        "Vineyard",
+        "Rooftop",
+        "Historic",
+        "Luxury",
+        "Rustic",
+        "Modern",
+        "Waterfront",
+        "MountainView",
+        "Forest",
+        "Chapel",
+        "Castle",
+        "Resort",
+        "CountryClub",
+        "SmallCapacity",
+        "LargeCapacity",
+        "BudgetFriendly",
+        "Premium",
+    ];
 
-    class AdminEvent
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Type { get; set; } = "Wedding";
-        public DateTime EventDate { get; set; } = DateTime.Today.AddMonths(3);
-        public int VenueId { get; set; }
-        public string VenueName { get; set; } = "";
-        public int GuestCount { get; set; }
-        public decimal TotalBudget { get; set; }
-        public string Status { get; set; } = "pending";
-        public string OwnerName { get; set; } = "";
-        public string OwnerEmail { get; set; } = "";
-        public string MenuName { get; set; } = "";
-        public string Notes { get; set; } = "";
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
-    }
+    List<AdminEventModel> events = new();
+    List<AdminVenueModel> venues = new();
+    List<AdminMenuModel> menus = new();
 
-    class AdminVenue
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Type { get; set; } = "Garden";
-        public string Address { get; set; } = "";
-        public int MinCapacity { get; set; }
-        public int MaxCapacity { get; set; }
-        public decimal EstimatedPrice { get; set; }
-        /// <summary>Relative web path served from wwwroot, e.g. /images/venues/abc.jpg</summary>
-        public string ImagePath { get; set; } = "";
-        /// <summary>Subfolder under wwwroot/images/venues/, e.g. "rosewood-gardens"</summary>
-        public string ImageFolder { get; set; } = "";
-    }
-
-    // ── Venue Change Request model ─────────────────────────────
-
-    class VenueChangeRequest
-    {
-        public int Id { get; set; }
-        public string EventName { get; set; } = "";
-        public string OwnerName { get; set; } = "";
-        public string FromVenueName { get; set; } = "";
-        public string FromImagePath { get; set; } = "";
-        public string ToVenueName { get; set; } = "";
-        public string ToImagePath { get; set; } = "";
-        public string Status { get; set; } = "pending"; // pending|approved|rejected
-        public DateTime RequestedAt { get; set; } = DateTime.Now;
-    }
-
-    List<VenueChangeRequest> venueRequests = new()
-    {
-        new VenueChangeRequest
-        {
-            Id=1, EventName="Emma & James Wedding", OwnerName="Emma Rossi",
-            FromVenueName="Rosewood Gardens",
-            FromImagePath="https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=200&q=80",
-            ToVenueName="The Grand Ballroom",
-            ToImagePath="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=200&q=80",
-            Status="pending", RequestedAt=DateTime.Today.AddDays(-1)
-        },
-    };
-
-    void ApproveVenueRequest(int id)
-    {
-        var req = venueRequests.FirstOrDefault(r => r.Id == id);
-        if (req is null) return;
-        req.Status = "approved";
-        // In production: update Event.VenueId in DB here
-        ShowToast($"Venue change approved — {req.ToVenueName} confirmed for {req.EventName}.");
-    }
-
-    void RejectVenueRequest(int id)
-    {
-        var req = venueRequests.FirstOrDefault(r => r.Id == id);
-        if (req is null) return;
-        req.Status = "rejected";
-        // In production: notify user their request was denied
-        ShowToast($"Venue change rejected for {req.EventName}.");
-    }
-
-    // ── Supplier modal ────────────────────────────────────────
-
-    class AdminSupplier
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Category { get; set; } = "Other";
-        public string Phone { get; set; } = "";
-        public string Email { get; set; } = "";
-        public string Description { get; set; } = "";
-    }
-
-    static readonly string[] supplierCategories =
-    {
-        "Cake","Candy Bar","Flowers","Photography",
-        "Music/DJ","Catering","Decorations","Rentals","Other"
-    };
-
-    List<AdminSupplier> suppliers = new()
-    {
-        new AdminSupplier { Id=1, Name="Sweet Bliss Bakery",    Category="Cake",        Phone="+1 555-0101", Email="info@sweetbliss.com",  Description="3-tier wedding cakes and custom fondant designs." },
-        new AdminSupplier { Id=2, Name="Petal & Bloom",         Category="Flowers",     Phone="+1 555-0102", Email="hello@petalbloom.com", Description="Eucalyptus, roses and seasonal arrangements." },
-        new AdminSupplier { Id=3, Name="Snap & Co Photography", Category="Photography", Phone="+1 555-0103", Email="book@snapco.com",      Description="Full-day packages with drone shots included." },
-        new AdminSupplier { Id=4, Name="CandyLand Creations",   Category="Candy Bar",   Phone="+1 555-0104", Email="info@candyland.com",   Description="Pastel-themed candy bars with custom packaging." },
-        new AdminSupplier { Id=5, Name="DJ Harmony",            Category="Music/DJ",    Phone="+1 555-0105", Email="dj@harmony.com",       Description="Live mixing, MC and lighting setup." },
-    };
-
-    bool showSupplierModal = false;
-    string supplierModalError = "";
-    AdminSupplier newSupplier = new();
-
-    void OpenSupplierModal()
-    {
-        newSupplier = new AdminSupplier { Category = "Other" };
-        supplierModalError = "";
-        showSupplierModal = true;
-    }
-
-    void CloseSupplierModal() { showSupplierModal = false; supplierModalError = ""; }
-
-    void AddSupplier()
-    {
-        supplierModalError = "";
-        if (string.IsNullOrWhiteSpace(newSupplier.Name)) { supplierModalError = "Name is required."; return; }
-        newSupplier.Id = suppliers.Count > 0 ? suppliers.Max(s => s.Id) + 1 : 1;
-        suppliers.Add(newSupplier);
-        CloseSupplierModal();
-        ShowToast($"\"{newSupplier.Name}\" added. Users will see this supplier.");
-    }
-
-    // ── Seed data ─────────────────────────────────────────────
-
-    List<AdminEvent> events = new()
-    {
-        new AdminEvent { Id=1, Name="Emma & James Wedding",   Type="Wedding",     EventDate=new DateTime(2026,6,15), VenueId=1, VenueName="Rosewood Gardens",   GuestCount=120, TotalBudget=18000, Status="confirmed", OwnerName="Emma Rossi",    OwnerEmail="emma@example.com",   MenuName="Classic Elegance", Notes="Outdoor ceremony, indoor reception.", CreatedAt=new DateTime(2025,12,1)  },
-        new AdminEvent { Id=2, Name="Sophie's Birthday Gala", Type="Birthday",    EventDate=new DateTime(2026,7,20), VenueId=2, VenueName="The Grand Ballroom", GuestCount=200, TotalBudget=12000, Status="pending",   OwnerName="Sophie Martin", OwnerEmail="sophie@example.com", MenuName="Festive Buffet",   Notes="Surprise — do not email owner!", CreatedAt=new DateTime(2025,12,10) },
-        new AdminEvent { Id=3, Name="Johnson Anniversary",    Type="Anniversary", EventDate=new DateTime(2026,8,10), VenueId=3, VenueName="Lakeside Pavilion",  GuestCount=80,  TotalBudget=8000,  Status="pending",   OwnerName="Mark Johnson",  OwnerEmail="mark@example.com",   MenuName="",                 Notes="25th anniversary, prefer garden seating.", CreatedAt=new DateTime(2026,1,5) },
-    };
-
-    List<AdminVenue> venues = new()
-    {
-        new AdminVenue { Id=1, Name="Rosewood Gardens",   Type="Garden",      Address="12 Rose Lane, Greenfield",    MinCapacity=50,  MaxCapacity=200, EstimatedPrice=5000,  ImagePath="https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=600&q=80" },
-        new AdminVenue { Id=2, Name="The Grand Ballroom", Type="Indoor",      Address="88 Grand Ave, Maplewood",     MinCapacity=100, MaxCapacity=500, EstimatedPrice=12000, ImagePath="https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=600&q=80" },
-        new AdminVenue { Id=3, Name="Lakeside Pavilion",  Type="Waterfront",  Address="1 Lake Road, Crystal Shores", MinCapacity=30,  MaxCapacity=150, EstimatedPrice=3500,  ImagePath="https://images.unsplash.com/photo-1478146059778-26028b07395a?w=600&q=80" },
-        new AdminVenue { Id=4, Name="Vineyard Estate",    Type="Countryside", Address="44 Vine St, Rolling Hills",   MinCapacity=80,  MaxCapacity=300, EstimatedPrice=7500,  ImagePath="https://images.unsplash.com/photo-1510076857177-7470076d4098?w=600&q=80" },
-    };
-
-    // ── State ─────────────────────────────────────────────────
-
-    string filterStatus = "all";
     int? expandedEventId = null;
 
     bool showVenueModal = false;
+    int? editingVenueId = null;
     string venueModalError = "";
-    AdminVenue newVenue = new();
+    AdminVenueModel newVenue = new();
     bool uploadDragActive = false;
     string uploadError = "";
+    Dictionary<string, string> venueFieldErrors = new();
+
+    bool showMenuModal = false;
+    int? editingMenuId = null;
+    string menuModalError = "";
+    AdminMenuModel newMenu = NewMenuDraft();
+    Dictionary<string, string> menuFieldErrors = new();
 
     string toastMessage = "";
     bool toastIsError = false;
     System.Timers.Timer? toastTimer;
+    bool confirmOpen;
+    string confirmTitle = "";
+    string confirmMessage = "";
+    string confirmText = "Delete";
+    string pendingDeleteType = "";
+    int pendingDeleteId;
 
-    // ── Computed ──────────────────────────────────────────────
+    IReadOnlyList<AdminEventModel> EventList => events.OrderBy(e => e.EventDate).ToList();
+    int UpcomingEventCount => events.Count(e => e.EventDate.Date >= DateTime.Today);
+    int TotalGuestCount => events.Sum(e => e.GuestCount);
+    decimal TotalBudget => events.Sum(e => e.TotalBudget);
 
-    List<AdminEvent> filteredEvents =>
-        filterStatus == "all" ? events : events.Where(e => e.Status == filterStatus).ToList();
+    static AdminMenuModel NewMenuDraft() => new()
+    {
+        DietaryType = "standard",
+        PricePerPerson = 0,
+        Courses =
+        [
+            new AdminMenuCourseModel
+            {
+                Label = "Starters",
+                Items = [new AdminMenuItemModel()]
+            },
+            new AdminMenuCourseModel
+            {
+                Label = "Main Course",
+                Items = [new AdminMenuItemModel()]
+            },
+            new AdminMenuCourseModel
+            {
+                Label = "Desserts",
+                Items = [new AdminMenuItemModel()]
+            }
+        ]
+    };
 
-    // ── Event actions ─────────────────────────────────────────
+    static AdminVenueModel ToAdminVenue(VenueDto venue) => new()
+    {
+        Id = venue.VenueId,
+        Name = venue.Name,
+        Type = venue.Tags?.ToString() ?? "Venue",
+        Address = venue.Address,
+        MinCapacity = venue.MinCapacity,
+        MaxCapacity = venue.MaxCapacity,
+        EstimatedPrice = venue.EstimatedPrice,
+        Latitude = venue.Latitude,
+        Longitude = venue.Longitude,
+        ImagePath = venue.ImagePath ?? "",
+        Tags = venue.Tags is null ? [] : [venue.Tags.Value.ToString()]
+    };
+
+    static AdminEventModel ToAdminEvent(
+        EventDto eventItem,
+        IReadOnlyDictionary<int, string> venueNames,
+        IReadOnlyDictionary<int, string> menuNames,
+        int guestCount) => new()
+    {
+        Id = eventItem.EventId,
+        Name = eventItem.Name,
+        Type = "Wedding",
+        EventDate = eventItem.EventDate,
+        VenueId = eventItem.VenueId,
+        VenueName = venueNames.GetValueOrDefault(eventItem.VenueId, $"Venue #{eventItem.VenueId}"),
+        GuestCount = guestCount,
+        TotalBudget = eventItem.TotalBudget,
+        MenuName = FormatMenuNames(eventItem.MenuIds, menuNames),
+        Notes = eventItem.Notes ?? "",
+        CreatedAt = eventItem.CreatedAt
+    };
+
+    static AdminMenuModel ToAdminMenu(WeddingPlannerApp.Models.Menu menu) => new()
+    {
+        Id = menu.MenuId,
+        Name = menu.Name,
+        DietaryType = menu.DietaryType.ToString().ToLowerInvariant(),
+        PricePerPerson = (int)menu.Price,
+        Description = menu.Description ?? "",
+        Courses = menu.MenuItems
+            .GroupBy(item => item.CourseName)
+            .Select(group => new AdminMenuCourseModel
+            {
+                Label = group.Key,
+                Items = group
+                    .OrderBy(item => item.DisplayOrder)
+                    .Select(item => new AdminMenuItemModel
+                    {
+                        Name = item.Name,
+                        Description = item.Description ?? ""
+                    })
+                    .ToList()
+            })
+            .ToList()
+    };
+
+    static string FormatMenuNames(IReadOnlyCollection<int> menuIds, IReadOnlyDictionary<int, string> menuNames)
+    {
+        if (menuIds.Count == 0)
+            return "Not selected";
+
+        var names = menuIds
+            .Select(id => menuNames.GetValueOrDefault(id, $"Menu #{id}"))
+            .ToList();
+
+        return string.Join(", ", names);
+    }
 
     void ToggleExpand(int id) =>
         expandedEventId = expandedEventId == id ? null : id;
 
-    void ConfirmEvent(int id)
-    {
-        var e = events.FirstOrDefault(x => x.Id == id);
-        if (e is null) return;
-        if (events.Any(x => x.Id != id && x.VenueId == e.VenueId && x.EventDate.Date == e.EventDate.Date && x.Status == "confirmed"))
-        { ShowToast($"{e.VenueName} is already confirmed for that date!", error: true); return; }
-        e.Status = "confirmed";
-        ShowToast("Event confirmed!");
-    }
-
-    void RejectEvent(int id)
-    {
-        var e = events.FirstOrDefault(x => x.Id == id);
-        if (e is not null) { e.Status = "rejected"; ShowToast("Event rejected."); }
-    }
-
-    void CompleteEvent(int id)
-    {
-        var e = events.FirstOrDefault(x => x.Id == id);
-        if (e is not null) { e.Status = "completed"; ShowToast("Marked as completed."); }
-    }
-
     void DeleteEvent(int id)
     {
-        events.RemoveAll(x => x.Id == id);
-        if (expandedEventId == id) expandedEventId = null;
-        ShowToast("Event removed.");
+        var item = events.FirstOrDefault(e => e.Id == id);
+        OpenConfirm("Delete event?", $"Delete \"{item?.Name ?? "this event"}\"? This cannot be undone.", "Delete event", "event", id);
     }
-
-    // ── Venue actions ─────────────────────────────────────────
 
     void OpenNewVenueModal()
     {
-        newVenue = new AdminVenue { Type = "Garden" };
+        editingVenueId = null;
+        newVenue = new AdminVenueModel { Type = "Garden", Tags = new() { "Garden" } };
         venueModalError = "";
         uploadError = "";
+        venueFieldErrors.Clear();
         uploadDragActive = false;
         showVenueModal = true;
     }
 
-    void CloseVenueModal() { showVenueModal = false; venueModalError = ""; uploadError = ""; }
+    void OpenEditVenueModal(int id)
+    {
+        var venue = venues.FirstOrDefault(v => v.Id == id);
+        if (venue is null)
+            return;
+
+        editingVenueId = id;
+        newVenue = CloneVenue(venue);
+        venueModalError = "";
+        uploadError = "";
+        venueFieldErrors.Clear();
+        uploadDragActive = false;
+        showVenueModal = true;
+    }
+
+    void CloseVenueModal()
+    {
+        showVenueModal = false;
+        editingVenueId = null;
+        venueModalError = "";
+        uploadError = "";
+        venueFieldErrors.Clear();
+    }
 
     void ClearImage() => newVenue.ImagePath = "";
 
-    // Slugify venue name → folder name, e.g. "Rosewood Gardens" → "rosewood-gardens"
     static string Slugify(string name) =>
         System.Text.RegularExpressions.Regex
             .Replace(name.ToLowerInvariant().Trim(), @"[^a-z0-9]+", "-")
@@ -919,21 +568,25 @@
         var allowed = new[] { "image/jpeg", "image/png", "image/webp" };
 
         if (!allowed.Contains(file.ContentType))
-        { uploadError = "Only JPG, PNG and WebP images are accepted."; return; }
+        {
+            uploadError = "Only JPG, PNG and WebP images are accepted.";
+            return;
+        }
 
         const long maxSize = 5 * 1024 * 1024;
         if (file.Size > maxSize)
-        { uploadError = "Image must be under 5 MB."; return; }
+        {
+            uploadError = "Image must be under 5 MB.";
+            return;
+        }
 
-        // Use venue name for folder (fallback to guid if name empty)
         var slug = !string.IsNullOrWhiteSpace(newVenue.Name)
-                     ? Slugify(newVenue.Name)
-                     : Guid.NewGuid().ToString("N")[..8];
+            ? Slugify(newVenue.Name)
+            : Guid.NewGuid().ToString("N")[..8];
 
         var folder = Path.Combine(Env.WebRootPath, "images", "venues", slug);
         Directory.CreateDirectory(folder);
 
-        // Count existing files to name sequentially: 1.jpg, 2.jpg, ...
         var existing = Directory.GetFiles(folder).Length;
         var ext = Path.GetExtension(file.Name).ToLowerInvariant();
         var fileName = $"{existing + 1}{ext}";
@@ -946,24 +599,382 @@
         newVenue.ImagePath = $"/images/venues/{slug}/{fileName}";
     }
 
-    void AddVenue()
+    async Task SaveVenue()
     {
         venueModalError = "";
-        if (string.IsNullOrWhiteSpace(newVenue.Name)) { venueModalError = "Venue name is required."; return; }
-        if (newVenue.MinCapacity <= 0) { venueModalError = "Min capacity must be > 0."; return; }
-        if (newVenue.MaxCapacity < newVenue.MinCapacity) { venueModalError = "Max capacity must be ≥ min."; return; }
+        venueFieldErrors.Clear();
+        if (string.IsNullOrWhiteSpace(newVenue.Name)) venueFieldErrors[nameof(newVenue.Name)] = "Venue name is required.";
+        if (newVenue.Tags.Count == 0) venueFieldErrors[nameof(newVenue.Tags)] = "Select at least one venue tag.";
+        if (string.IsNullOrWhiteSpace(newVenue.Address)) venueFieldErrors[nameof(newVenue.Address)] = "Address is required.";
+        if (newVenue.MinCapacity <= 0) venueFieldErrors[nameof(newVenue.MinCapacity)] = "Min guests must be greater than 0.";
+        if (newVenue.MaxCapacity < newVenue.MinCapacity) venueFieldErrors[nameof(newVenue.MaxCapacity)] = "Max guests must be at least the min guests value.";
+        if (newVenue.EstimatedPrice < 0) venueFieldErrors[nameof(newVenue.EstimatedPrice)] = "Estimated price cannot be negative.";
+        if (newVenue.Latitude is null) venueFieldErrors[nameof(newVenue.Latitude)] = "Latitude is required.";
+        else if (newVenue.Latitude is < -90 or > 90) venueFieldErrors[nameof(newVenue.Latitude)] = "Latitude must be between -90 and 90.";
+        if (newVenue.Longitude is null) venueFieldErrors[nameof(newVenue.Longitude)] = "Longitude is required.";
+        else if (newVenue.Longitude is < -180 or > 180) venueFieldErrors[nameof(newVenue.Longitude)] = "Longitude must be between -180 and 180.";
+        if (string.IsNullOrWhiteSpace(newVenue.ImagePath)) venueFieldErrors[nameof(newVenue.ImagePath)] = "Venue image is required.";
+        if (venueFieldErrors.Count > 0) { venueModalError = "Please fix the highlighted fields."; return; }
 
-        newVenue.Id = venues.Count > 0 ? venues.Max(v => v.Id) + 1 : 1;
-        venues.Add(newVenue);
-        CloseVenueModal();
-        ShowToast($"\"{newVenue.Name}\" added. Planners will see it during onboarding.");
+        newVenue.Type = PrimaryVenueTag;
+        var latitude = newVenue.Latitude.GetValueOrDefault();
+        var longitude = newVenue.Longitude.GetValueOrDefault();
+
+        try
+        {
+            if (editingVenueId is int venueId)
+            {
+                await Api.UpdateVenueAsync(venueId, new VenueUpdateDto
+                {
+                    Name = newVenue.Name.Trim(),
+                    Address = newVenue.Address.Trim(),
+                    Description = $"A {newVenue.Type.ToLowerInvariant()} venue managed by the admin team.",
+                    MinCapacity = newVenue.MinCapacity,
+                    MaxCapacity = newVenue.MaxCapacity,
+                    EstimatedPrice = newVenue.EstimatedPrice,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    ImagePath = newVenue.ImagePath,
+                    Tags = ToVenueTag(PrimaryVenueTag)
+                });
+
+                var index = venues.FindIndex(venue => venue.Id == venueId);
+                if (index >= 0)
+                {
+                    newVenue.Id = venueId;
+                    venues[index] = CloneVenue(newVenue);
+                }
+
+                CloseVenueModal();
+                ShowToast($"\"{newVenue.Name}\" updated.");
+                return;
+            }
+
+            var created = await Api.CreateVenueAsync(new VenueCreateDto
+            {
+                Name = newVenue.Name.Trim(),
+                Address = newVenue.Address.Trim(),
+                Description = $"A {newVenue.Type.ToLowerInvariant()} venue added by the admin team.",
+                MinCapacity = newVenue.MinCapacity,
+                MaxCapacity = newVenue.MaxCapacity,
+                EstimatedPrice = newVenue.EstimatedPrice,
+                Latitude = latitude,
+                Longitude = longitude,
+                ImagePath = newVenue.ImagePath,
+                Tags = ToVenueTag(PrimaryVenueTag)
+            });
+
+            if (created != null)
+                venues.Add(ToAdminVenue(created));
+
+            CloseVenueModal();
+            ShowToast($"\"{newVenue.Name}\" added. Planners will see it during onboarding.");
+        }
+        catch (Exception ex)
+        {
+            venueModalError = editingVenueId.HasValue
+                ? $"Could not update venue: {ex.Message}"
+                : $"Could not add venue: {ex.Message}";
+        }
     }
 
-    void DeleteVenue(int id) { venues.RemoveAll(v => v.Id == id); ShowToast("Venue removed."); }
+    void DeleteVenue(int id)
+    {
+        var item = venues.FirstOrDefault(v => v.Id == id);
+        OpenConfirm("Delete venue?", $"Delete \"{item?.Name ?? "this venue"}\"? This cannot be undone.", "Delete venue", "venue", id);
+    }
 
-    void SignOut() => Nav.NavigateTo("/");
+    void OpenNewMenuModal()
+    {
+        editingMenuId = null;
+        newMenu = NewMenuDraft();
+        menuModalError = "";
+        menuFieldErrors.Clear();
+        showMenuModal = true;
+    }
 
-    // ── Toast ─────────────────────────────────────────────────
+    void OpenEditMenuModal(int id)
+    {
+        var menu = menus.FirstOrDefault(m => m.Id == id);
+        if (menu is null)
+            return;
+
+        editingMenuId = id;
+        newMenu = CloneMenu(menu);
+        menuModalError = "";
+        menuFieldErrors.Clear();
+        showMenuModal = true;
+    }
+
+    void CloseMenuModal()
+    {
+        showMenuModal = false;
+        editingMenuId = null;
+        menuModalError = "";
+        menuFieldErrors.Clear();
+    }
+
+    void AddCourse()
+    {
+        newMenu.Courses.Add(new AdminMenuCourseModel
+        {
+            Label = "",
+            Items = [new AdminMenuItemModel()]
+        });
+    }
+
+    void RemoveCourse(int index)
+    {
+        if (newMenu.Courses.Count <= 1)
+        {
+            menuModalError = "Keep at least one course.";
+            return;
+        }
+
+        newMenu.Courses.RemoveAt(index);
+    }
+
+    void AddItem(int courseIndex) =>
+        newMenu.Courses[courseIndex].Items.Add(new AdminMenuItemModel());
+
+    void RemoveItem(int courseIndex, int itemIndex)
+    {
+        var course = newMenu.Courses[courseIndex];
+        if (course.Items.Count <= 1)
+        {
+            menuModalError = "Each course needs at least one item.";
+            return;
+        }
+
+        course.Items.RemoveAt(itemIndex);
+    }
+
+    async Task SaveMenu()
+    {
+        menuModalError = "";
+        menuFieldErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(newMenu.Name)) menuFieldErrors[nameof(newMenu.Name)] = "Menu name is required.";
+        if (newMenu.PricePerPerson <= 0) menuFieldErrors[nameof(newMenu.PricePerPerson)] = "Price must be greater than 0.";
+        if (string.IsNullOrWhiteSpace(newMenu.Description)) menuFieldErrors[nameof(newMenu.Description)] = "Description is required.";
+        if (newMenu.Courses.Count == 0) menuModalError = "Add at least one course.";
+
+        foreach (var course in newMenu.Courses)
+        {
+            if (string.IsNullOrWhiteSpace(course.Label)) menuModalError = "Every course needs a name.";
+            if (course.Items.Count == 0) menuModalError = "Every course needs at least one item.";
+
+            foreach (var menuItem in course.Items)
+            {
+                if (string.IsNullOrWhiteSpace(menuItem.Name)) menuModalError = "Every item needs a name.";
+            }
+        }
+
+        if (menuFieldErrors.Count > 0 || !string.IsNullOrWhiteSpace(menuModalError))
+        {
+            if (string.IsNullOrWhiteSpace(menuModalError))
+                menuModalError = "Please fix the highlighted fields.";
+            return;
+        }
+
+        var savedMenu = CloneMenu(newMenu);
+
+        if (editingMenuId is int menuId)
+        {
+            savedMenu.Id = menuId;
+
+            var index = menus.FindIndex(menu => menu.Id == menuId);
+            if (index >= 0)
+                menus[index] = savedMenu;
+
+            CloseMenuModal();
+            ShowToast($"\"{savedMenu.Name}\" updated locally.");
+            return;
+        }
+
+        try
+        {
+            var created = await Api.CreateMenuAsync(ToMenuEntity(newMenu));
+            menus.Add(ToAdminMenu(created));
+            CloseMenuModal();
+            ShowToast($"\"{newMenu.Name}\" added.");
+        }
+        catch (Exception ex)
+        {
+            menuModalError = $"Could not add menu: {ex.Message}";
+        }
+    }
+
+    void DeleteMenu(int id)
+    {
+        var item = menus.FirstOrDefault(m => m.Id == id);
+        OpenConfirm("Delete menu?", $"Delete \"{item?.Name ?? "this menu"}\"? This cannot be undone.", "Delete menu", "menu", id);
+    }
+
+    static AdminMenuModel CloneMenu(AdminMenuModel menu) => new()
+    {
+        Id = menu.Id,
+        Name = menu.Name.Trim(),
+        DietaryType = menu.DietaryType,
+        PricePerPerson = menu.PricePerPerson,
+        Description = menu.Description.Trim(),
+        Courses = menu.Courses.Select(course => new AdminMenuCourseModel
+        {
+            Label = course.Label.Trim(),
+            Items = course.Items.Select(menuItem => new AdminMenuItemModel
+            {
+                Name = menuItem.Name.Trim(),
+                Description = menuItem.Description.Trim(),
+                DietaryTagsValue = ""
+            }).ToList()
+        }).ToList()
+    };
+
+    static WeddingPlannerApp.Models.Menu ToMenuEntity(AdminMenuModel menu)
+    {
+        var dietaryType = Enum.TryParse<MenuDietaryType>(
+            menu.DietaryType,
+            ignoreCase: true,
+            out var parsedType)
+            ? parsedType
+            : MenuDietaryType.Standard;
+
+        var entity = new WeddingPlannerApp.Models.Menu
+        {
+            Name = menu.Name.Trim(),
+            DietaryType = dietaryType,
+            Price = menu.PricePerPerson,
+            Description = menu.Description.Trim()
+        };
+
+        var displayOrder = 0;
+        foreach (var course in menu.Courses)
+        {
+            foreach (var item in course.Items)
+            {
+                entity.MenuItems.Add(new WeddingPlannerApp.Models.MenuItem
+                {
+                    CourseName = course.Label.Trim(),
+                    Name = item.Name.Trim(),
+                    Description = item.Description.Trim(),
+                    DisplayOrder = displayOrder++
+                });
+            }
+        }
+
+        return entity;
+    }
+
+    static AdminVenueModel CloneVenue(AdminVenueModel venue) => new()
+    {
+        Id = venue.Id,
+        Name = venue.Name,
+        Type = venue.Type,
+        Address = venue.Address,
+        MinCapacity = venue.MinCapacity,
+        MaxCapacity = venue.MaxCapacity,
+        EstimatedPrice = venue.EstimatedPrice,
+        Latitude = venue.Latitude,
+        Longitude = venue.Longitude,
+        ImagePath = venue.ImagePath,
+        ImageFolder = venue.ImageFolder,
+        Tags = venue.Tags.ToList()
+    };
+
+    void OpenConfirm(string title, string message, string confirmTextValue, string type, int id)
+    {
+        confirmTitle = title;
+        confirmMessage = message;
+        confirmText = confirmTextValue;
+        pendingDeleteType = type;
+        pendingDeleteId = id;
+        confirmOpen = true;
+    }
+
+    void CloseConfirm() => confirmOpen = false;
+
+    async Task ConfirmDelete()
+    {
+        if (pendingDeleteType == "event")
+        {
+            try
+            {
+                await Api.DeleteEventAsync(pendingDeleteId);
+                events.RemoveAll(x => x.Id == pendingDeleteId);
+                if (expandedEventId == pendingDeleteId) expandedEventId = null;
+                ShowToast("Event removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete event: {ex.Message}", error: true);
+            }
+        }
+        else if (pendingDeleteType == "venue")
+        {
+            try
+            {
+                await Api.DeleteVenueAsync(pendingDeleteId);
+                venues.RemoveAll(x => x.Id == pendingDeleteId);
+                ShowToast("Venue removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete venue: {ex.Message}", error: true);
+            }
+        }
+        else if (pendingDeleteType == "menu")
+        {
+            try
+            {
+                await Api.DeleteMenuAsync(pendingDeleteId);
+                menus.RemoveAll(x => x.Id == pendingDeleteId);
+                ShowToast("Menu removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete menu: {ex.Message}", error: true);
+            }
+        }
+
+        CloseConfirm();
+    }
+
+    string PrimaryVenueTag => newVenue.Tags.FirstOrDefault() ?? "Select a tag";
+
+    bool IsVenueTagSelected(string tag) => newVenue.Tags.Contains(tag);
+
+    void ToggleVenueTag(string tag)
+    {
+        if (newVenue.Tags.Contains(tag))
+        {
+            newVenue.Tags.Remove(tag);
+            return;
+        }
+
+        newVenue.Tags.Add(tag);
+    }
+
+    bool HasVenueError(string field) => venueFieldErrors.ContainsKey(field);
+
+    bool HasMenuError(string field) => menuFieldErrors.ContainsKey(field);
+
+    RenderFragment VenueFieldError(string field) => builder =>
+    {
+        if (!venueFieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+
+    RenderFragment MenuFieldError(string field) => builder =>
+    {
+        if (!menuFieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
 
     void ShowToast(string msg, bool error = false)
     {
@@ -981,29 +992,50 @@
         toastTimer.Start();
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    protected override async Task OnInitializedAsync() => await LoadAdminData();
 
-    string StatusBadgeClass(string status) => status switch
+    async Task LoadAdminData()
     {
-        "pending" => "badge-pending",
-        "confirmed" => "badge-confirmed",
-        "rejected" => "badge-rejected",
-        "completed" => "badge-completed",
-        _ => ""
-    };
-
-    MarkupString StatusIcon(string status)
-    {
-        var svg = status switch
+        try
         {
-            "pending" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>",
-            "confirmed" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>",
-            "rejected" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><line x1='18' y1='6' x2='6' y2='18'/><line x1='6' y1='6' x2='18' y2='18'/></svg>",
-            "completed" => "<svg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/><polyline points='22 4 12 14.01 9 11.01'/></svg>",
-            _ => ""
-        };
-        return new MarkupString(svg);
+            var venueDtos = await Api.GetVenuesAsync();
+            venues = venueDtos.Select(ToAdminVenue).ToList();
+            var venueNames = venueDtos.ToDictionary(v => v.VenueId, v => v.Name);
+
+            var menuEntities = await Api.GetMenusAsync();
+            menus = menuEntities.Select(ToAdminMenu).ToList();
+            var menuNames = menuEntities.ToDictionary(menu => menu.MenuId, menu => menu.Name);
+
+            var eventDtos = await Api.GetEventsAsync();
+            var loadedEvents = new List<AdminEventModel>();
+            foreach (var eventDto in eventDtos)
+            {
+                var guestCount = 0;
+                try
+                {
+                    guestCount = (await Api.GetGuestsAsync(eventDto.EventId)).Count;
+                }
+                catch
+                {
+                    guestCount = eventDto.EstimatedGuests;
+                }
+
+                loadedEvents.Add(ToAdminEvent(eventDto, venueNames, menuNames, guestCount));
+            }
+
+            events = loadedEvents;
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not load admin data: {ex.Message}", error: true);
+        }
     }
 
-    public void Dispose() => toastTimer?.Dispose();
+    static VenueTag? ToVenueTag(string tag) =>
+        Enum.TryParse<VenueTag>(tag, ignoreCase: true, out var venueTag) ? venueTag : null;
+
+    public void Dispose()
+    {
+        toastTimer?.Dispose();
+    }
 }

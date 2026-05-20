@@ -1,0 +1,97 @@
+ @using WeddingPlannerApp.Components.LayoutPaula
+
+<ModalShell IsOpen="IsOpen" Title="Add Expense" OnClose="Close">
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="error-banner">@error</div>
+    }
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Name *</label>
+            <input class="input @(HasError(nameof(name)) ? "field-invalid" : "")" placeholder="e.g. Florist deposit" @bind="name" @bind:event="oninput" />
+            @FieldError(nameof(name))
+        </div>
+        <div class="field">
+            <label>Category</label>
+            <select class="input select-input" @bind="category">
+                @foreach (var c in Categories) { <option value="@c">@c</option> }
+            </select>
+        </div>
+    </div>
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Estimated ($) *</label>
+            <input type="number" inputmode="numeric" step="1" class="input @(HasError(nameof(estimated)) ? "field-invalid" : "")" min="0" placeholder="0" @bind="estimated" @bind:event="oninput" />
+            @FieldError(nameof(estimated))
+        </div>
+        <div class="field">
+            <label>Actual ($)</label>
+            <input type="number" inputmode="numeric" step="1" class="input @(HasError(nameof(actual)) ? "field-invalid" : "")" min="0" placeholder="0" @bind="actual" @bind:event="oninput" />
+            @FieldError(nameof(actual))
+        </div>
+    </div>
+    <button class="btn-add-guest" @onclick="Submit">
+        @SvgIcons.Plus Add Expense
+    </button>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public IReadOnlyList<string> Categories { get; set; } = Array.Empty<string>();
+    [Parameter] public EventCallback<BudgetDraft> OnAdd { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    string error = "";
+    string name = "";
+    string category = "Other";
+    int estimated;
+    int actual;
+    Dictionary<string, string> fieldErrors = new();
+
+    protected override void OnParametersSet()
+    {
+        if (!Categories.Contains(category))
+            category = Categories.FirstOrDefault() ?? "Other";
+    }
+
+    async Task Submit()
+    {
+        error = "";
+        fieldErrors.Clear();
+        if (string.IsNullOrWhiteSpace(name)) fieldErrors[nameof(name)] = "Name is required.";
+        if (estimated <= 0) fieldErrors[nameof(estimated)] = "Estimated cost must be greater than 0.";
+        if (actual < 0) fieldErrors[nameof(actual)] = "Actual cost cannot be negative.";
+        if (fieldErrors.Count > 0) { error = "Please fix the highlighted fields."; return; }
+
+        await OnAdd.InvokeAsync(new BudgetDraft(name.Trim(), category, estimated, actual));
+        Reset();
+        await OnClose.InvokeAsync();
+    }
+
+    async Task Close()
+    {
+        Reset();
+        await OnClose.InvokeAsync();
+    }
+
+    void Reset()
+    {
+        error = "";
+        fieldErrors.Clear();
+        name = "";
+        category = Categories.Contains("Other") ? "Other" : Categories.FirstOrDefault() ?? "Other";
+        estimated = 0;
+        actual = 0;
+    }
+
+    bool HasError(string field) => fieldErrors.ContainsKey(field);
+
+    RenderFragment FieldError(string field) => builder =>
+    {
+        if (!fieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+}

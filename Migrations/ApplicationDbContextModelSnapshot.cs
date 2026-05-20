@@ -17,6 +17,21 @@ namespace WeddingPlannerApp.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.5");
 
+            modelBuilder.Entity("EventMenu", b =>
+                {
+                    b.Property<int>("EventId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MenuId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("EventId", "MenuId");
+
+                    b.HasIndex("MenuId");
+
+                    b.ToTable("EventMenus", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.Property<int>("Id")
@@ -319,9 +334,6 @@ namespace WeddingPlannerApp.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("MenuId")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -342,8 +354,6 @@ namespace WeddingPlannerApp.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("EventId");
-
-                    b.HasIndex("MenuId");
 
                     b.HasIndex("VenueId");
 
@@ -523,6 +533,39 @@ namespace WeddingPlannerApp.Migrations
                     b.ToTable("Menus");
                 });
 
+            modelBuilder.Entity("WeddingPlannerApp.Models.MenuItem", b =>
+                {
+                    b.Property<int>("MenuItemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CourseName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MenuId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("MenuItemId");
+
+                    b.HasIndex("MenuId");
+
+                    b.ToTable("MenuItems");
+                });
+
             modelBuilder.Entity("WeddingPlannerApp.Models.ScheduleItem", b =>
                 {
                     b.Property<int>("ScheduleItemId")
@@ -692,6 +735,21 @@ namespace WeddingPlannerApp.Migrations
                     b.ToTable("WeddingTables");
                 });
 
+            modelBuilder.Entity("EventMenu", b =>
+                {
+                    b.HasOne("WeddingPlannerApp.Models.Event", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WeddingPlannerApp.Models.Menu", null)
+                        .WithMany()
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.HasOne("WeddingPlannerApp.Data.ApplicationRole", null)
@@ -808,19 +866,11 @@ namespace WeddingPlannerApp.Migrations
 
             modelBuilder.Entity("WeddingPlannerApp.Models.Event", b =>
                 {
-                    b.HasOne("WeddingPlannerApp.Models.Menu", "Menu")
-                        .WithMany("Events")
-                        .HasForeignKey("MenuId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("WeddingPlannerApp.Models.Venue", "Venue")
                         .WithMany("Events")
                         .HasForeignKey("VenueId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Menu");
 
                     b.Navigation("Venue");
                 });
@@ -879,6 +929,17 @@ namespace WeddingPlannerApp.Migrations
                     b.Navigation("Event");
 
                     b.Navigation("WeddingTable");
+                });
+
+            modelBuilder.Entity("WeddingPlannerApp.Models.MenuItem", b =>
+                {
+                    b.HasOne("WeddingPlannerApp.Models.Menu", "Menu")
+                        .WithMany("MenuItems")
+                        .HasForeignKey("MenuId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Menu");
                 });
 
             modelBuilder.Entity("WeddingPlannerApp.Models.ScheduleItem", b =>
@@ -946,7 +1007,7 @@ namespace WeddingPlannerApp.Migrations
 
             modelBuilder.Entity("WeddingPlannerApp.Models.Menu", b =>
                 {
-                    b.Navigation("Events");
+                    b.Navigation("MenuItems");
                 });
 
             modelBuilder.Entity("WeddingPlannerApp.Models.Supplier", b =>

@@ -1,8 +1,19 @@
-﻿@page "/onboarding"
+@page "/onboarding"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@layout PaulaLayout
 @rendermode InteractiveServer
 @inject NavigationManager Nav
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Components.PagesPaula.OnboardingComponents
+@using WeddingPlannerApp.DTOs.Event
+@using WeddingPlannerApp.DTOs.Venue
 
 <div class="page-center">
+    <GreenHeartfall Class="onboarding-heartfall" />
+
     <div class="progress-steps">
         @for (int i = 0; i < steps.Length; i++)
         {
@@ -51,10 +62,11 @@
 
                 <div class="field">
                     <label>Event Name</label>
-                    <input class="input"
+                    <input class="input @(HasFieldError(nameof(eventName)) ? "field-invalid" : "")"
                            placeholder="e.g. Sarah & Tom's Wedding"
                            @bind="eventName"
                            @bind:event="oninput" />
+                    @FieldError(nameof(eventName))
                 </div>
 
                 <div class="field">
@@ -82,9 +94,10 @@
 
                 <div class="field centered">
                     <input type="date"
-                           class="input date-input"
+                           class="input date-input @(HasFieldError(nameof(date)) ? "field-invalid" : "")"
                            min="@DateTime.Today.ToString("yyyy-MM-dd")"
                            @bind="date" />
+                    @FieldError(nameof(date))
                 </div>
 
                 @if (date.HasValue)
@@ -109,11 +122,12 @@
 
                 <div class="field centered">
                     <input type="number"
-                           class="input number-input"
+                           class="input number-input @(HasFieldError(nameof(guestCount)) ? "field-invalid" : "")"
                            min="1"
                            placeholder="Number of guests"
                            @bind-value="guestCount"
                            @bind-value:event="oninput" />
+                    @FieldError(nameof(guestCount))
                 </div>
 
                 <div class="quick-picks">
@@ -135,28 +149,38 @@
             <div class="step-content step-anim @(stepDir >= 0 ? "step-forward" : "step-backward")" @key="step">
                 <div class="step-header">
                     <h2>Choose a venue</h2>
-                    <p>Venues matching your @guestCount guests · or skip and decide later</p>
+                    <p>Venues matching your @guestCount guests on @date!.Value.ToString("MMM d, yyyy")</p>
                 </div>
 
-                @if (filteredVenues.Any())
+                @if (isLoadingVenues)
+                {
+                    <div class="empty-venues">
+                        <p>Loading venues...</p>
+                    </div>
+                }
+                else if (availableVenues.Any())
                 {
                     <div class="venue-grid">
-                        @foreach (var v in filteredVenues)
+                        @foreach (var v in availableVenues)
                         {
                             var venue = v;
                             <button type="button"
-                                    class="venue-card @(selectedVenue == venue.Id ? "venue-card-active" : "")"
-                                    @onclick="@(() => selectedVenue = venue.Id)">
+                                    class="venue-card @(selectedVenue == venue.VenueId ? "venue-card-active" : "")"
+                                    @onclick="@(() => selectedVenue = venue.VenueId)">
                                 <div class="venue-img-wrap">
-                                    <img src="@venue.Image" alt="@venue.Name" class="venue-img" />
-                                    @if (selectedVenue == venue.Id)
+                                    <img src="@VenueImage(venue)" alt="@venue.Name" class="venue-img" />
+                                    @if (selectedVenue == venue.VenueId)
                                     {
-                                        <div class="venue-check">✓</div>
+                                        <div class="venue-check">@SvgIcons.CheckSmall</div>
                                     }
                                 </div>
                                 <div class="venue-info">
                                     <p class="venue-name">@venue.Name</p>
-                                    <p class="venue-meta">@venue.Type · @venue.MinCapacity–@venue.MaxCapacity guests</p>
+                                    <p class="venue-meta">@VenueType(venue) - @venue.MinCapacity-@venue.MaxCapacity guests</p>
+                                    @if (venue.EstimatedPrice > 0)
+                                    {
+                                        <p class="venue-meta">est. $@venue.EstimatedPrice.ToString("N0")</p>
+                                    }
                                 </div>
                             </button>
                         }
@@ -165,25 +189,30 @@
                 else
                 {
                     <div class="empty-venues">
-                        <span class="empty-icon">⚠</span>
-                        <p>No venues match @guestCount guests. Try adjusting your guest count.</p>
+                        <span class="empty-icon">@SvgIcons.AlertCircle</span>
+                        <p>No venues are available for @guestCount guests on @date!.Value.ToString("MMM d, yyyy"). Try another date or guest count.</p>
                     </div>
                 }
 
-                @if (unavailableVenues.Any() && filteredVenues.Any())
+                @if (unavailableVenues.Any())
                 {
                     <div class="unavailable-section">
-                        <p class="unavailable-label">Not available for @guestCount guests:</p>
+                        <p class="unavailable-label">Unavailable for this date or guest count:</p>
                         <div class="venue-grid faded">
                             @foreach (var v in unavailableVenues)
                             {
                                 <div class="venue-card">
                                     <div class="venue-img-wrap">
-                                        <img src="@v.Image" alt="@v.Name" class="venue-img grayscale" />
+                                        <img src="@VenueImage(v)" alt="@v.Name" class="venue-img grayscale" />
                                     </div>
                                     <div class="venue-info">
                                         <p class="venue-name">@v.Name</p>
-                                        <p class="venue-meta">@v.Type · @v.MinCapacity–@v.MaxCapacity guests</p>
+                                        <p class="venue-meta">@VenueType(v) - @v.MinCapacity-@v.MaxCapacity guests</p>
+                                        @if (v.EstimatedPrice > 0)
+                                        {
+                                            <p class="venue-meta">est. $@v.EstimatedPrice.ToString("N0")</p>
+                                        }
+                                        <p class="venue-meta">@UnavailableReason(v)</p>
                                     </div>
                                 </div>
                             }
@@ -198,38 +227,33 @@
                     class="btn-back"
                     @onclick="Prev"
                     disabled="@(step == 0)">
-                ← Back
+                @SvgIcons.ArrowLeft Back
             </button>
             <button type="button"
                     class="btn-next"
-                    @onclick="Next">
-                @(step == 3 ? "Start Planning" : "Next")
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-left:.3rem">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                </svg>
+                    @onclick="Next"
+                    disabled="@isSubmitting">
+                @(isSubmitting ? "Creating..." : step == 3 ? "Start Planning" : "Next")
+                @SvgIcons.ArrowRight
             </button>
         </div>
 
     </div>
 </div>
 
-@using System.Collections.Generic
-@using System.ComponentModel.DataAnnotations
-@using Microsoft.EntityFrameworkCore
-
 @code {
     int step = 0;
     int stepDir = 1; // 1 = forward, -1 = backward
     string errorMsg = "";
+    Dictionary<string, string> fieldErrors = new();
 
     string eventName = "";
-    // eventType is always "Wedding" — app is wedding-only, no field needed
     DateTime? date = null;
     int guestCount = 0;
     int? selectedVenue = null;
-
-    record StepMeta(MarkupString SvgIcon, string Label);
+    bool isLoadingVenues = true;
+    bool isSubmitting = false;
+    List<EventDto> existingEvents = new();
     StepMeta[] steps = new[]
     {
         new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/></svg>"), "Event Details"),
@@ -238,50 +262,179 @@
         new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>"), "Choose Venue"),
     };
 
-    List<Venue> venues = new()
+    List<VenueDto> venues = new();
+
+    List<VenueDto> availableVenues => venues
+        .Where(v => IsCapacityMatch(v) && !IsBookedOnSelectedDate(v.VenueId))
+        .ToList();
+
+    List<VenueDto> unavailableVenues => venues
+        .Where(v => !IsCapacityMatch(v) || IsBookedOnSelectedDate(v.VenueId))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
     {
-        new Venue { Id = 1, Name = "Rosewood Gardens",  Image = "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=400&q=80", MinCapacity = 50,  MaxCapacity = 200, Type = "Garden"     },
-        new Venue { Id = 2, Name = "The Grand Ballroom", Image = "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=400&q=80", MinCapacity = 100, MaxCapacity = 500, Type = "Indoor"     },
-        new Venue { Id = 3, Name = "Lakeside Pavilion",  Image = "https://images.unsplash.com/photo-1478146059778-26028b07395a?w=400&q=80", MinCapacity = 30,  MaxCapacity = 150, Type = "Waterfront" },
-        new Venue { Id = 4, Name = "Vineyard Estate",    Image = "https://images.unsplash.com/photo-1510076857177-7470076d4098?w=400&q=80", MinCapacity = 80,  MaxCapacity = 300, Type = "Countryside"},
-    };
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.IsInRole("Admin"))
+            {
+                Nav.NavigateTo("/admin", replace: true);
+                return;
+            }
 
-    List<Venue> filteredVenues => venues.Where(v => guestCount >= v.MinCapacity && guestCount <= v.MaxCapacity).ToList();
-    List<Venue> unavailableVenues => venues.Where(v => guestCount < v.MinCapacity || guestCount > v.MaxCapacity).ToList();
+            venues = await Api.GetVenuesAsync();
+            existingEvents = await Api.GetEventsAsync();
+            selectedVenue = availableVenues.FirstOrDefault()?.VenueId;
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Could not load venues: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingVenues = false;
+        }
+    }
 
-    void Next()
+    async Task Next()
     {
         errorMsg = "";
+        fieldErrors.Clear();
         stepDir = 1;
 
         if (step == 0 && string.IsNullOrWhiteSpace(eventName))
-        { errorMsg = "Please enter your event name."; return; }
+        {
+            fieldErrors[nameof(eventName)] = "Event name is required.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
 
         if (step == 1 && date == null)
-        { errorMsg = "Please select a date."; return; }
+        {
+            fieldErrors[nameof(date)] = "Date is required.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
+
+        if (step == 1 && selectedVenue.HasValue && IsBookedOnSelectedDate(selectedVenue.Value))
+        {
+            selectedVenue = null;
+        }
 
         if (step == 2 && guestCount <= 0)
-        { errorMsg = "Please enter the number of guests."; return; }
+        {
+            fieldErrors[nameof(guestCount)] = "Guest count must be greater than 0.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
+
+        if (step == 3 && selectedVenue is null && availableVenues.Count > 0)
+        {
+            fieldErrors[nameof(selectedVenue)] = "Choose a venue to create your event.";
+            errorMsg = "Please fix the highlighted field.";
+            return;
+        }
+
+        if (step == 3 && selectedVenue.HasValue && IsBookedOnSelectedDate(selectedVenue.Value))
+        {
+            selectedVenue = null;
+            fieldErrors[nameof(selectedVenue)] = "That venue is already booked for your selected date.";
+            errorMsg = "Please choose an available venue.";
+            return;
+        }
 
         if (step < 3) { step++; }
-        else { Nav.NavigateTo("/dashboard"); }
+        else { await CreateEvent(); }
+    }
+
+    async Task CreateEvent()
+    {
+        if (selectedVenue is null)
+        {
+            errorMsg = "Choose a venue to create your event.";
+            return;
+        }
+
+        if (IsBookedOnSelectedDate(selectedVenue.Value))
+        {
+            errorMsg = "That venue is already booked for your selected date. Please choose another venue.";
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var created = await Api.CreateEventAsync(new EventCreateDto
+            {
+                VenueId = selectedVenue.Value,
+                Name = eventName.Trim(),
+                EventDate = date!.Value,
+                EstimatedGuests = guestCount,
+                TotalBudget = 0,
+                Notes = "Menu can be selected after creating the event."
+            });
+
+            if (created is null)
+            {
+                errorMsg = "The event was created, but the response was empty.";
+                return;
+            }
+
+            Nav.NavigateTo($"/dashboard/{created.EventId}");
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Could not create event. Details: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     void Prev()
     {
         errorMsg = "";
+        fieldErrors.Clear();
         stepDir = -1;
         if (step > 0) step--;
     }
 
-    class Venue
+    bool HasFieldError(string field) => fieldErrors.ContainsKey(field);
+
+    bool IsCapacityMatch(VenueDto venue) =>
+        guestCount >= venue.MinCapacity && guestCount <= venue.MaxCapacity;
+
+    bool IsBookedOnSelectedDate(int venueId) =>
+        date.HasValue &&
+        existingEvents.Any(e => e.VenueId == venueId && e.EventDate.Date == date.Value.Date);
+
+    string UnavailableReason(VenueDto venue)
     {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Image { get; set; } = "";
-        public string Type { get; set; } = "";
-        public int MinCapacity { get; set; }
-        public int MaxCapacity { get; set; }
+        if (IsBookedOnSelectedDate(venue.VenueId))
+            return $"Already booked on {date!.Value:MMM d, yyyy}";
+
+        if (!IsCapacityMatch(venue))
+            return $"Does not fit {guestCount} guests";
+
+        return "Unavailable";
     }
+
+    static string VenueImage(VenueDto venue) =>
+        !string.IsNullOrWhiteSpace(venue.ImagePath) ? venue.ImagePath : "/images/venues/placeholder.svg";
+
+    static string VenueType(VenueDto venue) =>
+        venue.Tags?.ToString() ?? "Venue";
+
+    RenderFragment FieldError(string field) => builder =>
+    {
+        if (!fieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+
 }
 

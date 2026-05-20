@@ -27,13 +27,10 @@ public enum Group
 
 public enum DietaryRequirements
 {
-    None,
+    Standard,
     Vegan,
     Vegetarian,
-    GlutenFree,
-    Halal,
-    Kosher,
-    Other
+    Fasting
 }
 
 public class Guest
@@ -65,7 +62,7 @@ public class Guest
     
     public RsvpStatus           RsvpStatus          { get; set; } = RsvpStatus.Pending;
     public Group                Group               { get; set; } = Group.Other;
-    public DietaryRequirements  DietaryRequirements { get; set; } = DietaryRequirements.None;
+    public DietaryRequirements  DietaryRequirements { get; set; } = DietaryRequirements.Standard;
     
     public bool HasPlusOne { get; set; } = false;
     public int? SeatNumber { get; set; }

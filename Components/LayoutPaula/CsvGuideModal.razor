@@ -1,0 +1,50 @@
+@using Microsoft.AspNetCore.Components.Forms
+
+<ModalShell IsOpen="IsOpen"
+            Title="@Title"
+            ExtraClass="csv-guide-box"
+            OnClose="HandleClose">
+    <div class="csv-two-col">
+        <div class="csv-left">
+            <p class="csv-section-title">@AcceptedTitle</p>
+            <div class="csv-formats">
+                <span class="csv-format-tag">.csv</span>
+                <span class="csv-format-note">@AcceptedNote</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(IntroNote))
+            {
+                <p class="vendor-csv-note">@IntroNote</p>
+            }
+            <p class="csv-section-title" style="margin-top:1rem;">Columns</p>
+            <div class="csv-col-table">
+                <div class="csv-col-head"><span>Column</span><span>Req.</span><span>Valid values</span></div>
+                @foreach (var column in Columns)
+                {
+                    <div class="csv-col-row">
+                        <span class="csv-col-name">@column.Name</span>
+                        <span class="csv-req @(column.Required ? "yes" : "no")">@(column.Required ? "Yes" : "No")</span>
+                        <span class="csv-col-vals">@column.ValidValues</span>
+                    </div>
+                }
+            </div>
+            @LeftFooter
+        </div>
+        <div class="csv-right">
+            @UploadContent
+        </div>
+    </div>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Import CSV";
+    [Parameter] public string AcceptedTitle { get; set; } = "Accepted format";
+    [Parameter] public string AcceptedNote { get; set; } = "Only .csv files are accepted. Excel files must be saved as CSV first.";
+    [Parameter] public string IntroNote { get; set; } = "";
+    [Parameter] public IReadOnlyList<CsvGuideColumn> Columns { get; set; } = Array.Empty<CsvGuideColumn>();
+    [Parameter] public RenderFragment? LeftFooter { get; set; }
+    [Parameter] public RenderFragment? UploadContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    Task HandleClose() => OnClose.InvokeAsync();
+}

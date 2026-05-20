@@ -1,13 +1,16 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WeddingPlannerApp.Data;
-using WeddingPlannerApp.Models;
 using WeddingPlannerApp.DTOs.Event;
+using WeddingPlannerApp.Models;
 
 namespace WeddingPlannerApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class EventsController(ApplicationDbContext context) : ControllerBase
 {
     // GET: api/Events
@@ -19,7 +22,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
             {
                 EventId = e.EventId,
                 VenueId = e.VenueId,
-                MenuId = e.MenuId,
+                MenuIds = e.Menus.Select(m => m.MenuId).ToList(),
                 Name = e.Name,
                 BrideName = e.BrideName,
                 GroomName = e.GroomName,
@@ -31,11 +34,11 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
                 UpdatedAt = e.UpdatedAt
             })
             .ToListAsync();
-        
+
         return Ok(events);
     }
-    
-    // Get: api/Events/{id}
+
+    // GET: api/Events/{id}
     [HttpGet("{id:int}")]
     public async Task<ActionResult<EventDto>> GetById(int id)
     {
@@ -45,7 +48,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
             {
                 EventId = e.EventId,
                 VenueId = e.VenueId,
-                MenuId = e.MenuId,
+                MenuIds = e.Menus.Select(m => m.MenuId).ToList(),
                 Name = e.Name,
                 BrideName = e.BrideName,
                 GroomName = e.GroomName,
@@ -57,29 +60,110 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
                 UpdatedAt = e.UpdatedAt
             })
             .SingleOrDefaultAsync();
-        
+
         if (eventItem == null)
             return NotFound();
 
         return Ok(eventItem);
     }
     
+    // GET: api/Events/{eventId}/MenuSelections
+    // returns a list of menu selections for the event
+    [HttpGet("{eventId:int}/MenuSelections")]
+    public async Task<ActionResult<IEnumerable<EventMenuSelectionDto>>> GetMenuSelections(int eventId)
+    {
+        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
+        if (!eventExists)
+            return NotFound($"Event with id: {eventId} was not found.");
+
+        var menuSelections = await context.Events
+            .Where(e => e.EventId == eventId)
+            .SelectMany(e => e.Menus)
+            .Select(m => new EventMenuSelectionDto
+            {
+                MenuId = m.MenuId,
+                Name = m.Name,
+                Price = m.Price,
+                DietaryType = m.DietaryType,
+                Description = m.Description,
+                Items = m.MenuItems
+                    .OrderBy(mi => mi.DisplayOrder)
+                    .Select(mi => new EventMenuSelectionItemDto
+                    {
+                        MenuItemId = mi.MenuItemId,
+                        CourseName = mi.CourseName,
+                        Name = mi.Name,
+                        Description = mi.Description,
+                        DisplayOrder = mi.DisplayOrder
+                    })
+                    .ToList()
+            })
+            .ToListAsync();
+
+        return Ok(menuSelections);
+    }
+    
+    // PUT: api/Events/{eventId}/MenuSelections
+    // updates the menu selections for the event
+    [HttpPut("{eventId:int}/MenuSelections")]
+    public async Task<IActionResult> UpdateMenuSelections(int eventId, [FromBody] EventMenuSelectionsUpdateDto model)
+    {
+        var eventItem = await context.Events
+            .Include(e => e.Menus)
+            .SingleOrDefaultAsync(e => e.EventId == eventId);
+
+        if (eventItem == null)
+            return NotFound($"Event with id: {eventId} was not found.");
+
+        var menuIds = model.MenuIds.Distinct().ToList();
+
+        var menus = await context.Menus
+            .Where(m => menuIds.Contains(m.MenuId))
+            .ToListAsync();
+
+        if (menus.Count != menuIds.Count)
+            return BadRequest("One or more menu ids do not exist.");
+
+        eventItem.Menus.Clear();
+
+        foreach (var menu in menus)
+        {
+            eventItem.Menus.Add(menu);
+        }
+
+        eventItem.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
+    
+
     // POST: api/Events
     [HttpPost]
     public async Task<ActionResult<EventDto>> Create([FromBody] EventCreateDto model)
     {
+        var userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdText, out var userId))
+            return Unauthorized();
+
         var venueExists = await context.Venues.AnyAsync(v => v.VenueId == model.VenueId);
         if (!venueExists)
             return BadRequest($"Venue with id {model.VenueId} doesn't exist.");
-        
-        var menuExists = await context.Menus.AnyAsync(m => m.MenuId == model.MenuId);
-        if (!menuExists)
-            return BadRequest($"Menu with id {model.MenuId} was not found.");
 
+        var userAlreadyHasEvent = await context.UserEvents.AnyAsync(ue => ue.UserId == userId);
+        if (userAlreadyHasEvent)
+            return BadRequest("This user already has an event.");
+        
+        // check if an event already exists for this date and venue
+        var eventExists = await context.Events.AnyAsync(e => e.EventDate == model.EventDate && e.VenueId == model.VenueId);
+        if (eventExists)
+            return BadRequest("An event already exists for this date and venue.");       
+        
         var entity = new Event
         {
             VenueId = model.VenueId,
-            MenuId = model.MenuId,
             Name = model.Name,
             BrideName = model.BrideName,
             GroomName = model.GroomName,
@@ -89,46 +173,71 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
             Notes = model.Notes
         };
 
+        var menuIds = model.MenuIds?.Distinct().ToList() ?? [];
+        if (menuIds.Count > 0)
+        {
+            var menus = await context.Menus
+                .Where(m => menuIds.Contains(m.MenuId))
+                .ToListAsync();
+
+            if (menus.Count != menuIds.Count)
+                return BadRequest("One or more menu ids do not exist.");
+
+            entity.Menus = menus;
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
         context.Events.Add(entity);
         await context.SaveChangesAsync();
 
-        var result = new EventDto
+        context.UserEvents.Add(new UserEvent
         {
-            EventId = entity.EventId,
-            VenueId = entity.VenueId,
-            MenuId = entity.MenuId,
-            Name = entity.Name,
-            BrideName = entity.BrideName,
-            GroomName = entity.GroomName,
-            EventDate = entity.EventDate,
-            EstimatedGuests = entity.EstimatedGuests,
-            TotalBudget = entity.TotalBudget,
-            Notes = entity.Notes,
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
-        };
-        
-        return CreatedAtAction(nameof(GetById), new {id = result.EventId}, result);
+            UserId = userId,
+            EventId = entity.EventId
+        });
+        await context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        var result = ToDto(entity);
+        return CreatedAtAction(nameof(GetById), new { id = result.EventId }, result);
     }
-    
-    // POST: api/Events/{id}
+
+    // PUT: api/Events/{id}
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] EventUpdateDto model)
     {
-        var eventItem = await context.Events.FindAsync(id);
+        var eventItem = await context.Events
+            .Include(e => e.Menus)
+            .SingleOrDefaultAsync(e => e.EventId == id);
+
         if (eventItem == null)
             return NotFound($"Event with id: {id} was not found.");
-        
+
         var venueExists = await context.Venues.AnyAsync(v => v.VenueId == model.VenueId);
         if (!venueExists)
             return BadRequest($"Venue with id {model.VenueId} was not found.");
 
-        var menuExists = await context.Menus.AnyAsync(m => m.MenuId == model.MenuId);
-        if (!menuExists)
-            return BadRequest($"Menu with id {model.MenuId} was not found.");
-        
         eventItem.VenueId = model.VenueId;
-        eventItem.MenuId = model.MenuId;
+        eventItem.Menus.Clear();
+
+        var menuIds = model.MenuIds?.Distinct().ToList() ?? [];
+        if (menuIds.Count > 0)
+        {
+            var menus = await context.Menus
+                .Where(m => menuIds.Contains(m.MenuId))
+                .ToListAsync();
+
+            if (menus.Count != menuIds.Count)
+                return BadRequest("One or more menu ids do not exist.");
+
+            foreach (var menu in menus)
+            {
+                eventItem.Menus.Add(menu);
+            }
+        }
+
         eventItem.Name = model.Name;
         eventItem.BrideName = model.BrideName;
         eventItem.GroomName = model.GroomName;
@@ -141,7 +250,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         await context.SaveChangesAsync();
         return NoContent();
     }
-    
+
     // DELETE: api/Events/{id}
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
@@ -149,10 +258,26 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         var eventItem = await context.Events.FindAsync(id);
         if (eventItem == null)
             return NotFound();
-        
+
         context.Events.Remove(eventItem);
         await context.SaveChangesAsync();
-        
+
         return NoContent();
     }
+
+    static EventDto ToDto(Event entity) => new()
+    {
+        EventId = entity.EventId,
+        VenueId = entity.VenueId,
+        MenuIds = entity.Menus.Select(m => m.MenuId).ToList(),
+        Name = entity.Name,
+        BrideName = entity.BrideName,
+        GroomName = entity.GroomName,
+        EventDate = entity.EventDate,
+        EstimatedGuests = entity.EstimatedGuests,
+        TotalBudget = entity.TotalBudget,
+        Notes = entity.Notes,
+        CreatedAt = entity.CreatedAt,
+        UpdatedAt = entity.UpdatedAt
+    };
 }

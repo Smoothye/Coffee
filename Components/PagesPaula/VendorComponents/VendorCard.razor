@@ -1,0 +1,89 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="vendor-card @(Status == "confirmed" ? "vendor-card-booked" : "")" @key="Supplier.Id">
+    <div class="vendor-card-top">
+        <div class="vendor-card-info">
+            <h4 class="vendor-name">@Supplier.Name</h4>
+            <span class="vendor-cat-badge">@Supplier.Category</span>
+        </div>
+        @if (Status != null)
+        {
+            <span class="vendor-status-pill status-@Status">
+                @(Status == "confirmed" ? "Confirmed" : "In contact")
+            </span>
+        }
+    </div>
+
+    <div class="vendor-contacts">
+        @if (!string.IsNullOrEmpty(Supplier.Phone))
+        {
+            <div class="vendor-contact-row">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16.92z" /></svg>
+                @Supplier.Phone
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(Supplier.Email))
+        {
+            <div class="vendor-contact-row">
+                @SvgIcons.Mail
+                @Supplier.Email
+            </div>
+        }
+        <p class="vendor-notes">@Supplier.Description</p>
+        <div class="vendor-cost-row vendor-cost-edit">
+            <label><span>Estimated</span><input class="input vendor-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.EstimatedValue" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
+            <label><span>Actual</span><input class="input vendor-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.ActualValue" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
+        </div>
+        @if (!CanEditCosts)
+        {
+            <p class="vendor-budget-hint">Start contact before adding budget values.</p>
+        }
+    </div>
+
+    @if (EventSupplier != null)
+    {
+        <div class="vendor-notes-field">
+            <input class="input" style="font-size:.78rem;padding:.35rem .6rem;" placeholder="Add notes..." @bind="EventSupplier.Notes" />
+        </div>
+    }
+
+    <div class="vendor-actions">
+        @if (Status == null)
+        {
+            <button class="vendor-book-btn vendor-book-pending"
+                    style="background:linear-gradient(135deg,var(--sage),var(--sage-dark));color:#fff;border:none;box-shadow:0 3px 12px rgba(79,107,74,.3);"
+                    @onclick="@(() => OnSetStatus.InvokeAsync((Supplier.Id, "pending")))">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07" /><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /></svg>
+                Contact supplier
+            </button>
+        }
+        else if (Status == "pending")
+        {
+            <button class="vendor-book-btn vendor-book-booked"
+                    style="background:linear-gradient(135deg,var(--sage),var(--sage-dark));color:#fff;border:none;"
+                    @onclick="@(() => OnSetStatus.InvokeAsync((Supplier.Id, "confirmed")))">
+                @SvgIcons.Check Mark confirmed
+            </button>
+            <button class="btn-outline" style="font-size:.78rem;padding:.35rem .65rem;" @onclick="@(() => OnRemoveStatus.InvokeAsync(Supplier.Id))">Remove</button>
+        }
+        else if (Status == "confirmed")
+        {
+            <button class="vendor-book-btn vendor-book-booked" @onclick="@(() => OnSetStatus.InvokeAsync((Supplier.Id, "pending")))">
+                @SvgIcons.Check Confirmed
+            </button>
+            <button class="btn-outline" style="font-size:.78rem;padding:.35rem .65rem;" @onclick="@(() => OnRemoveStatus.InvokeAsync(Supplier.Id))">Remove</button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SupplierModel Supplier { get; set; } = new();
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public EventSupplierModel? EventSupplier { get; set; }
+    [Parameter] public EventCallback<(int SupplierId, string Status)> OnSetStatus { get; set; }
+    [Parameter] public EventCallback<int> OnRemoveStatus { get; set; }
+    [Parameter] public EventCallback<SupplierModel> OnSyncBudget { get; set; }
+
+    bool CanEditCosts => Status != null;
+    Task NotifyBudgetSync() => OnSyncBudget.InvokeAsync(Supplier);
+}

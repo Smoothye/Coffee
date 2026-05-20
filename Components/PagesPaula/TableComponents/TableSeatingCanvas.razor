@@ -1,0 +1,132 @@
+<div class="tables-canvas">
+    <div class="tables-control-panel">
+        <TableToolbar SeatedCount="SeatedCount"
+                      TotalGuests="TotalGuests"
+                      TotalSeats="TotalSeats"
+                      TableCount="Tables.Count"
+                      OnConfigureHeadTable="OnConfigureHeadTable"
+                      OnCsvGuide="OnCsvGuide"
+                      OnImport="OnImport"
+                      OnExport="OnExport"
+                      OnAddTable="OnAddTable" />
+
+        <TableGroupLegend Groups="Groups" />
+    </div>
+
+    <div class="tables-grid">
+        @{
+            var head = Tables.FirstOrDefault(t => t.IsHeadTable);
+        }
+        @if (head != null && SeatContent is not null)
+        {
+            var headFilled = head.Seats.Count(s => s != null);
+            <div class="head-table-card">
+                <div class="head-table-header">
+                    <div>
+                        <h4 class="head-table-title">
+                            @SvgIcons.Rings
+                            Head Table
+                        </h4>
+                        <p class="head-table-sub">@BrideName, @GroomName &amp; @GodparentCouples godparent couple@(GodparentCouples > 1 ? "s" : "")</p>
+                    </div>
+                    <span class="seat-count-badge @(headFilled >= head.Capacity ? "badge-full" : "badge-ok")">
+                        @headFilled/@head.Capacity
+                    </span>
+                </div>
+
+                <div class="head-surface-wrap">
+                    <div class="head-surface">Head Table</div>
+                    <div class="head-seats-row">
+                        @for (int i = 0; i < head.Seats.Count; i++)
+                        {
+                            var idx = i;
+                            var label = HeadLabels.ElementAtOrDefault(idx) ?? $"Seat {idx + 1}";
+                            <div class="head-seat-col">
+                                @SeatContent(head.Seats[idx], head, idx, label)
+                                <span class="head-seat-label">@label</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="progress-bar-wrap">
+                    <div class="progress-bar" style="width:@((headFilled * 100 / Math.Max(head.Capacity, 1)))%;background:@(headFilled >= head.Capacity ? "#f87171" : "var(--sage)");"></div>
+                </div>
+            </div>
+        }
+
+        @if (SeatContent is not null)
+        {
+            @foreach (var table in Tables.Where(t => !t.IsHeadTable))
+            {
+                var t = table;
+                var filled = t.Seats.Count(s => s != null);
+                var seatPositions = TableDisplay.GetSeatPositions(t.Capacity, 85);
+                <div class="round-table-card">
+                    <button class="icon-btn delete round-table-del" title="Remove table" @onclick="@(() => OnRemoveTable.InvokeAsync(t.Id))">
+                        @SvgIcons.Trash
+                    </button>
+                    <div class="round-table-header">
+                        <h4 class="round-table-name">@t.Name</h4>
+                        <div class="table-cap-controls">
+                            <button class="cap-btn" title="Remove seat"
+                                    disabled="@(t.Capacity <= 2 || filled >= t.Capacity)"
+                                    @onclick="@(() => OnResizeTable.InvokeAsync(new TableResizeRequest(t.Id, -1)))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                            </button>
+                            <span class="seat-count-badge @(filled >= t.Capacity ? "badge-full" : "badge-ok")">@filled/@t.Capacity</span>
+                            <button class="cap-btn" title="Add seat"
+                                    disabled="@(t.Capacity >= 10)"
+                                    @onclick="@(() => OnResizeTable.InvokeAsync(new TableResizeRequest(t.Id, 1)))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="round-table-wrap"
+                         @ondragover:preventDefault="true"
+                         @ondragover="@(() => { })"
+                         @ondrop="@(() => { })">
+                        @for (int i = 0; i < t.Seats.Count; i++)
+                        {
+                            var idx = i;
+                            var pos = seatPositions[idx];
+                            <div class="seat-pos"
+                                 style="left:@((110 + pos.X).ToString("F0"))px;top:@((110 + pos.Y).ToString("F0"))px;">
+                                @SeatContent(t.Seats[idx], t, idx, null)
+                            </div>
+                        }
+                        <div class="round-surface">@t.Name</div>
+                    </div>
+
+                    <div class="progress-bar-wrap">
+                        <div class="progress-bar" style="width:@((filled * 100 / Math.Max(t.Capacity, 1)))%;background:@(filled >= t.Capacity ? "#f87171" : "var(--sage)");"></div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    public delegate RenderFragment TableSeatTemplate(TableGuest? guest, EventTable table, int seatIndex, string? label);
+
+    [Parameter] public IReadOnlyList<EventTable> Tables { get; set; } = Array.Empty<EventTable>();
+    [Parameter] public IReadOnlyDictionary<string, GroupColors> Groups { get; set; } =
+        new Dictionary<string, GroupColors>();
+    [Parameter] public IReadOnlyList<string> HeadLabels { get; set; } = Array.Empty<string>();
+    [Parameter] public string BrideName { get; set; } = "Bride";
+    [Parameter] public string GroomName { get; set; } = "Groom";
+    [Parameter] public int GodparentCouples { get; set; }
+    [Parameter] public int SeatedCount { get; set; }
+    [Parameter] public int TotalGuests { get; set; }
+    [Parameter] public int TotalSeats { get; set; }
+    [Parameter] public TableSeatTemplate? SeatContent { get; set; }
+    [Parameter] public EventCallback OnConfigureHeadTable { get; set; }
+    [Parameter] public EventCallback OnCsvGuide { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnImport { get; set; }
+    [Parameter] public EventCallback OnExport { get; set; }
+    [Parameter] public EventCallback OnAddTable { get; set; }
+    [Parameter] public EventCallback<int> OnRemoveTable { get; set; }
+    [Parameter] public EventCallback<TableResizeRequest> OnResizeTable { get; set; }
+}

@@ -1,4 +1,4 @@
-﻿@implements IDisposable
+@implements IDisposable
 
 @if (!string.IsNullOrEmpty(_message))
 {
@@ -30,8 +30,6 @@
     string _message = "";
     bool _isError = false;
     System.Timers.Timer? _timer;
-
-    /// <summary>Display a toast for 3 seconds.</summary>
     public void Show(string message, bool isError = false)
     {
         _message = message;

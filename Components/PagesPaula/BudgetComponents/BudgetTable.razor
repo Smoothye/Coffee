@@ -1,0 +1,201 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.Services
+
+<div class="budget-table-card">
+    <BudgetTableToolbar Search="@search"
+                        SearchChanged="@((value) => search = value)"
+                        CategoryFilter="@categoryFilter"
+                        CategoryFilterChanged="@((value) => categoryFilter = value)"
+                        StatusFilter="@statusFilter"
+                        StatusFilterChanged="@((value) => statusFilter = value)"
+                        SortMode="@sortMode"
+                        SortModeChanged="@((value) => sortMode = value)"
+                        Categories="Categories"
+                        OnAddRequested="OnAddRequested" />
+
+    <div class="budget-table-wrap">
+        <table class="budget-table">
+            <colgroup>
+                <col class="budget-col-item" />
+                <col class="budget-col-category" />
+                <col class="budget-col-money" />
+                <col class="budget-col-money" />
+                <col class="budget-col-status" />
+                <col class="budget-col-actions" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>Item</th><th>Category</th>
+                    <th class="text-right">Estimated</th>
+                    <th class="text-right">Actual</th>
+                    <th class="text-center">Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in FilteredItems)
+                {
+                    var it = item;
+                    @if (editingId == it.Id && !it.IsProtected)
+                    {
+                        <tr class="budget-row budget-row-editing">
+                            <td><input class="input budget-inline-input" @bind="editName" @bind:event="oninput" /></td>
+                            <td>
+                                <select class="input select-input budget-inline-input" @bind="editCategory">
+                                    @foreach (var c in Categories) { <option value="@c">@c</option> }
+                                </select>
+                            </td>
+                            <td><input type="number" min="0" step="1" inputmode="numeric" class="input budget-inline-input text-right" @bind="editEstimated" @bind:event="oninput" /></td>
+                            <td><input type="number" min="0" step="1" inputmode="numeric" class="input budget-inline-input text-right" @bind="editActual" @bind:event="oninput" /></td>
+                            <td class="text-center">
+                                <button class="paid-toggle @(it.Paid ? "paid-toggle-paid" : "")" disabled>
+                                    @(it.Paid ? "Paid" : "Unpaid")
+                                </button>
+                            </td>
+                            <td>
+                                <div class="budget-edit-actions">
+                                    <button class="icon-btn accept" @onclick="@(() => SaveEdit(it))">@SvgIcons.CheckSmall</button>
+                                    <button class="icon-btn reject" @onclick="@(() => editingId = -1)">@SvgIcons.XSmall</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr class="budget-row @(it.Paid ? "budget-row-paid" : "")">
+                            <td class="budget-item-name">
+                                @it.Name
+                                @if (it.IsProtected)
+                                {
+                                    <span class="budget-managed-tag">Managed</span>
+                                }
+                            </td>
+                            <td><span class="budget-cat-badge">@it.Category</span></td>
+                            <td class="text-right">$@it.Estimated.ToString("N0")</td>
+                            <td class="text-right @(it.Actual > it.Estimated ? "text-danger" : "")">
+                                @(it.Actual > 0 ? $"${it.Actual:N0}" : "-")
+                            </td>
+                            <td class="text-center">
+                                <button class="paid-toggle @(it.Paid ? "paid-toggle-paid" : "")"
+                                        @onclick="@(() => OnTogglePaid.InvokeAsync(it.Id))">
+                                    @(it.Paid ? "Paid" : "Unpaid")
+                                </button>
+                            </td>
+                            <td>
+                                @if (it.IsProtected)
+                                {
+                                    <span class="budget-locked-note">Auto</span>
+                                }
+                                else
+                                {
+                                    <div class="budget-edit-actions">
+                                        <button class="icon-btn expand" @onclick="@(() => StartEdit(it))">@SvgIcons.Edit</button>
+                                        <button class="icon-btn delete" @onclick="@(() => OnRemove.InvokeAsync(it.Id))">@SvgIcons.Trash</button>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                @if (!FilteredItems.Any())
+                {
+                    <tr><td colspan="6" class="budget-empty-row">No expenses yet - add one above.</td></tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="budget-totals-row">
+                    <td colspan="2"><strong>Total</strong></td>
+                    <td class="text-right"><strong>$@Items.Sum(i => i.Estimated).ToString("N0")</strong></td>
+                    <td class="text-right"><strong>$@Items.Sum(i => i.Actual).ToString("N0")</strong></td>
+                    <td></td><td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<BudgetItem> Items { get; set; } = Array.Empty<BudgetItem>();
+    [Parameter] public IReadOnlyList<string> Categories { get; set; } = Array.Empty<string>();
+    [Parameter] public EventCallback OnAddRequested { get; set; }
+    [Parameter] public EventCallback<int> OnTogglePaid { get; set; }
+    [Parameter] public EventCallback<int> OnRemove { get; set; }
+    [Parameter] public EventCallback<BudgetItem> OnSave { get; set; }
+
+    string search = "";
+    string categoryFilter = "all";
+    string statusFilter = "all";
+    string sortMode = "managed";
+    int editingId = -1;
+    string editName = "";
+    string editCategory = "";
+    int editEstimated;
+    int editActual;
+
+    IEnumerable<BudgetItem> FilteredItems
+    {
+        get
+        {
+            var query = Items.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(i => i.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                                      || i.Category.Contains(search, StringComparison.OrdinalIgnoreCase));
+            if (categoryFilter != "all")
+                query = query.Where(i => i.Category == categoryFilter);
+
+            query = statusFilter switch
+            {
+                "paid" => query.Where(i => i.Paid),
+                "unpaid" => query.Where(i => !i.Paid),
+                _ => query
+            };
+
+            return sortMode switch
+            {
+                "estimated-asc" => query.OrderBy(ManagedRank).ThenBy(i => i.Estimated).ThenBy(i => i.Name),
+                "estimated-desc" => query.OrderBy(ManagedRank).ThenByDescending(i => i.Estimated).ThenBy(i => i.Name),
+                "actual-asc" => query.OrderBy(ManagedRank).ThenBy(i => EffectiveActual(i)).ThenBy(i => i.Name),
+                "actual-desc" => query.OrderBy(ManagedRank).ThenByDescending(i => EffectiveActual(i)).ThenBy(i => i.Name),
+                _ => query.OrderBy(ManagedRank).ThenBy(i => i.Category).ThenBy(i => i.Name)
+            };
+        }
+    }
+
+    static int ManagedRank(BudgetItem item)
+    {
+        if (item.IsProtected && item.Category == "Venue")
+            return 0;
+
+        if (item.IsProtected)
+            return 1;
+
+        return 2;
+    }
+
+    static int EffectiveActual(BudgetItem item) =>
+        item.Actual > 0 ? item.Actual : item.Estimated;
+
+    void StartEdit(BudgetItem item)
+    {
+        editingId = item.Id;
+        editName = item.Name;
+        editCategory = item.Category;
+        editEstimated = item.Estimated;
+        editActual = item.Actual;
+    }
+
+    async Task SaveEdit(BudgetItem item)
+    {
+        await OnSave.InvokeAsync(new BudgetItem
+        {
+            Id = item.Id,
+            SupplierId = item.SupplierId,
+            Name = editName,
+            Category = editCategory,
+            Estimated = editEstimated,
+            Actual = editActual,
+            Paid = item.Paid
+        });
+        editingId = -1;
+    }
+}

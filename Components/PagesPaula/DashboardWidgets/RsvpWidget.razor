@@ -1,0 +1,72 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="widget widget-rsvp">
+    <div class="widget-head">
+        <div class="widget-head-left">
+            <div class="widget-icon wicon-blue">@SvgIcons.Users</div>
+            <h3 class="widget-title">Guest RSVPs</h3>
+        </div>
+        <a href="/guests" class="widget-link">View all -></a>
+    </div>
+
+    <div class="rsvp-donut-wrap">
+        <svg class="rsvp-donut" viewBox="0 0 120 120">
+            @foreach (var segment in Segments)
+            {
+                var pct = TotalGuests > 0 ? (double)segment.Count / TotalGuests : 0;
+                var dash = pct * circumference;
+                var gap = circumference - dash;
+                var dashArray = $"{dash:F2} {gap:F2}";
+                var dashOffset = $"{-(segment.Offset * circumference):F2}";
+                <circle cx="@center" cy="@center" r="@radius"
+                        fill="none" stroke="@segment.Color" stroke-width="14"
+                        stroke-dasharray="@dashArray"
+                        stroke-dashoffset="@dashOffset"
+                        transform="rotate(-90 60 60)"
+                        style="transition:stroke-dasharray .6s ease;" />
+            }
+            <text x="60" y="55" text-anchor="middle" class="donut-num">@TotalGuests</text>
+            <text x="60" y="70" text-anchor="middle" class="donut-label">guests</text>
+        </svg>
+
+        <div class="rsvp-legend">
+            <div class="rsvp-leg-item"><div class="rsvp-leg-dot" style="background:#16a34a"></div><span class="rsvp-leg-label">Confirmed</span><span class="rsvp-leg-val">@Confirmed</span></div>
+            <div class="rsvp-leg-item"><div class="rsvp-leg-dot" style="background:#d97706"></div><span class="rsvp-leg-label">Pending</span><span class="rsvp-leg-val">@Pending</span></div>
+            <div class="rsvp-leg-item"><div class="rsvp-leg-dot" style="background:#dc2626"></div><span class="rsvp-leg-label">Declined</span><span class="rsvp-leg-val">@Declined</span></div>
+            <div class="rsvp-leg-item" style="border-top:1px solid rgba(200,219,197,.3);padding-top:.4rem;margin-top:.2rem;">
+                <div class="rsvp-leg-dot" style="background:var(--sage)"></div>
+                <span class="rsvp-leg-label">Plus Ones</span>
+                <span class="rsvp-leg-val">@PlusOnes</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Confirmed { get; set; }
+    [Parameter] public int Pending { get; set; }
+    [Parameter] public int Declined { get; set; }
+    [Parameter] public int PlusOnes { get; set; }
+
+    const double radius = 48.0;
+    const double center = 60.0;
+    readonly double circumference = 2 * Math.PI * radius;
+
+    int TotalGuests => Confirmed + Pending + Declined;
+
+    IReadOnlyList<(int Count, string Color, double Offset)> Segments
+    {
+        get
+        {
+            var confirmedOffset = 0;
+            var pendingOffset = TotalGuests > 0 ? (double)Confirmed / TotalGuests : 0;
+            var declinedOffset = TotalGuests > 0 ? (double)(Confirmed + Pending) / TotalGuests : 0;
+            return
+            [
+                (Confirmed, "#16a34a", confirmedOffset),
+                (Pending, "#d97706", pendingOffset),
+                (Declined, "#dc2626", declinedOffset),
+            ];
+        }
+    }
+}

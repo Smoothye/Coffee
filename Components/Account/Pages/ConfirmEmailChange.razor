@@ -1,4 +1,4 @@
-﻿@page "/Account/ConfirmEmailChange"
+@page "/Account/ConfirmEmailChange"
 
 @using System.Text
 @using Microsoft.AspNetCore.Identity
@@ -49,9 +49,6 @@
             message = "Error changing email.";
             return;
         }
-
-        // In our UI email and user name are one and the same, so when we update the email
-        // we need to update the user name.
         var setUserNameResult = await UserManager.SetUserNameAsync(user, Email);
         if (!setUserNameResult.Succeeded)
         {
