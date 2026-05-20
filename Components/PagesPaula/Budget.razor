@@ -32,11 +32,6 @@
 
     <BudgetProgressCard Percent="State.BudgetPercent" />
 
-    @if (menuBudgetRows.Count > 0)
-    {
-        <BudgetMenuBreakdown Rows="menuBudgetRows" />
-    }
-
     <BudgetCategoryBreakdown Categories="CategoryTotals"
                              TotalSpent="State.BudgetSpent" />
 

@@ -11,6 +11,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Globalization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Venue
@@ -290,37 +291,50 @@
         if (current != null && !mapLoaded)
         {
             mapLoaded = true;
-            await InitMap(current.Name, current.Address);
+            await InitMap(current.Name, current.Address, current.Latitude, current.Longitude);
         }
     }
 
-    async Task InitMap(string name, string address)
+    async Task InitMap(string name, string address, decimal? latitude, decimal? longitude)
     {
         try
         {
             var n = name.Replace("'", "\\'").Replace("\"", "\\\"");
             var a = address.Replace("'", "\\'").Replace("\"", "\\\"");
+            var lat = latitude?.ToString(CultureInfo.InvariantCulture) ?? "null";
+            var lng = longitude?.ToString(CultureInfo.InvariantCulture) ?? "null";
             await JS.InvokeVoidAsync("eval", $$"""
                 (function(){
                     if(window._venueMap){window._venueMap.remove();window._venueMap=null;}
                     var el=document.getElementById('venue-map');if(!el)return;
+                    var savedLat={{lat}};
+                    var savedLng={{lng}};
+                    function draw(lat,lng,zoom){
+                        var map=L.map('venue-map',{zoomControl:true,scrollWheelZoom:false}).setView([lat,lng],zoom);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OpenStreetMap',maxZoom:19}).addTo(map);
+                        var icon=L.divIcon({className:'',html:'<div style="width:2rem;height:2rem;background:linear-gradient(135deg,#7d9b76,#4f6b4a);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>',iconSize:[32,32],iconAnchor:[16,32]});
+                        L.marker([lat,lng],{icon}).addTo(map).bindPopup('<strong>{{n}}</strong><br>{{a}}').openPopup();
+                        window._venueMap=map;
+                        setTimeout(function(){ map.invalidateSize(); }, 100);
+                    }
                     function init(){
+                        if(Number.isFinite(savedLat)&&Number.isFinite(savedLng)){
+                            draw(savedLat,savedLng,15);
+                            return;
+                        }
                         fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent('{{a}}'))
                         .then(r=>r.json()).then(data=>{
                             var lat=data&&data[0]?parseFloat(data[0].lat):44.4268;
                             var lng=data&&data[0]?parseFloat(data[0].lon):26.1025;
-                            var map=L.map('venue-map',{zoomControl:true,scrollWheelZoom:false}).setView([lat,lng],15);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OpenStreetMap',maxZoom:19}).addTo(map);
-                            var icon=L.divIcon({className:'',html:'<div style="width:2rem;height:2rem;background:linear-gradient(135deg,#7d9b76,#4f6b4a);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>',iconSize:[32,32],iconAnchor:[16,32]});
-                            L.marker([lat,lng],{icon}).addTo(map).bindPopup('<strong>{{n}}</strong><br>{{a}}').openPopup();
-                            window._venueMap=map;
+                            draw(lat,lng,15);
                         }).catch(()=>{
-                            var map=L.map('venue-map',{zoomControl:true,scrollWheelZoom:false}).setView([45.9432,24.9668],7);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'OpenStreetMap',maxZoom:19}).addTo(map);
-                            window._venueMap=map;
+                            draw(45.9432,24.9668,7);
                         });
                     }
-                    if(!document.querySelector('script[src*="leaflet"]')){var s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=init;document.head.appendChild(s);}else{init();}
+                    if(window.L){init();return;}
+                    var existing=document.querySelector('script[src*="leaflet"]');
+                    if(existing){existing.addEventListener('load',init,{once:true});return;}
+                    var s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';s.onload=init;document.head.appendChild(s);
                 })();
             """);
         }

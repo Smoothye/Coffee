@@ -17,6 +17,7 @@
         {
             var g = guest;
             var companion = FindCompanion(g.GuestId);
+            var companionOpen = companion is not null && IsCompanionOpen(g.GuestId);
             <div class="guest-row-stack">
                 <div class="guest-row">
                     <div class="guest-avatar">@Initials(g)</div>
@@ -34,17 +35,33 @@
                     </div>
                     <div class="guest-actions">
                         @MenuSelect(g)
-                        <button type="button"
-                                class="plus-one-toggle-row @(g.HasPlusOne ? "plus-one-active" : "")"
-                                @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
-                            @(g.HasPlusOne ? "Remove companion" : "Add companion")
-                        </button>
+                        @if (companion is not null)
+                        {
+                            <button type="button"
+                                    class="plus-one-toggle-row companion-view-toggle @(companionOpen ? "plus-one-active" : "")"
+                                    @onclick="@(() => ToggleCompanionVisibility(g.GuestId))">
+                                @(companionOpen ? "Hide companion" : "Show companion")
+                            </button>
+                            <button type="button"
+                                    class="plus-one-toggle-row"
+                                    @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
+                                Remove
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="plus-one-toggle-row"
+                                    @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
+                                Add companion
+                            </button>
+                        }
                         @RsvpButtons(g)
                         <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
                     </div>
                 </div>
 
-                @if (companion is not null)
+                @if (companionOpen && companion is not null)
                 {
                     <div class="guest-companion-row">
                         <div class="guest-companion-avatar">+1</div>
@@ -75,6 +92,7 @@
     [Parameter] public EventCallback<int> OnRemove { get; set; }
     [Parameter] public IReadOnlyList<GuestMenuOption> MenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
     const string PlusOneNotePrefix = "Plus one for guest ";
+    readonly HashSet<int> openCompanions = new();
 
     static string Initials(GuestDto guest)
     {
@@ -122,6 +140,14 @@
 
     GuestDto? FindCompanion(int ownerId) =>
         Guests.FirstOrDefault(g => PlusOneOwnerId(g) == ownerId);
+
+    bool IsCompanionOpen(int ownerId) => openCompanions.Contains(ownerId);
+
+    void ToggleCompanionVisibility(int ownerId)
+    {
+        if (!openCompanions.Add(ownerId))
+            openCompanions.Remove(ownerId);
+    }
 
     RenderFragment MenuSelect(GuestDto guest) => builder =>
     {

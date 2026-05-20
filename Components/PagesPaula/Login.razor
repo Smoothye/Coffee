@@ -60,7 +60,7 @@
                                 <circle cx="12" cy="7" r="4" />
                             </svg>
                         </span>
-                        <input class="input auth-input" name="firstName" placeholder="Maria" autocomplete="given-name" tabindex="@(isLogin ? "-1" : "0")" />
+                        <input class="input auth-input" name="firstName" placeholder="Maria" autocomplete="given-name" tabindex="@(isLogin ? "-1" : "0")" required="@(!isLogin)" data-name-field data-name-label="First name" />
                     </div>
                 </div>
                 <div class="field">
@@ -72,7 +72,7 @@
                                 <circle cx="12" cy="7" r="4" />
                             </svg>
                         </span>
-                        <input class="input auth-input" name="lastName" placeholder="Ionescu" autocomplete="family-name" tabindex="@(isLogin ? "-1" : "0")" />
+                        <input class="input auth-input" name="lastName" placeholder="Ionescu" autocomplete="family-name" tabindex="@(isLogin ? "-1" : "0")" required="@(!isLogin)" data-name-field data-name-label="Last name" />
                     </div>
                 </div>
             </div>
@@ -99,13 +99,67 @@
                             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                         </svg>
                     </span>
-                    <input class="input auth-input" name="password" type="password" placeholder="********" autocomplete="@(isLogin ? "current-password" : "new-password")" required />
+                    <input class="input auth-input auth-password-input" name="password" type="password" placeholder="********" autocomplete="@(isLogin ? "current-password" : "new-password")" required data-password-input />
+                    <button class="auth-password-toggle" type="button" aria-label="Show password" title="Show password" data-password-toggle>
+                        <span data-eye-open>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </span>
+                        <span data-eye-closed hidden>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a20.3 20.3 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A10.45 10.45 0 0 1 12 4c6.5 0 10 7 10 7a20.5 20.5 0 0 1-2.16 3.19" />
+                                <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+                                <line x1="3" y1="3" x2="21" y2="21" />
+                            </svg>
+                        </span>
+                    </button>
                 </div>
-                @if (!isLogin)
-                {
-                    <p class="field-hint">Use at least 8 characters with uppercase, lowercase, number and special character.</p>
-                }
             </div>
+
+            <div class="field auth-register-fields @(isLogin ? "auth-register-hidden" : "auth-register-visible")">
+                <label class="auth-label">Confirm Password</label>
+                <div class="auth-input-wrap">
+                    <span class="auth-input-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                    </span>
+                    <input class="input auth-input auth-password-input" name="confirmPassword" type="password" placeholder="********" autocomplete="new-password" tabindex="@(isLogin ? "-1" : "0")" required="@(!isLogin)" data-password-input data-confirm-password />
+                    <button class="auth-password-toggle" type="button" aria-label="Show confirm password" title="Show password" data-password-toggle>
+                        <span data-eye-open>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                        </span>
+                        <span data-eye-closed hidden>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a20.3 20.3 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A10.45 10.45 0 0 1 12 4c6.5 0 10 7 10 7a20.5 20.5 0 0 1-2.16 3.19" />
+                                <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+                                <line x1="3" y1="3" x2="21" y2="21" />
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            @if (!isLogin)
+            {
+                <div class="auth-info-box">
+                    <span class="auth-info-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                        </svg>
+                    </span>
+                    <span>Use at least 8 characters with uppercase, lowercase, number and special character.</span>
+                </div>
+            }
 
             <button class="auth-submit" type="submit" data-auth-submit>
                 <span>@(isLogin ? "Sign In" : "Create Account")</span>
@@ -134,8 +188,33 @@
             const errorBox = document.querySelector("[data-auth-error]");
             const errorText = document.querySelector("[data-auth-error-text]");
             const originalText = submitText?.textContent || "";
+            const isRegister = form.action.endsWith("/auth/register");
+            const password = form.querySelector("input[name='password']");
+            const confirmPassword = form.querySelector("input[name='confirmPassword']");
+            const namePattern = /^(?=.*\p{L})[\p{L}\s'’-]+$/u;
 
             errorBox?.classList.add("auth-error-hidden");
+
+            if (isRegister) {
+                for (const field of form.querySelectorAll("[data-name-field]")) {
+                    field.value = field.value.trim().replace(/\s+/g, " ");
+                    if (!namePattern.test(field.value)) {
+                        const label = field.dataset.nameLabel || "Name";
+                        if (errorText) errorText.textContent = `${label} can include only letters, spaces, accents, hyphens and apostrophes.`;
+                        errorBox?.classList.remove("auth-error-hidden");
+                        field.focus();
+                        return;
+                    }
+                }
+            }
+
+            if (isRegister && password?.value !== confirmPassword?.value) {
+                if (errorText) errorText.textContent = "Passwords do not match.";
+                errorBox?.classList.remove("auth-error-hidden");
+                confirmPassword?.focus();
+                return;
+            }
+
             form.classList.add("auth-form-loading");
             if (submit) submit.disabled = true;
             if (submitText) submitText.textContent = "Checking...";
@@ -175,6 +254,22 @@
                 if (submit) submit.disabled = false;
                 if (submitText) submitText.textContent = originalText;
             }
+        });
+
+        document.addEventListener("click", (event) => {
+            const toggle = event.target.closest("[data-password-toggle]");
+            if (!toggle) return;
+
+            const wrap = toggle.closest(".auth-input-wrap");
+            const input = wrap?.querySelector("[data-password-input]");
+            if (!input) return;
+
+            const show = input.type === "password";
+            input.type = show ? "text" : "password";
+            toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+            toggle.setAttribute("title", show ? "Hide password" : "Show password");
+            toggle.querySelector("[data-eye-open]").hidden = show;
+            toggle.querySelector("[data-eye-closed]").hidden = !show;
         });
     })();
 </script>

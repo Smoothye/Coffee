@@ -120,7 +120,9 @@
         <GuestFilters Search="@search"
                       SearchChanged="@((value) => search = value)"
                       Group="@filterGroup"
-                      GroupChanged="@((value) => filterGroup = value)" />
+                      GroupChanged="@((value) => filterGroup = value)"
+                      Status="@filterStatus"
+                      StatusChanged="@((value) => filterStatus = value)" />
 
         <GuestCommandBar OnCsvGuide="@OpenCsvGuide"
                          OnImport="HandleImport"
@@ -143,6 +145,7 @@
     string formError       = "";
     string search          = "";
     string filterGroup     = "all";
+    string filterStatus    = "all";
     string importSummary   = "";
     bool   importHasWarning = false;
     bool   csvGuideOpen    = false;
@@ -186,8 +189,11 @@
         var name = $"{g.FirstName} {g.LastName}".ToLower();
         var matchSearch = string.IsNullOrEmpty(search) || name.Contains(search.ToLower()) || g.Email.Contains(search, StringComparison.OrdinalIgnoreCase);
         var matchGroup  = filterGroup == "all" || g.Group == ToGroup(filterGroup);
-        return matchSearch && matchGroup;
-    });
+        var matchStatus = filterStatus == "all" || g.RsvpStatus == ToRsvpStatus(filterStatus);
+        return matchSearch && matchGroup && matchStatus;
+    })
+    .OrderBy(g => g.FirstName)
+    .ThenBy(g => g.LastName);
 
     async Task EnsureEventAndLoadGuests()
     {
