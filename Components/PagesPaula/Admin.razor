@@ -442,7 +442,11 @@
         Tags = venue.Tags is null ? [] : [venue.Tags.Value.ToString()]
     };
 
-    static AdminEventModel ToAdminEvent(EventDto eventItem, IReadOnlyDictionary<int, string> venueNames, int guestCount) => new()
+    static AdminEventModel ToAdminEvent(
+        EventDto eventItem,
+        IReadOnlyDictionary<int, string> venueNames,
+        IReadOnlyDictionary<int, string> menuNames,
+        int guestCount) => new()
     {
         Id = eventItem.EventId,
         Name = eventItem.Name,
@@ -452,10 +456,46 @@
         VenueName = venueNames.GetValueOrDefault(eventItem.VenueId, $"Venue #{eventItem.VenueId}"),
         GuestCount = guestCount,
         TotalBudget = eventItem.TotalBudget,
-        MenuName = eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Not selected",
+        MenuName = FormatMenuNames(eventItem.MenuIds, menuNames),
         Notes = eventItem.Notes ?? "",
         CreatedAt = eventItem.CreatedAt
     };
+
+    static AdminMenuModel ToAdminMenu(WeddingPlannerApp.Models.Menu menu) => new()
+    {
+        Id = menu.MenuId,
+        Name = menu.Name,
+        DietaryType = menu.DietaryType.ToString().ToLowerInvariant(),
+        PricePerPerson = (int)menu.Price,
+        Description = menu.Description ?? "",
+        Courses = menu.MenuItems
+            .GroupBy(item => item.CourseName)
+            .Select(group => new AdminMenuCourseModel
+            {
+                Label = group.Key,
+                Items = group
+                    .OrderBy(item => item.DisplayOrder)
+                    .Select(item => new AdminMenuItemModel
+                    {
+                        Name = item.Name,
+                        Description = item.Description ?? ""
+                    })
+                    .ToList()
+            })
+            .ToList()
+    };
+
+    static string FormatMenuNames(IReadOnlyCollection<int> menuIds, IReadOnlyDictionary<int, string> menuNames)
+    {
+        if (menuIds.Count == 0)
+            return "Not selected";
+
+        var names = menuIds
+            .Select(id => menuNames.GetValueOrDefault(id, $"Menu #{id}"))
+            .ToList();
+
+        return string.Join(", ", names);
+    }
 
     void ToggleExpand(int id) =>
         expandedEventId = expandedEventId == id ? null : id;
@@ -810,6 +850,10 @@
             venues = venueDtos.Select(ToAdminVenue).ToList();
             var venueNames = venueDtos.ToDictionary(v => v.VenueId, v => v.Name);
 
+            var menuEntities = await Api.GetMenusAsync();
+            menus = menuEntities.Select(ToAdminMenu).ToList();
+            var menuNames = menuEntities.ToDictionary(menu => menu.MenuId, menu => menu.Name);
+
             var eventDtos = await Api.GetEventsAsync();
             var loadedEvents = new List<AdminEventModel>();
             foreach (var eventDto in eventDtos)
@@ -824,7 +868,7 @@
                     guestCount = eventDto.EstimatedGuests;
                 }
 
-                loadedEvents.Add(ToAdminEvent(eventDto, venueNames, guestCount));
+                loadedEvents.Add(ToAdminEvent(eventDto, venueNames, menuNames, guestCount));
             }
 
             events = loadedEvents;

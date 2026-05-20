@@ -9,3 +9,5 @@ node_modules/
 .vs/
 .dotnet/
 *.user
+*.db-shm
+*.db-wal

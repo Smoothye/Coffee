@@ -11,6 +11,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Venue> Venues { get; set; }
     public DbSet<Event> Events { get; set; }
     public DbSet<Menu> Menus { get; set; }
+    public DbSet<MenuItem> MenuItems { get; set; }
     public DbSet<WeddingTable> WeddingTables { get; set; }
     public DbSet<Guest> Guests { get; set; }
     public DbSet<CheckListTask> CheckListTasks { get; set; }
@@ -34,6 +35,33 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .WithMany(s => s.Expenses)
             .HasForeignKey(e => e.SupplierId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Event>()
+            .HasMany(e => e.Menus)
+            .WithMany(m => m.Events)
+            .UsingEntity<Dictionary<string, object>>(
+                "EventMenu",
+                right => right
+                    .HasOne<Menu>()
+                    .WithMany()
+                    .HasForeignKey("MenuId")
+                    .OnDelete(DeleteBehavior.Cascade),
+                left => left
+                    .HasOne<Event>()
+                    .WithMany()
+                    .HasForeignKey("EventId")
+                    .OnDelete(DeleteBehavior.Cascade),
+                join =>
+                {
+                    join.HasKey("EventId", "MenuId");
+                    join.ToTable("EventMenus");
+                });
+
+        modelBuilder.Entity<MenuItem>()
+            .HasOne(mi => mi.Menu)
+            .WithMany(m => m.MenuItems)
+            .HasForeignKey(mi => mi.MenuId)
+            .OnDelete(DeleteBehavior.Cascade);
         
         modelBuilder.Entity<EventSupplier>()
             .HasOne(es => es.Supplier)

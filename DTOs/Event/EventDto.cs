@@ -8,7 +8,7 @@ public sealed class EventDto
 
     public int VenueId { get; set; }
 
-    public int MenuId { get; set; }
+    public List<int> MenuIds { get; set; } = [];
 
     [Required]
     [MaxLength(128)]

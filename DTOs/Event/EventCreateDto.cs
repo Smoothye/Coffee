@@ -7,8 +7,7 @@ public sealed class EventCreateDto
     [Required]
     public int VenueId { get; set; }
 
-    [Required]
-    public int MenuId { get; set; }
+    public List<int>? MenuIds { get; set; }
 
     [Required]
     [MaxLength(128)]

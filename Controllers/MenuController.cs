@@ -13,7 +13,9 @@ public class MenusController(ApplicationDbContext context) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        return Ok(await context.Menus.ToListAsync());
+        return Ok(await context.Menus
+            .Include(menu => menu.MenuItems)
+            .ToListAsync());
     }
 
     // POST: api/Menus

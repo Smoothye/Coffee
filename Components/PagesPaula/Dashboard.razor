@@ -164,8 +164,7 @@
                 venueName = venue.Name;
 
             var menus = await Api.GetMenusAsync();
-            selectedMenu = menus.FirstOrDefault(menu => menu.MenuId == eventItem.MenuId)?.Name
-                ?? (eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Select a menu");
+            selectedMenu = FormatMenuNames(eventItem.MenuIds, menus);
         }
         catch (Exception ex)
         {
@@ -193,7 +192,26 @@
         weddingDate = eventItem.EventDate;
         expectedGuests = eventItem.EstimatedGuests;
         budgetTotal = (int)eventItem.TotalBudget;
-        selectedMenu = eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Select a menu";
+        selectedMenu = eventItem.MenuIds.Count > 0
+            ? $"{eventItem.MenuIds.Count} menus selected"
+            : "Select a menu";
+    }
+
+    static string FormatMenuNames(
+        IReadOnlyCollection<int> menuIds,
+        IReadOnlyCollection<WeddingPlannerApp.Models.Menu> menus)
+    {
+        if (menuIds.Count == 0)
+            return "Select a menu";
+
+        var menuNames = menus
+            .Where(menu => menuIds.Contains(menu.MenuId))
+            .Select(menu => menu.Name)
+            .ToList();
+
+        return menuNames.Count > 0
+            ? string.Join(", ", menuNames)
+            : $"{menuIds.Count} menus selected";
     }
 
     void ApplyGuestStats(IReadOnlyCollection<GuestDto> guests)

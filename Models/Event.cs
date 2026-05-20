@@ -13,10 +13,6 @@ public class Event
     [Required, ForeignKey(nameof(VenueId))]
     public Venue? Venue { get; set; }
     
-    public int MenuId { get; set; }
-    [Required, ForeignKey(nameof(MenuId))]
-    public Menu? Menu { get; set; }
-    
     [Required, MaxLength(128)]
     public required string Name { get; set; }
     
@@ -39,6 +35,7 @@ public class Event
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    public ICollection<Menu> Menus { get; set; } = [];
     public ICollection<UserEvent> UserEvents { get; set; } = [];
     public ICollection<Guest> Guests { get; set; } = [];
     public ICollection<WeddingTable> WeddingTables { get; set; } = [];
