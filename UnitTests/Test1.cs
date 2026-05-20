@@ -29,7 +29,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Test",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -62,7 +65,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Event 1",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -73,7 +79,10 @@ namespace UnitTests
             {
                 EventId = 2,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Event 2",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 20,
@@ -123,7 +132,10 @@ namespace UnitTests
             var dto = new EventCreateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -155,7 +167,10 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Wedding Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -186,7 +201,10 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Wedding Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -236,7 +254,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = " Test Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -278,7 +299,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Old",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -292,7 +316,10 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -312,7 +339,10 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -336,7 +366,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Old",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -350,7 +383,10 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 999,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -369,7 +405,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Old",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 10,
@@ -383,7 +422,10 @@ namespace UnitTests
             var model = new EventUpdateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Updated Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
@@ -464,7 +506,10 @@ namespace UnitTests
             {
                 EventId = 1,
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "Existing Event",
                 EventDate = DateTime.UtcNow.AddDays(10),
                 EstimatedGuests = 50,
@@ -480,7 +525,10 @@ namespace UnitTests
             var model = new EventCreateDto
             {
                 VenueId = 1,
+<<<<<<< HEAD
+=======
                 
+>>>>>>> 9052e85a0284f9218c32681b706daeabda9e3851
                 Name = "New Event",
                 EventDate = DateTime.UtcNow.AddDays(10),
                 EstimatedGuests = 100,
