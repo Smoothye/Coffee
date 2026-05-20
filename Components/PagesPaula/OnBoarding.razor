@@ -353,7 +353,6 @@
             var created = await Api.CreateEventAsync(new EventCreateDto
             {
                 VenueId = selectedVenue.Value,
-                MenuId = 1,
                 Name = eventName.Trim(),
                 EventDate = date!.Value,
                 EstimatedGuests = guestCount,
@@ -371,7 +370,7 @@
         }
         catch (Exception ex)
         {
-            errorMsg = $"Could not create event. Make sure the default menu exists, then try again. Details: {ex.Message}";
+            errorMsg = $"Could not create event. Details: {ex.Message}";
         }
         finally
         {

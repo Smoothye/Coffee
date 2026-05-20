@@ -373,7 +373,7 @@
             await Api.UpdateEventAsync(eventItem.EventId, new EventUpdateDto
             {
                 VenueId = current.VenueId,
-                MenuId = eventItem.MenuId,
+                MenuIds = eventItem.MenuIds,
                 Name = eventItem.Name,
                 BrideName = eventItem.BrideName,
                 GroomName = eventItem.GroomName,

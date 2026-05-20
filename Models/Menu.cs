@@ -27,5 +27,6 @@ public class Menu
     [MaxLength(256)]
     public string? Description { get; set; }
 
+    public ICollection<MenuItem> MenuItems { get; set; } = [];
     public ICollection<Event> Events { get; set; } = [];
 }

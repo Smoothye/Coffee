@@ -442,7 +442,11 @@
         Tags = venue.Tags is null ? [] : [venue.Tags.Value.ToString()]
     };
 
-    static AdminEventModel ToAdminEvent(EventDto eventItem, IReadOnlyDictionary<int, string> venueNames, int guestCount) => new()
+    static AdminEventModel ToAdminEvent(
+        EventDto eventItem,
+        IReadOnlyDictionary<int, string> venueNames,
+        IReadOnlyDictionary<int, string> menuNames,
+        int guestCount) => new()
     {
         Id = eventItem.EventId,
         Name = eventItem.Name,
@@ -452,10 +456,46 @@
         VenueName = venueNames.GetValueOrDefault(eventItem.VenueId, $"Venue #{eventItem.VenueId}"),
         GuestCount = guestCount,
         TotalBudget = eventItem.TotalBudget,
-        MenuName = eventItem.MenuId > 0 ? $"Menu #{eventItem.MenuId}" : "Not selected",
+        MenuName = FormatMenuNames(eventItem.MenuIds, menuNames),
         Notes = eventItem.Notes ?? "",
         CreatedAt = eventItem.CreatedAt
     };
+
+    static AdminMenuModel ToAdminMenu(WeddingPlannerApp.Models.Menu menu) => new()
+    {
+        Id = menu.MenuId,
+        Name = menu.Name,
+        DietaryType = menu.DietaryType.ToString().ToLowerInvariant(),
+        PricePerPerson = (int)menu.Price,
+        Description = menu.Description ?? "",
+        Courses = menu.MenuItems
+            .GroupBy(item => item.CourseName)
+            .Select(group => new AdminMenuCourseModel
+            {
+                Label = group.Key,
+                Items = group
+                    .OrderBy(item => item.DisplayOrder)
+                    .Select(item => new AdminMenuItemModel
+                    {
+                        Name = item.Name,
+                        Description = item.Description ?? ""
+                    })
+                    .ToList()
+            })
+            .ToList()
+    };
+
+    static string FormatMenuNames(IReadOnlyCollection<int> menuIds, IReadOnlyDictionary<int, string> menuNames)
+    {
+        if (menuIds.Count == 0)
+            return "Not selected";
+
+        var names = menuIds
+            .Select(id => menuNames.GetValueOrDefault(id, $"Menu #{id}"))
+            .ToList();
+
+        return string.Join(", ", names);
+    }
 
     void ToggleExpand(int id) =>
         expandedEventId = expandedEventId == id ? null : id;
@@ -636,7 +676,7 @@
         course.Items.RemoveAt(itemIndex);
     }
 
-    void AddMenu()
+    async Task AddMenu()
     {
         menuModalError = "";
         menuFieldErrors.Clear();
@@ -664,10 +704,17 @@
             return;
         }
 
-        newMenu.Id = menus.Count == 0 ? 1 : menus.Max(menu => menu.Id) + 1;
-        menus.Add(CloneMenu(newMenu));
-        CloseMenuModal();
-        ShowToast($"\"{newMenu.Name}\" added locally. It can be wired to the menu API when the backend is ready.");
+        try
+        {
+            var created = await Api.CreateMenuAsync(ToMenuEntity(newMenu));
+            menus.Add(ToAdminMenu(created));
+            CloseMenuModal();
+            ShowToast($"\"{newMenu.Name}\" added.");
+        }
+        catch (Exception ex)
+        {
+            menuModalError = $"Could not add menu: {ex.Message}";
+        }
     }
 
     void DeleteMenu(int id)
@@ -694,6 +741,41 @@
             }).ToList()
         }).ToList()
     };
+
+    static WeddingPlannerApp.Models.Menu ToMenuEntity(AdminMenuModel menu)
+    {
+        var dietaryType = Enum.TryParse<MenuDietaryType>(
+            menu.DietaryType,
+            ignoreCase: true,
+            out var parsedType)
+            ? parsedType
+            : MenuDietaryType.Standard;
+
+        var entity = new WeddingPlannerApp.Models.Menu
+        {
+            Name = menu.Name.Trim(),
+            DietaryType = dietaryType,
+            Price = menu.PricePerPerson,
+            Description = menu.Description.Trim()
+        };
+
+        var displayOrder = 0;
+        foreach (var course in menu.Courses)
+        {
+            foreach (var item in course.Items)
+            {
+                entity.MenuItems.Add(new WeddingPlannerApp.Models.MenuItem
+                {
+                    CourseName = course.Label.Trim(),
+                    Name = item.Name.Trim(),
+                    Description = item.Description.Trim(),
+                    DisplayOrder = displayOrder++
+                });
+            }
+        }
+
+        return entity;
+    }
 
     void OpenConfirm(string title, string message, string confirmTextValue, string type, int id)
     {
@@ -738,8 +820,16 @@
         }
         else if (pendingDeleteType == "menu")
         {
-            menus.RemoveAll(x => x.Id == pendingDeleteId);
-            ShowToast("Menu removed.");
+            try
+            {
+                await Api.DeleteMenuAsync(pendingDeleteId);
+                menus.RemoveAll(x => x.Id == pendingDeleteId);
+                ShowToast("Menu removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete menu: {ex.Message}", error: true);
+            }
         }
 
         CloseConfirm();
@@ -810,6 +900,10 @@
             venues = venueDtos.Select(ToAdminVenue).ToList();
             var venueNames = venueDtos.ToDictionary(v => v.VenueId, v => v.Name);
 
+            var menuEntities = await Api.GetMenusAsync();
+            menus = menuEntities.Select(ToAdminMenu).ToList();
+            var menuNames = menuEntities.ToDictionary(menu => menu.MenuId, menu => menu.Name);
+
             var eventDtos = await Api.GetEventsAsync();
             var loadedEvents = new List<AdminEventModel>();
             foreach (var eventDto in eventDtos)
@@ -824,7 +918,7 @@
                     guestCount = eventDto.EstimatedGuests;
                 }
 
-                loadedEvents.Add(ToAdminEvent(eventDto, venueNames, guestCount));
+                loadedEvents.Add(ToAdminEvent(eventDto, venueNames, menuNames, guestCount));
             }
 
             events = loadedEvents;
