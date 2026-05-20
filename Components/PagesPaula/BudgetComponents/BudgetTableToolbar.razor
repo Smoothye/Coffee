@@ -1,0 +1,75 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+
+<div class="toolbar budget-table-toolbar">
+    <div class="search-wrap">
+        <span class="search-icon">@SvgIcons.Search</span>
+        <input class="input search-input"
+               placeholder="Search expenses..."
+               value="@Search"
+               @oninput="UpdateSearch" />
+    </div>
+    <label class="budget-filter-field">
+        <span>Category</span>
+        <select class="input select-input filter-select"
+                value="@CategoryFilter"
+                @onchange="UpdateCategory">
+            <option value="all">All</option>
+            @foreach (var c in Categories)
+            {
+                <option value="@c">@c</option>
+            }
+        </select>
+    </label>
+    <label class="budget-filter-field">
+        <span>Status</span>
+        <select class="input select-input filter-select"
+                value="@StatusFilter"
+                @onchange="UpdateStatus">
+            <option value="all">All</option>
+            <option value="paid">Paid</option>
+            <option value="unpaid">Unpaid</option>
+        </select>
+    </label>
+    <label class="budget-filter-field budget-sort-field">
+        <span>Sort</span>
+        <select class="input select-input filter-select"
+                value="@SortMode"
+                @onchange="UpdateSort">
+            <option value="managed">Managed</option>
+            <option value="estimated-asc">Est. low</option>
+            <option value="estimated-desc">Est. high</option>
+            <option value="actual-asc">Actual low</option>
+            <option value="actual-desc">Actual high</option>
+        </select>
+    </label>
+    <div class="toolbar-actions">
+        <button class="btn-add" @onclick="OnAddRequested">
+            @SvgIcons.Plus Add Expense
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Search { get; set; } = "";
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+    [Parameter] public string CategoryFilter { get; set; } = "all";
+    [Parameter] public EventCallback<string> CategoryFilterChanged { get; set; }
+    [Parameter] public string StatusFilter { get; set; } = "all";
+    [Parameter] public EventCallback<string> StatusFilterChanged { get; set; }
+    [Parameter] public string SortMode { get; set; } = "managed";
+    [Parameter] public EventCallback<string> SortModeChanged { get; set; }
+    [Parameter] public IReadOnlyList<string> Categories { get; set; } = [];
+    [Parameter] public EventCallback OnAddRequested { get; set; }
+
+    Task UpdateSearch(ChangeEventArgs e) =>
+        SearchChanged.InvokeAsync(e.Value?.ToString() ?? "");
+
+    Task UpdateCategory(ChangeEventArgs e) =>
+        CategoryFilterChanged.InvokeAsync(e.Value?.ToString() ?? "all");
+
+    Task UpdateStatus(ChangeEventArgs e) =>
+        StatusFilterChanged.InvokeAsync(e.Value?.ToString() ?? "all");
+
+    Task UpdateSort(ChangeEventArgs e) =>
+        SortModeChanged.InvokeAsync(e.Value?.ToString() ?? "managed");
+}

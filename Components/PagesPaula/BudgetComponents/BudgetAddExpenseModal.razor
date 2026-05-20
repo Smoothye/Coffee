@@ -21,12 +21,12 @@
     <div class="form-grid-2">
         <div class="field">
             <label>Estimated ($) *</label>
-            <input type="number" class="input @(HasError(nameof(estimated)) ? "field-invalid" : "")" min="0" placeholder="0" @bind="estimated" @bind:event="oninput" />
+            <input type="number" inputmode="numeric" step="1" class="input @(HasError(nameof(estimated)) ? "field-invalid" : "")" min="0" placeholder="0" @bind="estimated" @bind:event="oninput" />
             @FieldError(nameof(estimated))
         </div>
         <div class="field">
             <label>Actual ($)</label>
-            <input type="number" class="input @(HasError(nameof(actual)) ? "field-invalid" : "")" min="0" placeholder="0" @bind="actual" @bind:event="oninput" />
+            <input type="number" inputmode="numeric" step="1" class="input @(HasError(nameof(actual)) ? "field-invalid" : "")" min="0" placeholder="0" @bind="actual" @bind:event="oninput" />
             @FieldError(nameof(actual))
         </div>
     </div>

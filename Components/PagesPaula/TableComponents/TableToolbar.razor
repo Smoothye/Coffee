@@ -2,11 +2,11 @@
     <div>
         <h2 class="tables-h2">Seating Plan</h2>
         <p class="tables-sub">
-            @SeatedCount/@TotalGuests seated &nbsp;·&nbsp; @TotalSeats total seats
+            @SeatedCount/@TotalGuests seated &nbsp;&middot;&nbsp; @TotalSeats total seats
         </p>
     </div>
     <div class="tables-toolbar-right">
-        @if (TotalSeats >= TotalGuests && TableCount > 0)
+        @if (TotalGuests > 0 && SeatedCount >= TotalGuests && TableCount > 0)
         {
             <span class="seats-ok-badge">@SvgIcons.CheckSmall All seated</span>
         }

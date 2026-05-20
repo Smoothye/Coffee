@@ -4,6 +4,9 @@
 @rendermode InteractiveServer
 @inject NavigationManager Nav
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.OnboardingComponents
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Venue
@@ -162,18 +165,22 @@
                         {
                             var venue = v;
                             <button type="button"
-                                    class="venue-card @(selectedVenue == venue.Id ? "venue-card-active" : "")"
-                                    @onclick="@(() => selectedVenue = venue.Id)">
+                                    class="venue-card @(selectedVenue == venue.VenueId ? "venue-card-active" : "")"
+                                    @onclick="@(() => selectedVenue = venue.VenueId)">
                                 <div class="venue-img-wrap">
-                                    <img src="@venue.Image" alt="@venue.Name" class="venue-img" />
-                                    @if (selectedVenue == venue.Id)
+                                    <img src="@VenueImage(venue)" alt="@venue.Name" class="venue-img" />
+                                    @if (selectedVenue == venue.VenueId)
                                     {
-                                        <div class="venue-check">?</div>
+                                        <div class="venue-check">@SvgIcons.CheckSmall</div>
                                     }
                                 </div>
                                 <div class="venue-info">
                                     <p class="venue-name">@venue.Name</p>
-                                    <p class="venue-meta">@venue.Type · @venue.MinCapacity–@venue.MaxCapacity guests</p>
+                                    <p class="venue-meta">@VenueType(venue) - @venue.MinCapacity-@venue.MaxCapacity guests</p>
+                                    @if (venue.EstimatedPrice > 0)
+                                    {
+                                        <p class="venue-meta">est. $@venue.EstimatedPrice.ToString("N0")</p>
+                                    }
                                 </div>
                             </button>
                         }
@@ -182,7 +189,7 @@
                 else
                 {
                     <div class="empty-venues">
-                        <span class="empty-icon">?</span>
+                        <span class="empty-icon">@SvgIcons.AlertCircle</span>
                         <p>No venues are available for @guestCount guests on @date!.Value.ToString("MMM d, yyyy"). Try another date or guest count.</p>
                     </div>
                 }
@@ -196,11 +203,15 @@
                             {
                                 <div class="venue-card">
                                     <div class="venue-img-wrap">
-                                        <img src="@v.Image" alt="@v.Name" class="venue-img grayscale" />
+                                        <img src="@VenueImage(v)" alt="@v.Name" class="venue-img grayscale" />
                                     </div>
                                     <div class="venue-info">
                                         <p class="venue-name">@v.Name</p>
-                                        <p class="venue-meta">@v.Type · @v.MinCapacity–@v.MaxCapacity guests</p>
+                                        <p class="venue-meta">@VenueType(v) - @v.MinCapacity-@v.MaxCapacity guests</p>
+                                        @if (v.EstimatedPrice > 0)
+                                        {
+                                            <p class="venue-meta">est. $@v.EstimatedPrice.ToString("N0")</p>
+                                        }
                                         <p class="venue-meta">@UnavailableReason(v)</p>
                                     </div>
                                 </div>
@@ -216,17 +227,14 @@
                     class="btn-back"
                     @onclick="Prev"
                     disabled="@(step == 0)">
-                ? Back
+                @SvgIcons.ArrowLeft Back
             </button>
             <button type="button"
                     class="btn-next"
                     @onclick="Next"
                     disabled="@isSubmitting">
                 @(isSubmitting ? "Creating..." : step == 3 ? "Start Planning" : "Next")
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-left:.3rem">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                </svg>
+                @SvgIcons.ArrowRight
             </button>
         </div>
 
@@ -254,23 +262,30 @@
         new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'/><circle cx='12' cy='10' r='3'/></svg>"), "Choose Venue"),
     };
 
-    List<OnboardingVenueModel> venues = new();
+    List<VenueDto> venues = new();
 
-    List<OnboardingVenueModel> availableVenues => venues
-        .Where(v => IsCapacityMatch(v) && !IsBookedOnSelectedDate(v.Id))
+    List<VenueDto> availableVenues => venues
+        .Where(v => IsCapacityMatch(v) && !IsBookedOnSelectedDate(v.VenueId))
         .ToList();
 
-    List<OnboardingVenueModel> unavailableVenues => venues
-        .Where(v => !IsCapacityMatch(v) || IsBookedOnSelectedDate(v.Id))
+    List<VenueDto> unavailableVenues => venues
+        .Where(v => !IsCapacityMatch(v) || IsBookedOnSelectedDate(v.VenueId))
         .ToList();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            venues = (await Api.GetVenuesAsync()).Select(ToOnboardingVenue).ToList();
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.IsInRole("Admin"))
+            {
+                Nav.NavigateTo("/admin", replace: true);
+                return;
+            }
+
+            venues = await Api.GetVenuesAsync();
             existingEvents = await Api.GetEventsAsync();
-            selectedVenue = availableVenues.FirstOrDefault()?.Id;
+            selectedVenue = availableVenues.FirstOrDefault()?.VenueId;
         }
         catch (Exception ex)
         {
@@ -388,16 +403,16 @@
 
     bool HasFieldError(string field) => fieldErrors.ContainsKey(field);
 
-    bool IsCapacityMatch(OnboardingVenueModel venue) =>
+    bool IsCapacityMatch(VenueDto venue) =>
         guestCount >= venue.MinCapacity && guestCount <= venue.MaxCapacity;
 
     bool IsBookedOnSelectedDate(int venueId) =>
         date.HasValue &&
         existingEvents.Any(e => e.VenueId == venueId && e.EventDate.Date == date.Value.Date);
 
-    string UnavailableReason(OnboardingVenueModel venue)
+    string UnavailableReason(VenueDto venue)
     {
-        if (IsBookedOnSelectedDate(venue.Id))
+        if (IsBookedOnSelectedDate(venue.VenueId))
             return $"Already booked on {date!.Value:MMM d, yyyy}";
 
         if (!IsCapacityMatch(venue))
@@ -406,15 +421,11 @@
         return "Unavailable";
     }
 
-    static OnboardingVenueModel ToOnboardingVenue(VenueDto venue) => new()
-    {
-        Id = venue.VenueId,
-        Name = venue.Name,
-        Image = !string.IsNullOrWhiteSpace(venue.ImagePath) ? venue.ImagePath : "/images/venues/placeholder.svg",
-        MinCapacity = venue.MinCapacity,
-        MaxCapacity = venue.MaxCapacity,
-        Type = venue.Tags?.ToString() ?? "Venue"
-    };
+    static string VenueImage(VenueDto venue) =>
+        !string.IsNullOrWhiteSpace(venue.ImagePath) ? venue.ImagePath : "/images/venues/placeholder.svg";
+
+    static string VenueType(VenueDto venue) =>
+        venue.Tags?.ToString() ?? "Venue";
 
     RenderFragment FieldError(string field) => builder =>
     {

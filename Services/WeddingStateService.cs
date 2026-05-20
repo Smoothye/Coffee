@@ -34,9 +34,17 @@
         public IReadOnlyList<BudgetItem> BudgetItems => _budgetItems;
 
         public int BudgetSpent => _budgetItems.Sum(i => i.Actual);
+        public int BudgetEstimated => _budgetItems.Sum(i => i.Estimated);
         public int BudgetPaid => _budgetItems.Where(i => i.Paid).Sum(i => i.Actual);
-        public int BudgetRemaining => BudgetTotal - BudgetSpent;
-        public int BudgetPercent => BudgetTotal > 0 ? BudgetSpent * 100 / BudgetTotal : 0;
+        public int BudgetUnpaid => _budgetItems.Where(i => !i.Paid).Sum(i => i.Actual > 0 ? i.Actual : i.Estimated);
+        public int BudgetRemaining => BudgetTotal - BudgetEstimated;
+        public int BudgetPercent => BudgetTotal > 0 ? BudgetEstimated * 100 / BudgetTotal : 0;
+
+        public void UpdateBudgetTotal(int total)
+        {
+            BudgetTotal = Math.Max(0, total);
+            Notify();
+        }
 
         public void AddBudgetItem(BudgetItem item)
         {
@@ -53,7 +61,7 @@
 
         public void RemoveBudgetItem(int id)
         {
-            _budgetItems.RemoveAll(i => i.Id == id);
+            _budgetItems.RemoveAll(i => i.Id == id && !i.IsProtected);
             Notify();
         }
 
@@ -94,6 +102,69 @@
         {
             var removed = _budgetItems.RemoveAll(i => i.SupplierId == supplierId);
             if (removed > 0) Notify();
+        }
+
+        const int MenuBudgetSourceId = -1000;
+        const int VenueBudgetSourceId = -1001;
+
+        public void UpsertMenuBudgetItem(int estimated)
+        {
+            var item = _budgetItems.FirstOrDefault(i => i.SupplierId == MenuBudgetSourceId);
+            if (estimated <= 0)
+            {
+                if (item is not null)
+                    RemoveBudgetItem(item.Id);
+                return;
+            }
+
+            if (item is null)
+            {
+                AddBudgetItem(new BudgetItem
+                {
+                    SupplierId = MenuBudgetSourceId,
+                    Name = "Menus estimate",
+                    Category = "Catering",
+                    Estimated = estimated,
+                    Actual = estimated,
+                    Paid = false
+                });
+                return;
+            }
+
+            item.Name = "Menus estimate";
+            item.Category = "Catering";
+            item.Estimated = estimated;
+            item.Actual = estimated;
+            Notify();
+        }
+
+        public void UpsertVenueBudgetItem(string venueName, int estimated)
+        {
+            var item = _budgetItems.FirstOrDefault(i => i.SupplierId == VenueBudgetSourceId);
+            if (estimated <= 0)
+                return;
+
+            var name = string.IsNullOrWhiteSpace(venueName) ? "Venue estimate" : $"Venue: {venueName}";
+
+            if (item is null)
+            {
+                AddBudgetItem(new BudgetItem
+                {
+                    SupplierId = VenueBudgetSourceId,
+                    Name = name,
+                    Category = "Venue",
+                    Estimated = estimated,
+                    Actual = estimated,
+                    Paid = false
+                });
+                return;
+            }
+
+            item.Name = name;
+            item.Category = "Venue";
+            item.Estimated = estimated;
+            item.Actual = estimated;
+            Notify();
         }
 
         // ── Tasks ─────────────────────────────────────────────
@@ -155,6 +226,7 @@
     {
         public int Id { get; set; }
         public int? SupplierId { get; set; }
+        public bool IsProtected => SupplierId is < 0;
         public string Name { get; set; } = "";
         public string Category { get; set; } = "Other";
         public int Estimated { get; set; }

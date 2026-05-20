@@ -7,12 +7,33 @@
     <div class="pool-header">
         <div>
             <h3 class="pool-title">Guest Pool</h3>
-            <p class="pool-sub">@Guests.Count unassigned · synced from Guests</p>
+            <p class="pool-sub">@FilteredGuests.Count unassigned &middot; synced from Guests</p>
         </div>
     </div>
 
+    <div class="pool-filter-panel">
+        <div class="search-wrap pool-search-wrap">
+            <span class="search-icon">@SvgIcons.Search</span>
+            <input class="input search-input"
+                   placeholder="Search guests..."
+                   @bind="search"
+                   @bind:event="oninput" />
+        </div>
+        <label class="budget-filter-field pool-filter-field">
+            <span>Category</span>
+            <select class="input select-input filter-select"
+                    @bind="groupFilter">
+                <option value="all">All</option>
+                @foreach (var group in Groups.Keys)
+                {
+                    <option value="@group">@System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(group)</option>
+                }
+            </select>
+        </label>
+    </div>
+
     <div class="pool-list">
-        @foreach (var guest in Guests)
+        @foreach (var guest in FilteredGuests)
         {
             var g = guest;
             var colors = Groups[g.Group];
@@ -44,6 +65,13 @@
                 <p>All guests seated!</p>
             </div>
         }
+        else if (FilteredGuests.Count == 0)
+        {
+            <div class="pool-empty">
+                @SvgIcons.Search
+                <p>No guests match this filter.</p>
+            </div>
+        }
     </div>
 </div>
 
@@ -58,4 +86,25 @@
     [Parameter] public EventCallback OnDragLeave { get; set; }
     [Parameter] public EventCallback OnDrop { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
+
+    string search = "";
+    string groupFilter = "all";
+
+    IReadOnlyList<TableGuest> FilteredGuests => Guests
+        .Where(MatchesGroup)
+        .Where(MatchesSearch)
+        .ToList();
+
+    bool MatchesGroup(TableGuest guest) =>
+        groupFilter == "all" || guest.Group.Equals(groupFilter, StringComparison.OrdinalIgnoreCase);
+
+    bool MatchesSearch(TableGuest guest)
+    {
+        if (string.IsNullOrWhiteSpace(search))
+            return true;
+
+        var term = search.Trim();
+        return TableDisplay.DisplayName(guest).Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(guest.Email) && guest.Email.Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
 }

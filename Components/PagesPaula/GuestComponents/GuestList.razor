@@ -1,6 +1,7 @@
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
+@using Microsoft.AspNetCore.Components.Rendering
 
 <div class="guest-list">
     @if (!Guests.Any())
@@ -12,32 +13,72 @@
     }
     else
     {
-        @foreach (var guest in Guests)
+        @foreach (var guest in Guests.Where(g => !IsPlusOneGuest(g)))
         {
             var g = guest;
-            <div class="guest-row">
-                <div class="guest-avatar">@Initials(g)</div>
-                <div class="guest-info">
-                    <p class="guest-name">@g.FirstName @g.LastName</p>
-                    <div class="guest-meta">
-                        <span>@g.Email</span>
-                        @if (g.DietaryRequirements != DietaryRequirements.None) { <span class="badge badge-dietary">@DietaryLabel(g.DietaryRequirements)</span> }
+            var companion = FindCompanion(g.GuestId);
+            var companionOpen = companion is not null && IsCompanionOpen(g.GuestId);
+            <div class="guest-row-stack">
+                <div class="guest-row">
+                    <div class="guest-avatar">@Initials(g)</div>
+                    <div class="guest-info">
+                        <p class="guest-name">@g.FirstName @g.LastName</p>
+                        <div class="guest-meta">
+                            <span>@g.Email</span>
+                            <span class="guest-tag guest-tag-group @GroupBadgeClass(g.Group)">@g.Group</span>
+                            <span class="guest-tag guest-tag-menu @MenuCategoryClass(g.DietaryRequirements)">Menu: @MenuCategoryLabel(g.DietaryRequirements)</span>
+                            @if (g.HasPlusOne)
+                            {
+                                <span class="guest-tag guest-tag-plus">Companion invited</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="guest-actions">
+                        @MenuSelect(g)
+                        @if (companion is not null)
+                        {
+                            <button type="button"
+                                    class="plus-one-toggle-row companion-view-toggle @(companionOpen ? "plus-one-active" : "")"
+                                    @onclick="@(() => ToggleCompanionVisibility(g.GuestId))">
+                                @(companionOpen ? "Hide companion" : "Show companion")
+                            </button>
+                            <button type="button"
+                                    class="plus-one-toggle-row"
+                                    @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
+                                Remove
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="plus-one-toggle-row"
+                                    @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
+                                Add companion
+                            </button>
+                        }
+                        @RsvpButtons(g)
+                        <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
                     </div>
                 </div>
-                <div class="guest-actions">
-                    <span class="badge @GroupBadgeClass(g.Group)">@g.Group</span>
-                    <button type="button"
-                            class="plus-one-toggle-row @(g.HasPlusOne ? "plus-one-active" : "")"
-                            @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
-                        @(g.HasPlusOne ? "Remove +1" : "Add +1")
-                    </button>
-                    <div class="rsvp-btns">
-                        <button class="rsvp-btn rsvp-confirmed @(g.RsvpStatus == RsvpStatus.Confirmed ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.GuestId, RsvpStatus.Confirmed)))">@SvgIcons.Check</button>
-                        <button class="rsvp-btn rsvp-pending @(g.RsvpStatus == RsvpStatus.Pending ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.GuestId, RsvpStatus.Pending)))">@SvgIcons.ClockSmall</button>
-                        <button class="rsvp-btn rsvp-declined @(g.RsvpStatus == RsvpStatus.Declined ? "rsvp-active" : "rsvp-inactive")" @onclick="@(() => OnSetStatus.InvokeAsync((g.GuestId, RsvpStatus.Declined)))">@SvgIcons.XSmall</button>
+
+                @if (companionOpen && companion is not null)
+                {
+                    <div class="guest-companion-row">
+                        <div class="guest-companion-avatar">+1</div>
+                        <div class="guest-info">
+                            <p class="guest-name">Companion</p>
+                            <div class="guest-meta">
+                                <span>Invited with @g.FirstName @g.LastName</span>
+                                <span class="guest-tag guest-tag-menu @MenuCategoryClass(companion.DietaryRequirements)">Menu: @MenuCategoryLabel(companion.DietaryRequirements)</span>
+                            </div>
+                        </div>
+                        <div class="guest-actions">
+                            @MenuSelect(companion)
+                            @RsvpButtons(companion)
+                            <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(companion.GuestId))">@SvgIcons.Trash</button>
+                        </div>
                     </div>
-                    <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
-                </div>
+                }
             </div>
         }
     }
@@ -47,7 +88,11 @@
     [Parameter] public IReadOnlyList<GuestDto> Guests { get; set; } = Array.Empty<GuestDto>();
     [Parameter] public EventCallback<int> OnTogglePlusOne { get; set; }
     [Parameter] public EventCallback<(int Id, RsvpStatus Status)> OnSetStatus { get; set; }
+    [Parameter] public EventCallback<(int Id, DietaryRequirements Dietary)> OnSetDietary { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
+    [Parameter] public IReadOnlyList<GuestMenuOption> MenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
+    const string PlusOneNotePrefix = "Plus one for guest ";
+    readonly HashSet<int> openCompanions = new();
 
     static string Initials(GuestDto guest)
     {
@@ -64,9 +109,92 @@
         _ => "badge-other",
     };
 
-    static string DietaryLabel(DietaryRequirements dietary) => dietary switch
+    static string MenuCategoryLabel(DietaryRequirements dietary) => dietary switch
     {
-        DietaryRequirements.GlutenFree => "Gluten-free",
-        _ => dietary.ToString()
+        DietaryRequirements.Standard => "Standard",
+        DietaryRequirements.Vegan => "Vegan",
+        DietaryRequirements.Vegetarian => "Vegetarian",
+        DietaryRequirements.Fasting => "Fasting",
+        _ => "Standard"
     };
+
+    static string MenuCategoryClass(DietaryRequirements dietary) => dietary switch
+    {
+        DietaryRequirements.Vegan => "guest-menu-vegan",
+        DietaryRequirements.Vegetarian => "guest-menu-vegetarian",
+        DietaryRequirements.Fasting => "guest-menu-fasting",
+        _ => "guest-menu-casual"
+    };
+
+    static bool IsPlusOneGuest(GuestDto guest) =>
+        guest.Notes?.StartsWith(PlusOneNotePrefix, StringComparison.OrdinalIgnoreCase) == true;
+
+    static int? PlusOneOwnerId(GuestDto guest)
+    {
+        if (!IsPlusOneGuest(guest))
+            return null;
+
+        var idText = guest.Notes![PlusOneNotePrefix.Length..].Trim();
+        return int.TryParse(idText, out var ownerId) ? ownerId : null;
+    }
+
+    GuestDto? FindCompanion(int ownerId) =>
+        Guests.FirstOrDefault(g => PlusOneOwnerId(g) == ownerId);
+
+    bool IsCompanionOpen(int ownerId) => openCompanions.Contains(ownerId);
+
+    void ToggleCompanionVisibility(int ownerId)
+    {
+        if (!openCompanions.Add(ownerId))
+            openCompanions.Remove(ownerId);
+    }
+
+    RenderFragment MenuSelect(GuestDto guest) => builder =>
+    {
+        builder.OpenElement(0, "select");
+        builder.AddAttribute(1, "class", "guest-menu-select");
+        builder.AddAttribute(2, "value", guest.DietaryRequirements);
+        builder.AddAttribute(3, "title", "Menu preference");
+        builder.AddAttribute(4, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => ChangeDietary(guest.GuestId, e.Value?.ToString())));
+        var seq = 5;
+        foreach (var option in MenuOptions)
+        {
+            AddMenuOption(builder, seq, option.Value, option.Label);
+            seq += 3;
+        }
+        builder.CloseElement();
+    };
+
+    static void AddMenuOption(RenderTreeBuilder builder, int seq, DietaryRequirements value, string label)
+    {
+        builder.OpenElement(seq, "option");
+        builder.AddAttribute(seq + 1, "value", value);
+        builder.AddContent(seq + 2, label);
+        builder.CloseElement();
+    }
+
+    RenderFragment RsvpButtons(GuestDto guest) => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "rsvp-btns");
+        AddRsvpButton(builder, 2, guest, RsvpStatus.Confirmed, "rsvp-confirmed", SvgIcons.Check);
+        AddRsvpButton(builder, 6, guest, RsvpStatus.Pending, "rsvp-pending", SvgIcons.ClockSmall);
+        AddRsvpButton(builder, 10, guest, RsvpStatus.Declined, "rsvp-declined", SvgIcons.XSmall);
+        builder.CloseElement();
+    };
+
+    void AddRsvpButton(RenderTreeBuilder builder, int seq, GuestDto guest, RsvpStatus status, string className, RenderFragment icon)
+    {
+        builder.OpenElement(seq, "button");
+        builder.AddAttribute(seq + 1, "class", $"rsvp-btn {className} {(guest.RsvpStatus == status ? "rsvp-active" : "rsvp-inactive")}");
+        builder.AddAttribute(seq + 2, "onclick", EventCallback.Factory.Create(this, () => OnSetStatus.InvokeAsync((guest.GuestId, status))));
+        builder.AddContent(seq + 3, icon);
+        builder.CloseElement();
+    }
+
+    async Task ChangeDietary(int guestId, string? value)
+    {
+        if (Enum.TryParse<DietaryRequirements>(value, out var dietary))
+            await OnSetDietary.InvokeAsync((guestId, dietary));
+    }
 }

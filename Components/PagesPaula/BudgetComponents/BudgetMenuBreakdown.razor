@@ -1,0 +1,30 @@
+<div class="budget-menu-panel">
+    <div class="budget-menu-panel-head">
+        <div>
+            <h3>Selected menu packages</h3>
+            <p>Auto-updated from selected menus, guest preferences and package price per person.</p>
+        </div>
+        <div class="budget-menu-grand-total">
+            <span>Menu total</span>
+            <strong>$@Rows.Sum(row => row.Total).ToString("N0")</strong>
+        </div>
+    </div>
+    <div class="budget-menu-subitems">
+        @foreach (var row in Rows)
+        {
+            <div class="budget-menu-subitem">
+                <div class="budget-menu-main">
+                    <strong>@row.Name</strong>
+                    <span>@row.Type menu</span>
+                </div>
+                <span class="budget-menu-price">$@row.Price.ToString("0") / person</span>
+                <span class="budget-menu-guests">@row.GuestLabel</span>
+                <strong class="budget-menu-total">$@row.Total.ToString("N0")</strong>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<MenuBudgetRow> Rows { get; set; } = [];
+}

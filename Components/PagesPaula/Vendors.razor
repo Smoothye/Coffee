@@ -1,16 +1,20 @@
 @rendermode InteractiveServer
 @implements IDisposable
 @page "/vendors"
+@page "/suppliers"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @using System.Text
 @inject IJSRuntime JS
 @inject WeddingPlannerApp.Services.WeddingStateService State
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.VendorComponents
 
 <PageNav Title="Suppliers"
-         Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed · {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
+         Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed - {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
          IconSvg="@SvgIcons.VendorsNav" />
 
 <CsvGuideModal IsOpen="csvGuideOpen"
@@ -208,8 +212,15 @@
         filteredSuppliers = q.OrderBy(s => s.Name).ToList();
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.IsInRole("Admin"))
+        {
+            Nav.NavigateTo("/admin", replace: true);
+            return;
+        }
+
         ApplyFilters();
         foreach (var supplier in ActiveSuppliers)
         {
@@ -308,7 +319,7 @@
         _ => "Other"
     };
 
-    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "—";
+    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "-";
 
     async Task ExportCSV()
     {

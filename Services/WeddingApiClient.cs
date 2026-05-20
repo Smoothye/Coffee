@@ -16,8 +16,12 @@ public sealed class WeddingApiClient(
     ApplicationDbContext context,
     AuthenticationStateProvider authenticationStateProvider)
 {
-    public async Task<List<EventDto>> GetEventsAsync() =>
-        await context.Events
+    public async Task<List<EventDto>> GetEventsAsync()
+    {
+        var (userId, isAdmin) = await GetCurrentUserScopeAsync();
+        var query = AccessibleEventsQuery(userId, isAdmin);
+
+        return await query
             .Select(e => new EventDto
             {
                 EventId = e.EventId,
@@ -34,9 +38,13 @@ public sealed class WeddingApiClient(
                 UpdatedAt = e.UpdatedAt
             })
             .ToListAsync();
+    }
 
-    public async Task<EventDto?> GetEventAsync(int eventId) =>
-        await context.Events
+    public async Task<EventDto?> GetEventAsync(int eventId)
+    {
+        var (userId, isAdmin) = await GetCurrentUserScopeAsync();
+
+        return await AccessibleEventsQuery(userId, isAdmin)
             .Where(e => e.EventId == eventId)
             .Select(e => new EventDto
             {
@@ -54,6 +62,7 @@ public sealed class WeddingApiClient(
                 UpdatedAt = e.UpdatedAt
             })
             .SingleOrDefaultAsync();
+    }
 
     public async Task<EventDto?> CreateEventAsync(EventCreateDto eventItem)
     {
@@ -111,6 +120,8 @@ public sealed class WeddingApiClient(
 
     public async Task UpdateEventAsync(int eventId, EventUpdateDto eventItem)
     {
+        await EnsureCanAccessEventAsync(eventId);
+
         var entity = await context.Events
             .Include(e => e.Menus)
             .SingleOrDefaultAsync(e => e.EventId == eventId);
@@ -155,6 +166,8 @@ public sealed class WeddingApiClient(
 
     public async Task DeleteEventAsync(int eventId)
     {
+        await EnsureCanAccessEventAsync(eventId);
+
         var entity = await context.Events.FindAsync(eventId);
         if (entity is null)
             return;
@@ -213,11 +226,15 @@ public sealed class WeddingApiClient(
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<List<GuestDto>> GetGuestsAsync(int eventId) =>
-        await http.GetFromJsonAsync<List<GuestDto>>($"api/Events/{eventId}/Guests") ?? [];
+    public async Task<List<GuestDto>> GetGuestsAsync(int eventId)
+    {
+        await EnsureCanAccessEventAsync(eventId);
+        return await http.GetFromJsonAsync<List<GuestDto>>($"api/Events/{eventId}/Guests") ?? [];
+    }
 
     public async Task<GuestDto?> CreateGuestAsync(int eventId, GuestCreateDto guest)
     {
+        await EnsureCanAccessEventAsync(eventId);
         var response = await http.PostAsJsonAsync($"api/Events/{eventId}/Guests", ToGuestDto(eventId, guest));
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GuestDto>();
@@ -225,6 +242,7 @@ public sealed class WeddingApiClient(
 
     public async Task<GuestBulkCreateResultDto?> CreateGuestsBulkAsync(int eventId, IEnumerable<GuestCreateDto> guests)
     {
+        await EnsureCanAccessEventAsync(eventId);
         var response = await http.PostAsJsonAsync($"api/Events/{eventId}/Guests/bulk", guests);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GuestBulkCreateResultDto>();
@@ -232,12 +250,14 @@ public sealed class WeddingApiClient(
 
     public async Task UpdateGuestAsync(int eventId, int guestId, GuestUpdateDto guest)
     {
+        await EnsureCanAccessEventAsync(eventId);
         var response = await http.PutAsJsonAsync($"api/Events/{eventId}/Guests/{guestId}", guest);
         response.EnsureSuccessStatusCode();
     }
 
     public async Task DeleteGuestAsync(int eventId, int guestId)
     {
+        await EnsureCanAccessEventAsync(eventId);
         var response = await http.DeleteAsync($"api/Events/{eventId}/Guests/{guestId}");
         response.EnsureSuccessStatusCode();
     }
@@ -269,6 +289,35 @@ public sealed class WeddingApiClient(
             throw new InvalidOperationException("You need to be signed in to create an event.");
 
         return userId;
+    }
+
+    async Task<(int UserId, bool IsAdmin)> GetCurrentUserScopeAsync()
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var userIdText = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!int.TryParse(userIdText, out var userId))
+            throw new InvalidOperationException("You need to be signed in to view wedding information.");
+
+        return (userId, authState.User.IsInRole("Admin"));
+    }
+
+    IQueryable<EventEntity> AccessibleEventsQuery(int userId, bool isAdmin)
+    {
+        var query = context.Events.AsQueryable();
+        if (isAdmin)
+            return query;
+
+        return query.Where(e => context.UserEvents.Any(ue => ue.UserId == userId && ue.EventId == e.EventId));
+    }
+
+    async Task EnsureCanAccessEventAsync(int eventId)
+    {
+        var (userId, isAdmin) = await GetCurrentUserScopeAsync();
+        var canAccess = await AccessibleEventsQuery(userId, isAdmin).AnyAsync(e => e.EventId == eventId);
+
+        if (!canAccess)
+            throw new InvalidOperationException("You can only access your own wedding information.");
     }
 
     static EventDto ToEventDto(EventEntity entity) => new()
