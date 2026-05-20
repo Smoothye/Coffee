@@ -66,6 +66,78 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
 
         return Ok(eventItem);
     }
+    
+    // GET: api/Events/{eventId}/MenuSelections
+    // returns a list of menu selections for the event
+    [HttpGet("{eventId:int}/MenuSelections")]
+    public async Task<ActionResult<IEnumerable<EventMenuSelectionDto>>> GetMenuSelections(int eventId)
+    {
+        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
+        if (!eventExists)
+            return NotFound($"Event with id: {eventId} was not found.");
+
+        var menuSelections = await context.Events
+            .Where(e => e.EventId == eventId)
+            .SelectMany(e => e.Menus)
+            .Select(m => new EventMenuSelectionDto
+            {
+                MenuId = m.MenuId,
+                Name = m.Name,
+                Price = m.Price,
+                DietaryType = m.DietaryType,
+                Description = m.Description,
+                Items = m.MenuItems
+                    .OrderBy(mi => mi.DisplayOrder)
+                    .Select(mi => new EventMenuSelectionItemDto
+                    {
+                        MenuItemId = mi.MenuItemId,
+                        CourseName = mi.CourseName,
+                        Name = mi.Name,
+                        Description = mi.Description,
+                        DisplayOrder = mi.DisplayOrder
+                    })
+                    .ToList()
+            })
+            .ToListAsync();
+
+        return Ok(menuSelections);
+    }
+    
+    // PUT: api/Events/{eventId}/MenuSelections
+    // updates the menu selections for the event
+    [HttpPut("{eventId:int}/MenuSelections")]
+    public async Task<IActionResult> UpdateMenuSelections(int eventId, [FromBody] EventMenuSelectionsUpdateDto model)
+    {
+        var eventItem = await context.Events
+            .Include(e => e.Menus)
+            .SingleOrDefaultAsync(e => e.EventId == eventId);
+
+        if (eventItem == null)
+            return NotFound($"Event with id: {eventId} was not found.");
+
+        var menuIds = model.MenuIds.Distinct().ToList();
+
+        var menus = await context.Menus
+            .Where(m => menuIds.Contains(m.MenuId))
+            .ToListAsync();
+
+        if (menus.Count != menuIds.Count)
+            return BadRequest("One or more menu ids do not exist.");
+
+        eventItem.Menus.Clear();
+
+        foreach (var menu in menus)
+        {
+            eventItem.Menus.Add(menu);
+        }
+
+        eventItem.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
+    
 
     // POST: api/Events
     [HttpPost]
@@ -83,7 +155,12 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         var userAlreadyHasEvent = await context.UserEvents.AnyAsync(ue => ue.UserId == userId);
         if (userAlreadyHasEvent)
             return BadRequest("This user already has an event.");
-
+        
+        // check if an event already exists for this date and venue
+        var eventExists = await context.Events.AnyAsync(e => e.EventDate == model.EventDate && e.VenueId == model.VenueId);
+        if (eventExists)
+            return BadRequest("An event already exists for this date and venue.");       
+        
         var entity = new Event
         {
             VenueId = model.VenueId,
