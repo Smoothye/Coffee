@@ -288,7 +288,10 @@
                                 var currentItemIndex = itemIndex;
                                 var menuItem = course.Items[currentItemIndex];
                                 <div class="admin-item-row">
-                                    <input class="input" placeholder="Item name" @bind="menuItem.Name" @bind:event="oninput" />
+                                    <div class="admin-item-fields">
+                                        <input class="input" placeholder="Item name" @bind="menuItem.Name" @bind:event="oninput" />
+                                        <input class="input" placeholder="Item description" @bind="menuItem.Description" @bind:event="oninput" />
+                                    </div>
                                     <button type="button" class="icon-btn delete" title="Remove item" @onclick="@(() => RemoveItem(currentCourseIndex, currentItemIndex))">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                             <line x1="18" y1="6" x2="6" y2="18" />
@@ -821,7 +824,7 @@
             Items = course.Items.Select(menuItem => new AdminMenuItemModel
             {
                 Name = menuItem.Name.Trim(),
-                Description = "",
+                Description = menuItem.Description.Trim(),
                 DietaryTagsValue = ""
             }).ToList()
         }).ToList()

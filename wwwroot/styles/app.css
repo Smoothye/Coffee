@@ -9631,6 +9631,13 @@ body {
     align-items: center;
 }
 
+.admin-item-fields {
+    display: grid;
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    gap: .5rem;
+    min-width: 0;
+}
+
 .admin-add-item {
     margin-top: .65rem;
     font-size: .8rem;
@@ -9643,6 +9650,10 @@ body {
     }
 
     .admin-item-row {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-item-fields {
         grid-template-columns: 1fr;
     }
 }
