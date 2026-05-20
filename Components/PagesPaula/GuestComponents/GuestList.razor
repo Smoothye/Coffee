@@ -93,10 +93,10 @@
 
     static string MenuCategoryLabel(DietaryRequirements dietary) => dietary switch
     {
-        DietaryRequirements.None => "Standard",
+        DietaryRequirements.Standard => "Standard",
         DietaryRequirements.Vegan => "Vegan",
         DietaryRequirements.Vegetarian => "Vegetarian",
-        DietaryRequirements.Other => "Fasting",
+        DietaryRequirements.Fasting => "Fasting",
         _ => "Standard"
     };
 
@@ -104,7 +104,7 @@
     {
         DietaryRequirements.Vegan => "guest-menu-vegan",
         DietaryRequirements.Vegetarian => "guest-menu-vegetarian",
-        DietaryRequirements.Other => "guest-menu-fasting",
+        DietaryRequirements.Fasting => "guest-menu-fasting",
         _ => "guest-menu-casual"
     };
 

@@ -789,10 +789,17 @@
             return;
         }
 
-        savedMenu.Id = menus.Count == 0 ? 1 : menus.Max(menu => menu.Id) + 1;
-        menus.Add(savedMenu);
-        CloseMenuModal();
-        ShowToast($"\"{savedMenu.Name}\" added locally.");
+        try
+        {
+            var created = await Api.CreateMenuAsync(ToMenuEntity(newMenu));
+            menus.Add(ToAdminMenu(created));
+            CloseMenuModal();
+            ShowToast($"\"{newMenu.Name}\" added.");
+        }
+        catch (Exception ex)
+        {
+            menuModalError = $"Could not add menu: {ex.Message}";
+        }
     }
 
     void DeleteMenu(int id)
@@ -819,6 +826,41 @@
             }).ToList()
         }).ToList()
     };
+
+    static WeddingPlannerApp.Models.Menu ToMenuEntity(AdminMenuModel menu)
+    {
+        var dietaryType = Enum.TryParse<MenuDietaryType>(
+            menu.DietaryType,
+            ignoreCase: true,
+            out var parsedType)
+            ? parsedType
+            : MenuDietaryType.Standard;
+
+        var entity = new WeddingPlannerApp.Models.Menu
+        {
+            Name = menu.Name.Trim(),
+            DietaryType = dietaryType,
+            Price = menu.PricePerPerson,
+            Description = menu.Description.Trim()
+        };
+
+        var displayOrder = 0;
+        foreach (var course in menu.Courses)
+        {
+            foreach (var item in course.Items)
+            {
+                entity.MenuItems.Add(new WeddingPlannerApp.Models.MenuItem
+                {
+                    CourseName = course.Label.Trim(),
+                    Name = item.Name.Trim(),
+                    Description = item.Description.Trim(),
+                    DisplayOrder = displayOrder++
+                });
+            }
+        }
+
+        return entity;
+    }
 
     static AdminVenueModel CloneVenue(AdminVenueModel venue) => new()
     {
@@ -879,8 +921,16 @@
         }
         else if (pendingDeleteType == "menu")
         {
-            menus.RemoveAll(x => x.Id == pendingDeleteId);
-            ShowToast("Menu removed.");
+            try
+            {
+                await Api.DeleteMenuAsync(pendingDeleteId);
+                menus.RemoveAll(x => x.Id == pendingDeleteId);
+                ShowToast("Menu removed.");
+            }
+            catch (Exception ex)
+            {
+                ShowToast($"Could not delete menu: {ex.Message}", error: true);
+            }
         }
 
         CloseConfirm();

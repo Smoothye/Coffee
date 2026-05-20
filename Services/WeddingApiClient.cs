@@ -177,7 +177,29 @@ public sealed class WeddingApiClient(
     }
 
     public async Task<List<Menu>> GetMenusAsync() =>
-        await http.GetFromJsonAsync<List<Menu>>("api/Menus") ?? [];
+        await context.Menus
+            .Include(menu => menu.MenuItems)
+            .AsNoTracking()
+            .OrderBy(menu => menu.DietaryType)
+            .ThenBy(menu => menu.Name)
+            .ToListAsync();
+
+    public async Task<Menu> CreateMenuAsync(Menu menu)
+    {
+        context.Menus.Add(menu);
+        await context.SaveChangesAsync();
+        return menu;
+    }
+
+    public async Task DeleteMenuAsync(int menuId)
+    {
+        var menu = await context.Menus.FindAsync(menuId);
+        if (menu is null)
+            return;
+
+        context.Menus.Remove(menu);
+        await context.SaveChangesAsync();
+    }
 
     public async Task<List<VenueDto>> GetVenuesAsync() =>
         await http.GetFromJsonAsync<List<VenueDto>>("api/Venues") ?? [];

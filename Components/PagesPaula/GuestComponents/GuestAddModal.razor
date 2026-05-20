@@ -98,7 +98,7 @@
     [Parameter] public string FormError { get; set; } = "";
     [Parameter] public IReadOnlyDictionary<string, string> FieldErrors { get; set; } = new Dictionary<string, string>();
     [Parameter] public IReadOnlyList<GuestMenuOption> AvailableMenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
-    [Parameter] public DietaryRequirements PlusOneDietary { get; set; } = DietaryRequirements.None;
+    [Parameter] public DietaryRequirements PlusOneDietary { get; set; } = DietaryRequirements.Standard;
     [Parameter] public EventCallback<DietaryRequirements> PlusOneDietaryChanged { get; set; }
     [Parameter] public EventCallback OnAdd { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
@@ -118,6 +118,6 @@
     {
         return Enum.TryParse<DietaryRequirements>(e.Value?.ToString(), out var dietary)
             ? PlusOneDietaryChanged.InvokeAsync(dietary)
-            : PlusOneDietaryChanged.InvokeAsync(DietaryRequirements.None);
+            : PlusOneDietaryChanged.InvokeAsync(DietaryRequirements.Standard);
     }
 }

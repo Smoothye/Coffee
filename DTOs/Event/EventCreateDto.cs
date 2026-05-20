@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using WeddingPlannerApp.Validation;
 
 namespace WeddingPlannerApp.DTOs.Event;
 
@@ -20,6 +21,7 @@ public sealed class EventCreateDto
     public string? GroomName { get; set; }
 
     [Required]
+    [NotInPast(ErrorMessage = "Event date cannot be in the past.")]
     public DateTime EventDate { get; set; }
 
     [Range(0, int.MaxValue)]

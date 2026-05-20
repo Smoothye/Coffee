@@ -1,4 +1,4 @@
-﻿@page "/tables"
+@page "/tables"
 @page "/tables/{EventId:int}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
@@ -654,19 +654,19 @@
 
     static DietaryRequirements ToDietary(string value) => value switch
     {
-        "standard" => DietaryRequirements.None,
-        "casual" => DietaryRequirements.None,
+        "standard" => DietaryRequirements.Standard,
+        "casual" => DietaryRequirements.Standard,
         "vegan" => DietaryRequirements.Vegan,
         "vegetarian" => DietaryRequirements.Vegetarian,
-        "fasting" => DietaryRequirements.Other,
-        _ => DietaryRequirements.None,
+        "fasting" => DietaryRequirements.Fasting,
+        _ => DietaryRequirements.Standard,
     };
 
     static string ToDietaryValue(DietaryRequirements value) => value switch
     {
         DietaryRequirements.Vegan => "vegan",
         DietaryRequirements.Vegetarian => "vegetarian",
-        DietaryRequirements.Other => "fasting",
+        DietaryRequirements.Fasting => "fasting",
         _ => "standard",
     };
 

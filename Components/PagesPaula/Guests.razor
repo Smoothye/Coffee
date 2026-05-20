@@ -154,9 +154,9 @@
     string loadError = "";
     ImportResult? importResult = null;
     Dictionary<string, string> guestFieldErrors = new();
-    DietaryRequirements plusOneDietary = DietaryRequirements.None;
+    DietaryRequirements plusOneDietary = DietaryRequirements.Standard;
     const string PlusOneNotePrefix = "Plus one for guest ";
-    List<GuestMenuOption> availableMenuOptions = [new(DietaryRequirements.None, "Standard")];
+    List<GuestMenuOption> availableMenuOptions = [new(DietaryRequirements.Standard, "Standard")];
 
     static readonly CsvGuideColumn[] guestCsvColumns =
     {
@@ -236,7 +236,7 @@
         LastName = "",
         Email = "",
         Group = Group.Friends,
-        DietaryRequirements = DietaryRequirements.None,
+        DietaryRequirements = DietaryRequirements.Standard,
         RsvpStatus = RsvpStatus.Pending
     };
 
@@ -348,12 +348,12 @@
 
     static DietaryRequirements ToDietary(string value) => value switch
     {
-        "standard" => DietaryRequirements.None,
-        "casual" => DietaryRequirements.None,
+        "standard" => DietaryRequirements.Standard,
+        "casual" => DietaryRequirements.Standard,
         "vegan" => DietaryRequirements.Vegan,
         "vegetarian" => DietaryRequirements.Vegetarian,
-        "fasting" => DietaryRequirements.Other,
-        _ => DietaryRequirements.None,
+        "fasting" => DietaryRequirements.Fasting,
+        _ => DietaryRequirements.Standard,
     };
 
     void OpenDialog()
@@ -588,7 +588,7 @@
                 FirstName = firstName, LastName = lastName, Email = email, Phone = phone,
                 Age = int.TryParse(ageStr, out var age) ? age : null,
                 Gender = ToGender(gender),
-                DietaryRequirements = NormalizeDietaryForSelectedMenus(validDietary.Contains(dietary) ? ToDietary(dietary) : DietaryRequirements.None),
+                DietaryRequirements = NormalizeDietaryForSelectedMenus(validDietary.Contains(dietary) ? ToDietary(dietary) : DietaryRequirements.Standard),
                 Group = validGroups.Contains(group) ? ToGroup(group) : Group.Other,
                 RsvpStatus = validStatuses.Contains(status) ? ToRsvpStatus(status) : RsvpStatus.Pending,
                 HasPlusOne = plusOne is "yes" or "true" or "1",
@@ -639,7 +639,7 @@
     {
         DietaryRequirements.Vegan => "vegan",
         DietaryRequirements.Vegetarian => "vegetarian",
-        DietaryRequirements.Other => "fasting",
+        DietaryRequirements.Fasting => "fasting",
         _ => "standard"
     };
 
@@ -660,7 +660,7 @@
     {
         if (menuIds.Count == 0)
         {
-            availableMenuOptions = [new(DietaryRequirements.None, "Standard")];
+            availableMenuOptions = [new(DietaryRequirements.Standard, "Standard")];
             return;
         }
 
@@ -674,7 +674,7 @@
             .ToList();
 
         availableMenuOptions = selectedTypes.Count == 0
-            ? [new(DietaryRequirements.None, "Standard")]
+            ? [new(DietaryRequirements.Standard, "Standard")]
             : selectedTypes.Select(ToGuestMenuOption).ToList();
     }
 
@@ -692,14 +692,14 @@
     }
 
     DietaryRequirements DefaultAvailableDietary() =>
-        availableMenuOptions.FirstOrDefault()?.Value ?? DietaryRequirements.None;
+        availableMenuOptions.FirstOrDefault()?.Value ?? DietaryRequirements.Standard;
 
     DietaryRequirements NormalizeDietaryForSelectedMenus(DietaryRequirements dietary)
     {
         if (availableMenuOptions.Any(option => option.Value == dietary))
             return dietary;
 
-        var standard = availableMenuOptions.FirstOrDefault(option => option.Value == DietaryRequirements.None);
+        var standard = availableMenuOptions.FirstOrDefault(option => option.Value == DietaryRequirements.Standard);
         if (standard is not null)
             return standard.Value;
 
@@ -710,7 +710,7 @@
     {
         MenuDietaryType.Vegan => new(DietaryRequirements.Vegan, "Vegan"),
         MenuDietaryType.Vegetarian => new(DietaryRequirements.Vegetarian, "Vegetarian"),
-        MenuDietaryType.Fasting => new(DietaryRequirements.Other, "Fasting"),
-        _ => new(DietaryRequirements.None, "Standard")
+        MenuDietaryType.Fasting => new(DietaryRequirements.Fasting, "Fasting"),
+        _ => new(DietaryRequirements.Standard, "Standard")
     };
 }

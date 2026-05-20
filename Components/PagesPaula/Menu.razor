@@ -10,6 +10,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.MenuComponents
+@using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
 @implements IDisposable
@@ -72,17 +73,33 @@
         <div class="menu-selection-summary">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span>Selected: <strong>@SelectionSummary</strong></span>
-            <button class="task-filter-btn" style="font-size:.72rem;padding:.2rem .55rem;" @onclick="@(() => { selectedByType.Clear(); State.SelectMenu("",""); })">Clear all</button>
+            <button class="task-filter-btn" style="font-size:.72rem;padding:.2rem .55rem;" @onclick="ClearSelection">Clear all</button>
         </div>
     }
 
-    @if (activePackage == null)
+    @if (isLoading)
+    {
+        <div class="empty-venues">
+            <p>Loading menus...</p>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="error-banner">@SvgIcons.AlertCircle @loadError</div>
+    }
+    else if (!packages.Any())
+    {
+        <div class="empty-venues">
+            <p>No menus are available yet.</p>
+        </div>
+    }
+    else if (activePackage == null)
     {
         <div class="menu-packages-grid">
             @foreach (var pkg in filteredPackages)
             {
                 var p = pkg;
-                var isSelected = State.SelectedMenuId == p.Id;
+                var isSelected = IsSelected(p);
                 <div class="menu-pkg-card @(isSelected ? "menu-pkg-selected" : "")" @key="p.Id">
                     @if (IsSelected(p))
                     {
@@ -192,6 +209,10 @@
     MenuPackage?  activePackage = null;
     int           activeCourse  = 0;
     bool          showGuestCountNotice = true;
+    bool          isLoading     = true;
+    bool          isSaving      = false;
+    string        loadError     = "";
+    EventDto?     eventItem;
 
     Dictionary<string, string> selectedByType = new();
     Dictionary<string, int> menuCounts = new()
@@ -204,15 +225,23 @@
 
     bool IsSelected(MenuPackage p) => selectedByType.TryGetValue(p.DietaryType, out var id) && id == p.Id;
 
-    void ToggleSelect(MenuPackage p)
+    async Task ToggleSelect(MenuPackage p)
     {
+        if (isSaving)
+            return;
+
         if (IsSelected(p)) selectedByType.Remove(p.DietaryType);
         else selectedByType[p.DietaryType] = p.Id;
 
-        var names = selectedByType.Keys
-            .OrderBy(k => k)
-            .Select(k => packages.First(p2 => p2.Id == selectedByType[k]).Name);
-        State.SelectMenu(string.Join(",", selectedByType.Values), string.Join(" + ", names));
+        SyncSelectedMenuState();
+        await SaveSelectionAsync();
+    }
+
+    async Task ClearSelection()
+    {
+        selectedByType.Clear();
+        SyncSelectedMenuState();
+        await SaveSelectionAsync();
     }
 
     List<DietFilter> dietaryFilters = new()
@@ -234,8 +263,7 @@
 
     string SelectionSummary =>
         selectedByType.Count == 0 ? "" :
-        string.Join(" + ", selectedByType.Keys.OrderBy(k => k)
-            .Select(k => packages.First(p => p.Id == selectedByType[k]).Name));
+        string.Join(" + ", SelectedMenuNames());
 
     IEnumerable<MenuPackage> filteredPackages =>
         dietFilter == "all" ? packages : packages.Where(p => p.DietaryType == dietFilter);
@@ -264,6 +292,79 @@
         "fasting"    => new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 20c-1.8-3.4-1.2-7.1 1.6-9.9C11.3 7.4 15 6.2 20 5c-.8 4.8-2.2 8.4-4.9 11.1C12.3 18.9 10 20 7 20z'/><path d='M4 21c2.3-5.2 6.2-8.8 11.5-11.2'/></svg>"),
         _            => new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2'/><path d='M7 2v20'/><path d='M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7'/></svg>"),
     };
+
+    async Task SaveSelectionAsync()
+    {
+        if (eventItem is null)
+        {
+            loadError = "Create an event first, then select menus.";
+            return;
+        }
+
+        isSaving = true;
+        loadError = "";
+
+        try
+        {
+            var menuIds = SelectedMenuIds().ToList();
+            await Api.UpdateEventAsync(eventItem.EventId, new EventUpdateDto
+            {
+                VenueId = eventItem.VenueId,
+                MenuIds = menuIds,
+                Name = eventItem.Name,
+                BrideName = eventItem.BrideName,
+                GroomName = eventItem.GroomName,
+                EventDate = eventItem.EventDate,
+                EstimatedGuests = eventItem.EstimatedGuests,
+                TotalBudget = eventItem.TotalBudget,
+                Notes = eventItem.Notes
+            });
+
+            eventItem.MenuIds = menuIds;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not save menu selection: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    Dictionary<string, string> BuildSelectedByType(IReadOnlyCollection<int> menuIds)
+    {
+        var selected = new Dictionary<string, string>();
+
+        foreach (var menuId in menuIds)
+        {
+            var package = packages.FirstOrDefault(p => p.Id == menuId.ToString());
+            if (package is not null)
+                selected[package.DietaryType] = package.Id;
+        }
+
+        return selected;
+    }
+
+    IEnumerable<int> SelectedMenuIds() =>
+        selectedByType.Values
+            .Select(value => int.TryParse(value, out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value);
+
+    IEnumerable<string> SelectedMenuNames() =>
+        selectedByType.Keys
+            .OrderBy(key => key)
+            .Select(key => packages.FirstOrDefault(package => package.Id == selectedByType[key])?.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))!;
+
+    void SyncSelectedMenuState()
+    {
+        State.SelectMenu(
+            string.Join(",", SelectedMenuIds()),
+            string.Join(" + ", SelectedMenuNames()));
+    }
+
     List<MenuPackage> packages = new()
     {
         new MenuPackage("standard-classic","Classic Elegance","standard",85,"A timeless menu featuring premium meats, seasonal sides and indulgent desserts.",new(){new("Starters",new(){new("Bruschetta al Pomodoro","Toasted sourdough, heirloom tomatoes, basil, aged balsamic",new(){"vegetarian"}),new("Prawn Cocktail","Tiger prawns, Marie Rose sauce, lemon, baby gem lettuce",new(){"gf"}),new("Cream of Mushroom Soup","Wild mushroom veloute, truffle oil, chive cream",new(){"vegetarian","gf"})}),new("Main Course",new(){new("Herb-Crusted Chicken","Free-range breast, roasted garlic jus, fondant potato",new(){"gf"}),new("Slow-Roasted Beef Sirloin","28-day aged sirloin, red wine reduction, dauphinoise potato",new(){"gf"}),new("Pan-Seared Salmon","Atlantic salmon, lemon butter, asparagus, new potatoes",new(){"gf"})}),new("Desserts",new(){new("Wedding Cake Slice","Three-tier vanilla sponge, Swiss meringue buttercream",new(){"vegetarian"}),new("Creme Brulee","Classic vanilla custard, caramelized sugar, fresh berries",new(){"vegetarian","gf"}),new("Chocolate Fondant","Warm dark chocolate cake, vanilla bean ice cream",new(){"vegetarian"})})}),
@@ -285,11 +386,27 @@
 
     async Task LoadPageDataAsync()
     {
-        if (!await EnsureCurrentEventAsync())
-            return;
+        isLoading = true;
+        loadError = "";
 
-        await LoadMenusAsync();
-        await LoadGuestMenuCountsAsync();
+        try
+        {
+            if (!await EnsureCurrentEventAsync())
+                return;
+
+            await LoadMenusAsync();
+            selectedByType = BuildSelectedByType(eventItem?.MenuIds ?? []);
+            SyncSelectedMenuState();
+            await LoadGuestMenuCountsAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load menus: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     async Task<bool> EnsureCurrentEventAsync()
@@ -315,6 +432,7 @@
             return false;
         }
 
+        eventItem = ownEvent;
         return true;
     }
 
@@ -324,7 +442,11 @@
         {
             var menus = await Api.GetMenusAsync();
             if (menus.Count > 0)
+            {
                 packages = menus.Select(ToMenuPackage).ToList();
+                activePackage = activePackage is null ? null : packages.FirstOrDefault(p => p.Id == activePackage.Id);
+                activeCourse = 0;
+            }
         }
         catch
         {
@@ -386,14 +508,15 @@
     {
         DietaryRequirements.Vegan => "vegan",
         DietaryRequirements.Vegetarian => "vegetarian",
-        DietaryRequirements.Other => "fasting",
+        DietaryRequirements.Fasting => "fasting",
         _ => "standard"
     };
 
     static MenuPackage ToMenuPackage(WeddingPlannerApp.Models.Menu menu)
     {
         var courses = menu.MenuItems
-            .GroupBy(item => item.CourseName)
+            .GroupBy(item => string.IsNullOrWhiteSpace(item.CourseName) ? "Items" : item.CourseName)
+            .OrderBy(group => group.Min(item => item.DisplayOrder))
             .Select(group => new Course(
                 group.Key,
                 group
