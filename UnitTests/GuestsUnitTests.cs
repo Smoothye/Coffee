@@ -44,7 +44,7 @@ public class GuestsUnitTests
             EventId = eventItem.EventId,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         context.Guests.Add(guestItem);
@@ -96,7 +96,7 @@ public class GuestsUnitTests
             EventId = eventItem.EventId,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         context.Guests.Add(guestItem);
@@ -147,7 +147,7 @@ public class GuestsUnitTests
             Email = "jane@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None,
+            DietaryRequirements = DietaryRequirements.Standard,
             HasPlusOne = false
         };
 
@@ -172,7 +172,7 @@ public class GuestsUnitTests
             Email = "jane@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None,
+            DietaryRequirements = DietaryRequirements.Standard,
             HasPlusOne = false
         };
 
@@ -302,7 +302,7 @@ public class GuestsUnitTests
             EventId = 1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         context.Guests.Add(guest);
@@ -318,7 +318,7 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
             
         };
 
@@ -349,7 +349,7 @@ public class GuestsUnitTests
             Email = "test@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None,
+            DietaryRequirements = DietaryRequirements.Standard,
             HasPlusOne = false
         };
 
@@ -375,7 +375,7 @@ public class GuestsUnitTests
             EventId = 2,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         });
 
         await context.SaveChangesAsync();
@@ -389,7 +389,7 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Update(1, 1, model);
@@ -419,7 +419,7 @@ public class GuestsUnitTests
             EventId = eventItem.EventId,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         context.Guests.Add(guestItem);
@@ -470,7 +470,7 @@ public class GuestsUnitTests
             EventId = 1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         context.Guests.Add(guest);
@@ -507,7 +507,7 @@ public class GuestsUnitTests
             Age = -5, 
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Create(model, 1);
@@ -577,7 +577,7 @@ public class GuestsUnitTests
             Age = 20,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         });
 
         await context.SaveChangesAsync();
@@ -592,7 +592,7 @@ public class GuestsUnitTests
             Age = -5,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Update(1, 1, model);
@@ -625,7 +625,7 @@ public class GuestsUnitTests
             TableId = -1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Create(model, 1);
@@ -657,7 +657,7 @@ public class GuestsUnitTests
             TableId = -1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Create(model, 1);
@@ -690,7 +690,7 @@ public class GuestsUnitTests
             TableId = -1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Create(model, 1);
@@ -717,7 +717,7 @@ public class GuestsUnitTests
             Email = "test@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
         var result = await controller.Create(model, 1);
 
@@ -745,7 +745,7 @@ public class GuestsUnitTests
             EventId = 1,
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         });
 
         await context.SaveChangesAsync();
@@ -759,7 +759,7 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Update(1, 1, model);
@@ -829,7 +829,7 @@ public class GuestsUnitTests
             Email = "john@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Create(model, 1);
@@ -869,7 +869,7 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Update(1, 1, model);
@@ -938,7 +938,7 @@ public class GuestsUnitTests
             Email = "john@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Create(model, 1);
@@ -978,7 +978,7 @@ public class GuestsUnitTests
             Email = "upd@test.com",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Update(1, 1, model);
@@ -1042,7 +1042,7 @@ public class GuestsUnitTests
             Email = "invalid-email",
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
         var result = await controller.Create(model, 1);
         Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
@@ -1080,7 +1080,7 @@ public class GuestsUnitTests
             Email = "invalid-email", 
             RsvpStatus = RsvpStatus.Pending,
             Group = Group.Friends,
-            DietaryRequirements = DietaryRequirements.None
+            DietaryRequirements = DietaryRequirements.Standard
         };
 
         var result = await controller.Update(1, 1, model);

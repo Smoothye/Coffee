@@ -298,8 +298,7 @@ public class VenuesUnitTests
         {
             Name = "Event 1",
             EventDate = DateTime.Now,
-            VenueId = venue.VenueId,
-            MenuId = 1
+            VenueId = venue.VenueId
         });
 
         await context.SaveChangesAsync();
