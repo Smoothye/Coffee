@@ -11,7 +11,7 @@ namespace UnitTests
 
 {
     [TestClass]
-    public  class Test1
+    public class Test1
     {
         private ApplicationDbContext GetDbContext()
         {
@@ -169,70 +169,34 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task Create_ReturnsCreated_WhenDataIsValid()
+        public async Task Create_ReturnsBadRequest_WhenMenuDoesNotExist()
         {
             var context = GetDbContext();
-
             context.Venues.Add(new Venue
             {
                 VenueId = 1,
-                Name = "Test Venue",
-                Address = "Cluj-Napoca",
+                Name = "Elegant Hall",
+                Address = "Cluj Napoca",
                 MinCapacity = 50,
                 MaxCapacity = 200,
-                EstimatedPrice = 3000
-            });
-            context.Menus.Add(new Menu
-            {
-                MenuId = 1,
-                Name = "Standard Menu",
-                Price = 100,
-                Description = "Basic wedding menu"
+                EstimatedPrice = 5000
             });
             await context.SaveChangesAsync();
-
             var controller = new EventsController(context);
-
             var model = new EventCreateDto
             {
                 VenueId = 1,
-                MenuId = 1,
-                Name = "Wedding",
+                MenuId = 999,
+                Name = "Wedding Event",
                 EventDate = DateTime.UtcNow,
                 EstimatedGuests = 100,
                 TotalBudget = 5000,
-                Notes = "Test"
+                Notes = "Test event"
             };
-
             var result = await controller.Create(model);
-
-            Assert.IsInstanceOfType(result.Result, typeof(CreatedAtActionResult));
+            Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
         }
 
-        [TestMethod]
-        public async Task DeleteEvent_Valid_ReturnsNoContent()
-        {
-            var context = GetDbContext();
-
-            context.Events.Add(new Event
-            {
-                EventId = 1,
-                VenueId = 1,
-                MenuId = 1,
-                Name = "Test Event",
-                EventDate = DateTime.UtcNow,
-                EstimatedGuests = 10,
-                TotalBudget = 2000,
-                Notes = "Test event",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            });
-            await context.SaveChangesAsync();
-            var controller = new EventsController(context);
-            var result = await controller.Delete(1);
-
-            Assert.IsInstanceOfType(result, typeof(NoContentResult));
-        }
 
         [TestMethod]
         public async Task Delete_ReturnsNotFound_WhenEventDoesNotExist()
@@ -246,7 +210,7 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task Delete_ReturnsNotContent_WhenEventExists()
+        public async Task Delete_ReturnsNoContent_WhenEventExists()
         {
             var context = GetDbContext();
 
@@ -364,125 +328,171 @@ namespace UnitTests
 
         }
 
+        [TestMethod]
+        public async Task Update_ReturnsBadRequest_WhenVenueDoesNotExist()
+        {
+            var context = GetDbContext();
+            context.Events.Add(new Event
+            {
+                EventId = 1,
+                VenueId = 1,
+                MenuId = 1,
+                Name = "Old",
+                EventDate = DateTime.UtcNow,
+                EstimatedGuests = 10,
+                TotalBudget = 2000,
+                Notes = "Test event",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
+            var controller = new EventsController(context);
+            var model = new EventUpdateDto
+            {
+                VenueId = 999,
+                MenuId = 1,
+                Name = "Updated Event",
+                EventDate = DateTime.UtcNow,
+                EstimatedGuests = 100,
+                TotalBudget = 5000,
+                Notes = "Updated"
+            };
+            var result = await controller.Update(1, model);
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+        }
+
+        [TestMethod]
+        public async Task Update_ReturnsBadRequest_WhenMenuDoesNotExist()
+        {
+            var context = GetDbContext();
+            context.Events.Add(new Event
+            {
+                EventId = 1,
+                VenueId = 1,
+                MenuId = 1,
+                Name = "Old",
+                EventDate = DateTime.UtcNow,
+                EstimatedGuests = 10,
+                TotalBudget = 2000,
+                Notes = "Test event",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
+            var controller = new EventsController(context);
+            var model = new EventUpdateDto
+            {
+                VenueId = 1,
+                MenuId = 999,
+                Name = "Updated Event",
+                EventDate = DateTime.UtcNow,
+                EstimatedGuests = 100,
+                TotalBudget = 5000,
+                Notes = "Updated"
+            };
+            var result = await controller.Update(1, model);
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+        }
+
+        [TestMethod]
+        public async Task Create_ReturnsBadReuqest_WhenEventDateIsInPast()
+        {
+            var context = GetDbContext();
+
+            context.Venues.Add(new Venue
+            {
+                VenueId = 1,
+                Name = "Venue",
+                Address = "Cluj",
+                MinCapacity = 10,
+                MaxCapacity = 100,
+                EstimatedPrice = 1000
+            });
+
+            context.Menus.Add(new Menu
+            {
+                MenuId = 1,
+                Name = "Menu",
+                Price = 100,
+                Description = "Test menu"
+            });
+
+            await context.SaveChangesAsync();
+
+            var controller = new EventsController(context);
+
+            var model = new EventCreateDto
+            {
+                VenueId = 1,
+                MenuId = 1,
+                Name = "Event",
+                EventDate = DateTime.UtcNow.AddDays(-1),
+                EstimatedGuests = 100,
+                TotalBudget = 5000,
+                Notes = "Test event"
+            };
+
+            var result = await controller.Create(model);
+
+            Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
+        }
+
+        [TestMethod]
+        public async Task Create_ReturnsBadReuqest_WhenVenueAlreadyBookedForDate() {             
+            var context = GetDbContext();
+
+            context.Venues.Add(new Venue
+            {
+                VenueId = 1,
+                Name = "Venue",
+                Address = "Cluj",
+                MinCapacity = 10,
+                MaxCapacity = 100,
+                EstimatedPrice = 1000
+            });
 
 
-        ////[TestMethod]
-        //public async Task Create_ReturnsBadRequest_WhenNameIsEmpty()
-        //{
-        //    var context = GetDbContext();
+            context.Menus.Add(new Menu
+            {
+                MenuId = 1,
+                Name = "Menu",
+                Price = 100,
+                Description = "Test menu"
+            });
 
-        //    context.Venues.Add(new Venue
-        //    {
-        //        VenueId = 1,
-        //        Name = "Test Venue",
-        //        Address = "Cluj-Napoca",
-        //        MinCapacity = 50,
-        //        MaxCapacity = 200,
-        //        EstimatedPrice = 3000
-        //    });
 
-        //    context.Menus.Add(new Menu
-        //    {
-        //        MenuId = 1,
-        //        Name = "Standard Menu",
-        //        Price = 100,
-        //        Description = "Basic wedding menu"
-        //    });
+            context.Events.Add(new Event
+            {
+                EventId = 1,
+                VenueId = 1,
+                MenuId = 1,
+                Name = "Existing Event",
+                EventDate = DateTime.UtcNow.AddDays(10),
+                EstimatedGuests = 50,
+                TotalBudget = 2000,
+                Notes = "Test event",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+            await context.SaveChangesAsync();
 
-        //    await context.SaveChangesAsync();
-        //    var controller = new EventsController(context);
+            var controller = new EventsController(context);
 
-        //    var dto = new EventCreateDto
-        //    {
-        //        VenueId = 1,
-        //        MenuId = 1,
-        //        Name = "",
-        //        EventDate = DateTime.UtcNow,
-        //        EstimatedGuests = 100,
-        //        TotalBudget = 5000,
-        //        Notes = "Test event"
-        //    };
+            var model = new EventCreateDto
+            {
+                VenueId = 1,
+                MenuId = 1,
+                Name = "New Event",
+                EventDate = DateTime.UtcNow.AddDays(10),
+                EstimatedGuests = 100,
+                TotalBudget = 5000,
+                Notes = "Test event"
+            };
+            var result = await controller.Create(model);
+            Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
+        }
 
-        //    var result = await controller.Create(dto);
-        //    Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
-        //}
-
-        ////[TestMethod]
-        //public async Task Create_ReturnsBadRequest_WheenEstimatedGuestsIsZeroOrLess()
-        //{
-        //    var context = GetDbContext();
-
-        //    context.Venues.Add(new Venue
-        //    {
-        //        VenueId = 1,
-        //        Name = "Test Venue",
-        //        Address = "Cluj-Napoca",
-        //        MinCapacity = 50,
-        //        MaxCapacity = 200,
-        //        EstimatedPrice = 3000
-        //    });
-
-        //    context.Menus.Add(new Menu
-        //    {
-        //        MenuId = 1,
-        //        Name = "Standard Menu",
-        //        Price = 100,
-        //        Description = "Basic wedding menu"
-        //    });
-
-        //    await context.SaveChangesAsync();
-        //    var controller = new EventsController(context);
-
-        //    var dto = new EventCreateDto
-        //    {
-        //        VenueId = 1,
-        //        MenuId = 1,
-        //        Name = "Test Event",
-        //        EventDate = DateTime.UtcNow,
-        //        EstimatedGuests = 0,
-        //        TotalBudget = 5000,
-        //        Notes = "Test event"
-        //    };
-
-        //    var result = await controller.Create(dto);
-        //    Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
-        //}
-
-        ////[TestMethod]
-        //public async Task Create_ReturnsBadRequest_WhenTotalBudgetIsNegative()
-        //{
-        //    var context = GetDbContext();
-        //    context.Venues.Add(new Venue
-        //    {
-        //        VenueId = 1,
-        //        Name = "Test Venue",
-        //        Address = "Cluj-Napoca",
-        //        MinCapacity = 50,
-        //        MaxCapacity = 200,
-        //        EstimatedPrice = 3000
-        //    });
-        //    context.Menus.Add(new Menu
-        //    {
-        //        MenuId = 1,
-        //        Name = "Standard Menu",
-        //        Price = 100,
-        //        Description = "Basic wedding menu"
-        //    });
-        //    await context.SaveChangesAsync();
-        //    var controller = new EventsController(context);
-        //    var dto = new EventCreateDto
-        //    {
-        //        VenueId = 1,
-        //        MenuId = 1,
-        //        Name = "Test Event",
-        //        EventDate = DateTime.UtcNow,
-        //        EstimatedGuests = 100,
-        //        TotalBudget = -5000,
-        //        Notes = "Test event"
-        //    };
-        //    var result = await controller.Create(dto);
-        //    Assert.IsInstanceOfType(result.Result, typeof(BadRequestObjectResult));
-
-        //}
     }
+
+    
 }
