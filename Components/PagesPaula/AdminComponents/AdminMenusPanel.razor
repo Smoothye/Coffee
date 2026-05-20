@@ -43,6 +43,12 @@
                     <div class="admin-menu-side">
                         <strong>$@menu.PricePerPerson</strong>
                         <span>@menu.Courses.Count courses</span>
+                        <button class="icon-btn expand" title="Edit menu" @onclick="@(() => OnEditMenu.InvokeAsync(menu.Id))">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
+                        </button>
                         <button class="icon-btn delete" title="Remove menu" @onclick="@(() => OnDeleteMenu.InvokeAsync(menu.Id))">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="3 6 5 6 21 6" />
@@ -68,6 +74,7 @@
 @code {
     [Parameter] public IReadOnlyList<AdminMenuModel> Menus { get; set; } = [];
     [Parameter] public EventCallback OnAddMenu { get; set; }
+    [Parameter] public EventCallback<int> OnEditMenu { get; set; }
     [Parameter] public EventCallback<int> OnDeleteMenu { get; set; }
 
     static string DietLabel(string type) => type switch

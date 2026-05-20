@@ -1,15 +1,17 @@
 <div class="tables-canvas">
-    <TableToolbar SeatedCount="SeatedCount"
-                  TotalGuests="TotalGuests"
-                  TotalSeats="TotalSeats"
-                  TableCount="Tables.Count"
-                  OnConfigureHeadTable="OnConfigureHeadTable"
-                  OnCsvGuide="OnCsvGuide"
-                  OnImport="OnImport"
-                  OnExport="OnExport"
-                  OnAddTable="OnAddTable" />
+    <div class="tables-control-panel">
+        <TableToolbar SeatedCount="SeatedCount"
+                      TotalGuests="TotalGuests"
+                      TotalSeats="TotalSeats"
+                      TableCount="Tables.Count"
+                      OnConfigureHeadTable="OnConfigureHeadTable"
+                      OnCsvGuide="OnCsvGuide"
+                      OnImport="OnImport"
+                      OnExport="OnExport"
+                      OnAddTable="OnAddTable" />
 
-    <TableGroupLegend Groups="Groups" />
+        <TableGroupLegend Groups="Groups" />
+    </div>
 
     <div class="tables-grid">
         @{

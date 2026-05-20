@@ -18,6 +18,7 @@ public sealed class TableGuest
     public int? SeatNumber { get; set; }
     public string Status { get; set; } = "pending";
     public string DietaryRequirements { get; set; } = "none";
+    public string? Notes { get; set; }
 }
 
 public sealed class EventTable

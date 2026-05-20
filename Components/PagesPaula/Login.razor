@@ -151,7 +151,7 @@
                 const data = await response.json();
 
                 if (data.succeeded) {
-                    window.location.assign(data.redirectUrl || "/dashboard");
+                    window.location.assign(data.redirectUrl || "/onboarding");
                     return;
                 }
 

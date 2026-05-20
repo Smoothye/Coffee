@@ -1,4 +1,4 @@
-@page "/tables"
+ï»¿@page "/tables"
 @page "/tables/{EventId:int}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
@@ -7,9 +7,11 @@
 @inject IJSRuntime JS
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using System.Text
+@using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Components.PagesPaula.TableComponents
+@inject AuthenticationStateProvider AuthStateProvider
 @implements IDisposable
 
 <PageNav Title="Table Plan"
@@ -411,12 +413,6 @@
     protected override async Task OnInitializedAsync()
     {
         BuildHeadTable();
-        tables.AddRange(new[]
-        {
-            MakeTable(1, "Table 1", 6),
-            MakeTable(2, "Table 2", 6),
-            MakeTable(3, "Table 3", 8),
-        });
         pool = new List<TableGuest>();
         await EnsureEventAndLoadGuests();
     }
@@ -425,21 +421,26 @@
     {
         try
         {
-            if (EventId <= 0)
-            {
-                var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
-                if (firstEvent is null)
-                {
-                    loadError = "No event exists yet. Create an event first, then plan tables.";
-                    ShowToast(loadError, error: true);
-                    return;
-                }
+            if (await RedirectAdminAsync())
+                return;
 
-                EventId = firstEvent.EventId;
+            var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+            if (ownEvent is null)
+            {
+                loadError = "No event exists yet. Create an event first, then plan tables.";
+                ShowToast(loadError, error: true);
+                return;
+            }
+
+            if (EventId <= 0 || EventId != ownEvent.EventId)
+            {
+                EventId = ownEvent.EventId;
                 Nav.NavigateTo($"/tables/{EventId}", replace: true);
+                return;
             }
 
             var guests = await Api.GetGuestsAsync(EventId);
+            ConfigureRoundTablesForGuests(guests);
             LoadGuestsIntoPlan(guests);
         }
         catch (Exception ex)
@@ -447,6 +448,63 @@
             loadError = $"Could not load table guests: {ex.Message}";
             ShowToast(loadError, error: true);
         }
+    }
+
+    void ConfigureRoundTablesForGuests(IReadOnlyList<GuestDto> guests)
+    {
+        var existingRoundTables = tables.Where(t => !t.IsHeadTable).ToList();
+        foreach (var table in existingRoundTables)
+            tables.Remove(table);
+
+        var activeGuests = guests
+            .Where(g => g.RsvpStatus != RsvpStatus.Declined)
+            .ToList();
+
+        var assignedTableIds = activeGuests
+            .Where(g => g.TableId.HasValue && g.TableId.Value > 0)
+            .Select(g => g.TableId!.Value)
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+        if (assignedTableIds.Count > 0)
+        {
+            foreach (var tableId in assignedTableIds)
+            {
+                var assignedSeats = activeGuests
+                    .Where(g => g.TableId == tableId)
+                    .Select(g => g.SeatNumber ?? 0)
+                    .Where(seat => seat > 0)
+                    .DefaultIfEmpty(0)
+                    .Max();
+                var assignedCount = activeGuests.Count(g => g.TableId == tableId);
+                var capacity = Math.Clamp(Math.Max(assignedSeats, assignedCount), 2, 10);
+                tables.Add(MakeTable(tableId, $"Table {tables.Count(t => !t.IsHeadTable) + 1}", capacity));
+            }
+        }
+
+        var unassignedGuests = activeGuests.Count(g => !g.TableId.HasValue || g.TableId <= 0);
+        var remainingSeats = Math.Max(0, unassignedGuests);
+        while (remainingSeats > 0)
+        {
+            var capacity = Math.Min(8, remainingSeats);
+            if (capacity < 2)
+                capacity = 2;
+
+            var newId = tables.Count > 0 ? tables.Max(t => t.Id) + 1 : 1;
+            tables.Add(MakeTable(newId, $"Table {tables.Count(t => !t.IsHeadTable) + 1}", capacity));
+            remainingSeats -= capacity;
+        }
+    }
+
+    async Task<bool> RedirectAdminAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (!authState.User.IsInRole("Admin"))
+            return false;
+
+        Nav.NavigateTo("/admin", replace: true);
+        return true;
     }
 
     void LoadGuestsIntoPlan(IEnumerable<GuestDto> guestDtos)
@@ -458,7 +516,7 @@
                 table.Seats[i] = null;
         }
 
-        foreach (var dto in guestDtos)
+        foreach (var dto in guestDtos.Where(g => g.RsvpStatus != RsvpStatus.Declined))
         {
             var guest = ToTableGuest(dto);
             var table = dto.TableId.HasValue
@@ -534,6 +592,7 @@
         SeatNumber = dto.SeatNumber,
         Status = dto.RsvpStatus.ToString().ToLowerInvariant(),
         DietaryRequirements = ToDietaryValue(dto.DietaryRequirements),
+        Notes = dto.Notes,
     };
 
     static GuestCreateDto ToCreateDto(TableGuest guest) => new()
@@ -550,6 +609,7 @@
         DietaryRequirements = ToDietary(guest.DietaryRequirements),
         HasPlusOne = guest.PlusOne,
         SeatNumber = guest.SeatNumber,
+        Notes = guest.Notes,
     };
 
     static GuestUpdateDto ToUpdateDto(TableGuest guest, int? tableId, int? seatNumber) => new()
@@ -566,6 +626,7 @@
         DietaryRequirements = ToDietary(guest.DietaryRequirements),
         HasPlusOne = guest.PlusOne,
         SeatNumber = seatNumber,
+        Notes = guest.Notes,
     };
 
     static Gender? ToGender(string value) => value switch
@@ -593,12 +654,11 @@
 
     static DietaryRequirements ToDietary(string value) => value switch
     {
+        "standard" => DietaryRequirements.None,
+        "casual" => DietaryRequirements.None,
         "vegan" => DietaryRequirements.Vegan,
         "vegetarian" => DietaryRequirements.Vegetarian,
-        "gluten-free" => DietaryRequirements.GlutenFree,
-        "halal" => DietaryRequirements.Halal,
-        "kosher" => DietaryRequirements.Kosher,
-        "other" => DietaryRequirements.Other,
+        "fasting" => DietaryRequirements.Other,
         _ => DietaryRequirements.None,
     };
 
@@ -606,11 +666,8 @@
     {
         DietaryRequirements.Vegan => "vegan",
         DietaryRequirements.Vegetarian => "vegetarian",
-        DietaryRequirements.GlutenFree => "gluten-free",
-        DietaryRequirements.Halal => "halal",
-        DietaryRequirements.Kosher => "kosher",
-        DietaryRequirements.Other => "other",
-        _ => "none",
+        DietaryRequirements.Other => "fasting",
+        _ => "standard",
     };
 
     List<string> HeadLabels()
@@ -639,7 +696,7 @@
         groomName = string.IsNullOrWhiteSpace(pendingGroomName) ? "Groom" : pendingGroomName.Trim();
         BuildHeadTable();
         headConfigOpen = false;
-        ShowToast($"Head table updated — {2 + godparentCouples * 2} seats total.");
+        ShowToast($"Head table updated - {2 + godparentCouples * 2} seats total.");
     }
 
     void StartDrag(TableGuest guest, DragSource source)
@@ -914,7 +971,7 @@
         }
 
         tables.Add(MakeTable(newId, $"Table {newCount}", idealCap));
-        ShowToast($"Table added — {newCount} tables, ~{idealCap} seats each.");
+        ShowToast($"Table added - {newCount} tables, ~{idealCap} seats each.");
     }
 
     void ResizeTable(int id, int delta)
@@ -1083,8 +1140,8 @@
             var g = guest;
             var isLocked = IsLockedHeadGuest(g);
             var col = GroupDefs[g.Group];
-            var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} — {label ?? $"Seat {idx + 1}"}";
-            <div class="seat-guest @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
+            var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} - {label ?? $"Seat {idx + 1}"}";
+            <div class="seat-guest @(isLocked ? "seat-guest-couple" : "") @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
                  style="background:linear-gradient(135deg,@col.SeatFrom,@col.SeatTo);box-shadow:0 2px 8px rgba(0,0,0,.2);"
                  title="@title"
                  draggable="@(!isLocked)"
@@ -1109,7 +1166,7 @@
         {
             var isLockedSeat = IsLockedHeadSeat(table, idx);
             <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") @(isLockedSeat ? "seat-empty-locked" : "seat-empty-clickable")"
-                 title="@(label != null ? label : $"Seat {idx + 1}") — click to assign or drop a guest"
+                 title="@(label != null ? label : $"Seat {idx + 1}") - click to assign or drop a guest"
                  @onclick="@(() => { if (!isLockedSeat) OpenSeatPicker(table, idx); })"
                  @onclick:stopPropagation="true">
                 <span class="seat-empty-num">@(label != null ? label.Split(' ').Select(w => w[0].ToString()).Aggregate((a, b) => a + b) : (idx + 1).ToString())</span>
@@ -1139,3 +1196,5 @@
 
     public void Dispose() => toastTimer?.Dispose();
 }
+
+

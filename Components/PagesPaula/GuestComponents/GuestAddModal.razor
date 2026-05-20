@@ -1,0 +1,123 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.Models
+
+<ModalShell IsOpen="IsOpen" Title="Add New Guest" OnClose="OnClose">
+    @if (!string.IsNullOrEmpty(FormError))
+    {
+        <div class="error-banner">@SvgIcons.AlertCircle @FormError</div>
+    }
+    <div class="form-grid-2">
+        <div class="field">
+            <label>First Name *</label>
+            <input class="input @(HasGuestError(nameof(NewGuest.FirstName)) ? "field-invalid" : "")" @bind="NewGuest.FirstName" @bind:event="oninput" placeholder="First name" />
+            @GuestFieldError(nameof(NewGuest.FirstName))
+        </div>
+        <div class="field">
+            <label>Last Name *</label>
+            <input class="input @(HasGuestError(nameof(NewGuest.LastName)) ? "field-invalid" : "")" @bind="NewGuest.LastName" @bind:event="oninput" placeholder="Last name" />
+            @GuestFieldError(nameof(NewGuest.LastName))
+        </div>
+    </div>
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Email *</label>
+            <input class="input @(HasGuestError(nameof(NewGuest.Email)) ? "field-invalid" : "")" @bind="NewGuest.Email" @bind:event="oninput" placeholder="email@example.com" />
+            @GuestFieldError(nameof(NewGuest.Email))
+        </div>
+        <div class="field">
+            <label>Phone</label>
+            <input class="input @(HasGuestError(nameof(NewGuest.Phone)) ? "field-invalid" : "")" @bind="NewGuest.Phone" @bind:event="oninput" placeholder="+1234567890" />
+            @GuestFieldError(nameof(NewGuest.Phone))
+        </div>
+    </div>
+    <div class="form-grid-3">
+        <div class="field">
+            <label>Age</label>
+            <input class="input @(HasGuestError(nameof(NewGuest.Age)) ? "field-invalid" : "")" type="number" min="0" @bind="NewGuest.Age" @bind:event="oninput" />
+            @GuestFieldError(nameof(NewGuest.Age))
+        </div>
+        <div class="field">
+            <label>Gender</label>
+            <select class="input select-input" @bind="NewGuest.Gender">
+                <option value="">-</option>
+                <option value="@Gender.Male">Male</option>
+                <option value="@Gender.Female">Female</option>
+                <option value="@Gender.Other">Other</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Menu preference</label>
+            <select class="input select-input" @bind="NewGuest.DietaryRequirements">
+                @foreach (var option in AvailableMenuOptions)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="field">
+        <label>Group</label>
+        <select class="input select-input" @bind="NewGuest.Group">
+            <option value="@Group.Family">Family</option>
+            <option value="@Group.Friends">Friends</option>
+            <option value="@Group.Colleagues">Colleagues</option>
+            <option value="@Group.Other">Other</option>
+        </select>
+    </div>
+    <div class="field">
+        <label class="field-label">Plus One</label>
+        <div class="plusone-toggle">
+            <button type="button" class="toggle-opt @(!NewGuest.HasPlusOne ? "toggle-active-no" : "toggle-inactive")" @onclick="@(() => NewGuest.HasPlusOne = false)">@SvgIcons.XSmall No</button>
+            <button type="button" class="toggle-opt @(NewGuest.HasPlusOne ? "toggle-active-yes" : "toggle-inactive")" @onclick="@(() => NewGuest.HasPlusOne = true)">@SvgIcons.Check Yes</button>
+        </div>
+    </div>
+    @if (NewGuest.HasPlusOne)
+    {
+        <div class="field">
+            <label>Plus one menu preference</label>
+            <select class="input select-input" value="@PlusOneDietary" @onchange="ChangePlusOneDietary">
+                @foreach (var option in AvailableMenuOptions)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </div>
+    }
+    <button class="btn-add-guest" @onclick="OnAdd">Add Guest</button>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public GuestCreateDto NewGuest { get; set; } = new()
+    {
+        FirstName = "",
+        LastName = "",
+        Email = ""
+    };
+    [Parameter] public string FormError { get; set; } = "";
+    [Parameter] public IReadOnlyDictionary<string, string> FieldErrors { get; set; } = new Dictionary<string, string>();
+    [Parameter] public IReadOnlyList<GuestMenuOption> AvailableMenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
+    [Parameter] public DietaryRequirements PlusOneDietary { get; set; } = DietaryRequirements.None;
+    [Parameter] public EventCallback<DietaryRequirements> PlusOneDietaryChanged { get; set; }
+    [Parameter] public EventCallback OnAdd { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    bool HasGuestError(string field) => FieldErrors.ContainsKey(field);
+
+    RenderFragment GuestFieldError(string field) => builder =>
+    {
+        if (!FieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+
+    Task ChangePlusOneDietary(ChangeEventArgs e)
+    {
+        return Enum.TryParse<DietaryRequirements>(e.Value?.ToString(), out var dietary)
+            ? PlusOneDietaryChanged.InvokeAsync(dietary)
+            : PlusOneDietaryChanged.InvokeAsync(DietaryRequirements.None);
+    }
+}

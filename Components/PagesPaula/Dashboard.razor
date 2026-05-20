@@ -11,9 +11,12 @@
 @using WeddingPlannerApp.Data
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
+@using WeddingPlannerApp.Services
 @inject NavigationManager Nav
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject WeddingStateService State
 
 <HeadContent>
     <link rel="stylesheet" href="styles/Dashboard.css" />
@@ -60,8 +63,13 @@
         <TasksWidget Tasks="tasks" OnToggleTask="ToggleTask" />
 
         <MenuDetailsWidget SelectedMenu="@selectedMenu"
+                           EventId="EventId"
+                           MenuRows="menuRows"
+                           MenuEstimate="menuEstimate"
                            VenueName="@venueName"
                            ExpectedGuests="expectedGuests"
+                           SeatedGuests="seatedGuests"
+                           SeatingTotalGuests="seatingTotalGuests"
                            TablesConfirmed="tablesConfirmed"
                            BudgetPercent="budgetPercent" />
     </div>
@@ -75,6 +83,10 @@
     int expectedGuests = 120;
     bool tablesConfirmed = false;
     string selectedMenu = "Classic Elegance";
+    List<string> menuRows = [];
+    int menuEstimate = 0;
+    int seatedGuests = 0;
+    int seatingTotalGuests = 0;
     string loadError = "";
     string userDisplayName = "there";
 
@@ -88,7 +100,8 @@
 
     int budgetTotal = 20000;
     int budgetSpent = 14200;
-    int budgetPercent => budgetTotal > 0 ? budgetSpent * 100 / budgetTotal : 0;
+    int budgetEstimated = 0;
+    int budgetPercent => budgetTotal > 0 ? budgetEstimated * 100 / budgetTotal : 0;
 
     List<DashboardBudgetCategory> budgetCategories =
     [
@@ -132,27 +145,34 @@
 
         try
         {
+            if (await RedirectAdminAsync())
+                return;
+
             await LoadUserName();
 
-            if (EventId <= 0)
+            var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+            if (ownEvent is null)
             {
-                var firstEvent = (await Api.GetEventsAsync()).OrderBy(e => e.EventId).FirstOrDefault();
-                if (firstEvent is null)
-                {
-                    loadError = "No event exists yet. Create one from onboarding first.";
-                    return;
-                }
+                Nav.NavigateTo("/onboarding", replace: true);
+                return;
+            }
 
-                EventId = firstEvent.EventId;
+            if (EventId <= 0 || EventId != ownEvent.EventId)
+            {
+                EventId = ownEvent.EventId;
                 Nav.NavigateTo($"/dashboard/{EventId}", replace: true);
+                return;
             }
 
             var eventItem = await Api.GetEventAsync(EventId);
             if (eventItem is null)
             {
-                loadError = $"Event {EventId} was not found.";
+                Nav.NavigateTo("/onboarding", replace: true);
                 return;
             }
+
+            if (eventItem is null)
+                return;
 
             ApplyEvent(eventItem);
 
@@ -165,11 +185,26 @@
 
             var menus = await Api.GetMenusAsync();
             selectedMenu = FormatMenuNames(eventItem.MenuIds, menus);
+            ApplyMenuRows(eventItem.MenuIds, menus, guests, eventItem.EstimatedGuests);
+            if (venue != null)
+                State.UpsertVenueBudgetItem(venue.Name, (int)Math.Round(venue.EstimatedPrice));
+            State.UpsertMenuBudgetItem(menuEstimate);
+            ApplyBudgetState();
         }
         catch (Exception ex)
         {
             loadError = $"Could not load dashboard data: {ex.Message}";
         }
+    }
+
+    async Task<bool> RedirectAdminAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (!authState.User.IsInRole("Admin"))
+            return false;
+
+        Nav.NavigateTo("/admin", replace: true);
+        return true;
     }
 
     async Task LoadUserName()
@@ -191,7 +226,8 @@
     {
         weddingDate = eventItem.EventDate;
         expectedGuests = eventItem.EstimatedGuests;
-        budgetTotal = (int)eventItem.TotalBudget;
+        if (State.BudgetTotal <= 0)
+            State.UpdateBudgetTotal((int)eventItem.TotalBudget);
         selectedMenu = eventItem.MenuIds.Count > 0
             ? $"{eventItem.MenuIds.Count} menus selected"
             : "Select a menu";
@@ -220,5 +256,104 @@
         rsvpPending = guests.Count(g => g.RsvpStatus == RsvpStatus.Pending);
         rsvpDeclined = guests.Count(g => g.RsvpStatus == RsvpStatus.Declined);
         rsvpPlusOnes = guests.Count(g => g.HasPlusOne);
+        var activeGuests = guests.Where(g => g.RsvpStatus != RsvpStatus.Declined).ToList();
+        seatingTotalGuests = activeGuests.Count;
+        seatedGuests = activeGuests.Count(g => g.TableId.HasValue && g.SeatNumber.HasValue);
+        tablesConfirmed = seatingTotalGuests > 0 && seatedGuests == seatingTotalGuests;
     }
+
+    void ApplyMenuRows(
+        IReadOnlyCollection<int> menuIds,
+        IReadOnlyCollection<WeddingPlannerApp.Models.Menu> menus,
+        IReadOnlyCollection<GuestDto> guests,
+        int estimatedGuests)
+    {
+        var selectedMenus = menus
+            .Where(menu => menuIds.Contains(menu.MenuId))
+            .OrderBy(menu => menu.DietaryType)
+            .ThenBy(menu => menu.Price)
+            .ToList();
+        var activeGuests = guests.Where(g => g.RsvpStatus != RsvpStatus.Declined).ToList();
+        var selectedMenuTypes = selectedMenus.Select(menu => menu.DietaryType).Distinct().ToList();
+        var counts = BuildMenuCounts(activeGuests, estimatedGuests, selectedMenuTypes);
+
+        menuRows = selectedMenus
+            .Select(menu =>
+            {
+                var guestCount = counts.TryGetValue(menu.DietaryType, out var count) ? count : 0;
+                var total = menu.Price * guestCount;
+                return $"{menu.Name} - {menu.DietaryType} - {guestCount} guests x ${menu.Price:0}/person = ${total:N0}";
+            })
+            .ToList();
+
+        menuEstimate = selectedMenus.Sum(menu =>
+        {
+            var guestCount = counts.TryGetValue(menu.DietaryType, out var count) ? count : 0;
+            return (int)Math.Round(menu.Price * guestCount);
+        });
+    }
+
+    static Dictionary<MenuDietaryType, int> BuildMenuCounts(
+        IReadOnlyList<GuestDto> guests,
+        int estimatedGuests,
+        IReadOnlyCollection<MenuDietaryType> selectedMenuTypes)
+    {
+        if (selectedMenuTypes.Count == 0)
+            return [];
+
+        if (guests.Count == 0)
+            return new() { [ResolveSelectedMenuType(MenuDietaryType.Standard, selectedMenuTypes)] = Math.Max(estimatedGuests, 0) };
+
+        return guests
+            .GroupBy(guest => ResolveSelectedMenuType(MenuTypeFor(guest.DietaryRequirements), selectedMenuTypes))
+            .ToDictionary(group => group.Key, group => group.Count());
+    }
+
+    static MenuDietaryType ResolveSelectedMenuType(
+        MenuDietaryType preferredType,
+        IReadOnlyCollection<MenuDietaryType> selectedMenuTypes)
+    {
+        if (selectedMenuTypes.Contains(preferredType))
+            return preferredType;
+
+        if (selectedMenuTypes.Contains(MenuDietaryType.Standard))
+            return MenuDietaryType.Standard;
+
+        return selectedMenuTypes.First();
+    }
+
+    static MenuDietaryType MenuTypeFor(DietaryRequirements dietary) => dietary switch
+    {
+        DietaryRequirements.Vegan => MenuDietaryType.Vegan,
+        DietaryRequirements.Vegetarian => MenuDietaryType.Vegetarian,
+        DietaryRequirements.Other => MenuDietaryType.Fasting,
+        _ => MenuDietaryType.Standard
+    };
+
+    void ApplyBudgetState()
+    {
+        budgetTotal = State.BudgetTotal;
+        budgetSpent = State.BudgetSpent;
+        budgetEstimated = State.BudgetEstimated;
+        budgetCategories = State.BudgetItems
+            .GroupBy(item => item.Category)
+            .Select(group => new DashboardBudgetCategory(group.Key, group.Sum(item => item.Actual > 0 ? item.Actual : item.Estimated), BudgetCategoryColor(group.Key)))
+            .OrderByDescending(category => category.Amount)
+            .ToList();
+    }
+
+    static string BudgetCategoryColor(string category) => category switch
+    {
+        "Venue" => "#7d9b76",
+        "Catering" => "#a8c8a4",
+        "Photography" => "#4f6b4a",
+        "Florals" => "#c8dbc5",
+        "Music" => "#d97706",
+        "Dress/Suit" => "#7c3aed",
+        "Decor" => "#db2777",
+        "Invitations" => "#0891b2",
+        "Transport" => "#64748b",
+        "Cake" => "#f59e0b",
+        _ => "#9ca3af"
+    };
 }

@@ -3,12 +3,15 @@
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject WeddingPlannerApp.Services.WeddingStateService State
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.TaskComponents
 @implements IDisposable
 
 <PageNav Title="Tasks"
-         Subtitle="@($"{State.Tasks.Count(t => !t.Done)} remaining · {State.Tasks.Count(t => t.Done)} done")"
+         Subtitle="@($"{State.Tasks.Count(t => !t.Done)} remaining - {State.Tasks.Count(t => t.Done)} done")"
          IconSvg="@SvgIcons.TasksNav" />
 
 <div class="tasks-page">
@@ -120,7 +123,7 @@
                         @if (t.IsOverdue)
                         {
                             <span class="task-date-tag tag-overdue">
-                                Overdue · @t.DueDate.ToString("MMM d")
+                                Overdue - @t.DueDate.ToString("MMM d")
                             </span>
                         }
                         else
@@ -399,8 +402,14 @@
         activeStatus = "all";
     }
 
-    protected override void OnInitialized()
-        => State.OnChange += Refresh;
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += Refresh;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.IsInRole("Admin"))
+            Nav.NavigateTo("/admin", replace: true);
+    }
 
     void Refresh()
         => InvokeAsync(StateHasChanged);

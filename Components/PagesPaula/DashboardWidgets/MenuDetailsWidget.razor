@@ -14,8 +14,21 @@
     {
         <div class="menu-selected">
             <div class="menu-check-icon">@SvgIcons.Check</div>
-            <div><p class="menu-name">@SelectedMenu</p><p class="menu-sub">Menu confirmed</p></div>
+            <div><p class="menu-name">@SelectedMenu</p><p class="menu-sub">Menu packages selected</p></div>
         </div>
+        @if (MenuRows.Count > 0)
+        {
+            <div class="dashboard-menu-list">
+                @foreach (var row in MenuRows)
+                {
+                    <div class="dashboard-menu-row">@row</div>
+                }
+                @if (MenuEstimate > 0)
+                {
+                    <div class="dashboard-menu-total">Estimated menu cost: $@MenuEstimate.ToString("N0")</div>
+                }
+            </div>
+        }
     }
     else
     {
@@ -35,11 +48,12 @@
             <span class="qd-icon">@SvgIcons.Users</span>
             <span class="qd-label">Expected guests</span><span class="qd-value">@ExpectedGuests</span>
         </div>
-        <div class="qd-row">
+        <a class="qd-row qd-link-row" href="@TablesHref">
             <span class="qd-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
-            <span class="qd-label">Tables confirmed</span>
-            <span class="qd-value @(TablesConfirmed ? "qd-ok" : "qd-pending")">@(TablesConfirmed ? "Yes" : "Pending")</span>
-        </div>
+            <span class="qd-label">Seating plan</span>
+            <span class="qd-value @(TablesConfirmed ? "qd-ok" : "qd-pending")">@(TablesConfirmed ? "Ready" : $"{SeatedGuests}/{SeatingTotalGuests} seated")</span>
+            <span class="qd-link-arrow">-&gt;</span>
+        </a>
         <div class="qd-row">
             <span class="qd-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>
             <span class="qd-label">Budget status</span>
@@ -50,8 +64,15 @@
 
 @code {
     [Parameter] public string SelectedMenu { get; set; } = "";
+    [Parameter] public int EventId { get; set; }
+    [Parameter] public IReadOnlyList<string> MenuRows { get; set; } = Array.Empty<string>();
+    [Parameter] public int MenuEstimate { get; set; }
     [Parameter] public string VenueName { get; set; } = "";
     [Parameter] public int ExpectedGuests { get; set; }
+    [Parameter] public int SeatedGuests { get; set; }
+    [Parameter] public int SeatingTotalGuests { get; set; }
     [Parameter] public bool TablesConfirmed { get; set; }
     [Parameter] public int BudgetPercent { get; set; }
+
+    string TablesHref => EventId > 0 ? $"/tables/{EventId}" : "/tables";
 }

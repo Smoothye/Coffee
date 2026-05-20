@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using WeddingPlannerApp.Components;
@@ -31,6 +32,12 @@ public class Program
                 options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
             })
             .AddIdentityCookies();
+
+        builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.ApplicationScheme, options =>
+        {
+            options.LoginPath = "/login";
+            options.AccessDeniedPath = "/login";
+        });
 
         builder.Services.AddControllersWithViews();
 

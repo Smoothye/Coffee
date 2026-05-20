@@ -3,8 +3,15 @@
 @layout PaulaLayout
 @rendermode InteractiveServer
 @inject WeddingPlannerApp.Services.WeddingStateService State
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.BudgetComponents
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Services
 @implements IDisposable
 
@@ -16,11 +23,19 @@
 
 <div class="budget-page">
     <BudgetSummaryGrid Total="State.BudgetTotal"
+                       Estimated="State.BudgetEstimated"
                        Spent="State.BudgetSpent"
                        Paid="State.BudgetPaid"
-                       Remaining="State.BudgetRemaining" />
+                       Unpaid="State.BudgetUnpaid"
+                       Remaining="State.BudgetRemaining"
+                       TotalChanged="UpdateBudgetTotal" />
 
     <BudgetProgressCard Percent="State.BudgetPercent" />
+
+    @if (menuBudgetRows.Count > 0)
+    {
+        <BudgetMenuBreakdown Rows="menuBudgetRows" />
+    }
 
     <BudgetCategoryBreakdown Categories="CategoryTotals"
                              TotalSpent="State.BudgetSpent" />
@@ -72,6 +87,8 @@
     bool addOpen;
     bool confirmDeleteOpen;
     int pendingRemoveId;
+    string budgetStorageKey = "everafter.budget.total";
+    List<MenuBudgetRow> menuBudgetRows = [];
 
     IReadOnlyList<BudgetCategoryTotal> CategoryTotals =>
         State.BudgetItems
@@ -83,8 +100,17 @@
     static string CatColor(string category) =>
         catColors.TryGetValue(category, out var color) ? color : "#9ca3af";
 
+    bool WouldExceedBudget(int actualDelta) =>
+        actualDelta > 0 && State.BudgetSpent + actualDelta > State.BudgetTotal;
+
     void AddItem(BudgetDraft draft)
     {
+        if (WouldExceedBudget(draft.Actual))
+        {
+            _toast.Show("Actual spent cannot exceed the total budget.", true);
+            return;
+        }
+
         State.AddBudgetItem(new BudgetItem
         {
             Name = draft.Name,
@@ -94,10 +120,36 @@
         });
     }
 
-    void SaveItem(BudgetItem item) => State.UpdateBudgetItem(item);
+    async Task UpdateBudgetTotal(int total)
+    {
+        if (total < State.BudgetSpent)
+        {
+            _toast.Show("Total budget cannot be lower than current actual spent.", true);
+            return;
+        }
+
+        State.UpdateBudgetTotal(total);
+        await SaveBudgetTotalAsync(total);
+    }
+
+    void SaveItem(BudgetItem item)
+    {
+        var existing = State.BudgetItems.FirstOrDefault(i => i.Id == item.Id);
+        var currentActual = existing?.Actual ?? 0;
+        if (WouldExceedBudget(item.Actual - currentActual))
+        {
+            _toast.Show("Actual spent cannot exceed the total budget.", true);
+            return;
+        }
+
+        State.UpdateBudgetItem(item);
+    }
     void TogglePaid(int id) => State.TogglePaid(id);
     void RemoveItem(int id)
     {
+        if (State.BudgetItems.FirstOrDefault(i => i.Id == id)?.IsProtected == true)
+            return;
+
         pendingRemoveId = id;
         confirmDeleteOpen = true;
     }
@@ -108,7 +160,134 @@
         confirmDeleteOpen = false;
     }
 
-    protected override void OnInitialized() => State.OnChange += Refresh;
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += Refresh;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.IsInRole("Admin"))
+        {
+            Nav.NavigateTo("/admin", replace: true);
+            return;
+        }
+
+        await SyncMenuBudgetAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await LoadBudgetTotalAsync();
+    }
+
     void Refresh() => InvokeAsync(StateHasChanged);
     public void Dispose() => State.OnChange -= Refresh;
+
+    async Task SyncMenuBudgetAsync()
+    {
+        var eventItem = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+        if (eventItem is null)
+        {
+            menuBudgetRows.Clear();
+            State.UpsertMenuBudgetItem(0);
+            return;
+        }
+
+        budgetStorageKey = $"everafter.budget.{eventItem.EventId}.total";
+
+        var venue = await Api.GetVenueAsync(eventItem.VenueId);
+        if (venue is not null)
+            State.UpsertVenueBudgetItem(venue.Name, (int)Math.Round(venue.EstimatedPrice));
+
+        if (eventItem.MenuIds.Count == 0)
+        {
+            menuBudgetRows.Clear();
+            State.UpsertMenuBudgetItem(0);
+            return;
+        }
+
+        var menus = (await Api.GetMenusAsync())
+            .Where(menu => eventItem.MenuIds.Contains(menu.MenuId))
+            .ToList();
+        var guests = await Api.GetGuestsAsync(eventItem.EventId);
+        var activeGuests = guests.Where(g => g.RsvpStatus != RsvpStatus.Declined).ToList();
+        var selectedMenuTypes = menus.Select(menu => menu.DietaryType).Distinct().ToList();
+        var counts = BuildMenuCounts(activeGuests, eventItem.EstimatedGuests, selectedMenuTypes);
+
+        menuBudgetRows = menus
+            .Select(menu =>
+            {
+                var guestsForMenu = counts.TryGetValue(menu.DietaryType, out var count) ? count : 0;
+                var total = guestsForMenu * menu.Price;
+                return new MenuBudgetRow(menu.Name, menu.DietaryType.ToString(), guestsForMenu, menu.Price, total);
+            })
+            .OrderBy(row => row.Label)
+            .ToList();
+
+        State.UpsertMenuBudgetItem((int)Math.Round(menuBudgetRows.Sum(row => row.Total)));
+    }
+
+    async Task LoadBudgetTotalAsync()
+    {
+        try
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", budgetStorageKey);
+            if (int.TryParse(stored, out var total) && total >= State.BudgetSpent)
+                State.UpdateBudgetTotal(total);
+        }
+        catch
+        {
+            // Budget still works if browser storage is unavailable.
+        }
+    }
+
+    async Task SaveBudgetTotalAsync(int total)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", budgetStorageKey, total.ToString());
+        }
+        catch
+        {
+            // Budget still works if browser storage is unavailable.
+        }
+    }
+
+    static Dictionary<MenuDietaryType, int> BuildMenuCounts(
+        IReadOnlyList<GuestDto> guests,
+        int estimatedGuests,
+        IReadOnlyCollection<MenuDietaryType> selectedMenuTypes)
+    {
+        if (selectedMenuTypes.Count == 0)
+            return [];
+
+        if (guests.Count == 0)
+            return new() { [ResolveSelectedMenuType(MenuDietaryType.Standard, selectedMenuTypes)] = Math.Max(estimatedGuests, 0) };
+
+        return guests
+            .GroupBy(guest => ResolveSelectedMenuType(MenuTypeFor(guest.DietaryRequirements), selectedMenuTypes))
+            .ToDictionary(group => group.Key, group => group.Count());
+    }
+
+    static MenuDietaryType ResolveSelectedMenuType(
+        MenuDietaryType preferredType,
+        IReadOnlyCollection<MenuDietaryType> selectedMenuTypes)
+    {
+        if (selectedMenuTypes.Contains(preferredType))
+            return preferredType;
+
+        if (selectedMenuTypes.Contains(MenuDietaryType.Standard))
+            return MenuDietaryType.Standard;
+
+        return selectedMenuTypes.First();
+    }
+
+    static MenuDietaryType MenuTypeFor(DietaryRequirements dietary) => dietary switch
+    {
+        DietaryRequirements.Vegan => MenuDietaryType.Vegan,
+        DietaryRequirements.Vegetarian => MenuDietaryType.Vegetarian,
+        DietaryRequirements.Other => MenuDietaryType.Fasting,
+        _ => MenuDietaryType.Standard
+    };
+
 }

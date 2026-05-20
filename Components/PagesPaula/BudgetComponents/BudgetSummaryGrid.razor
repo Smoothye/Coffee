@@ -1,29 +1,65 @@
 <div class="budget-summary-grid">
-    <div class="budget-stat-card bsc-total">
+    <div class="budget-stat-card bsc-total bsc-editable">
         <div class="bsc-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
         </div>
         <div>
-            <p class="bsc-value">$@Total.ToString("N0")</p>
-            <p class="bsc-label">Total Budget</p>
+            @if (IsEditingTotal)
+            {
+                <div class="budget-total-edit">
+                    <input type="text"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
+                           maxlength="10"
+                           class="input budget-total-input"
+                           value="@draftTotalText"
+                           @oninput="UpdateDraft" />
+                    <button class="icon-btn accept" @onclick="SaveTotal">@SvgIcons.CheckSmall</button>
+                    <button class="icon-btn reject" @onclick="CancelEdit">@SvgIcons.XSmall</button>
+                </div>
+            }
+            else
+            {
+                <p class="bsc-value">$@Total.ToString("N0")</p>
+            }
+            <p class="bsc-label">Your Total Budget</p>
+            <p class="bsc-note">Available amount</p>
         </div>
+        @if (!IsEditingTotal)
+        {
+            <button class="budget-total-edit-btn" title="Edit total budget" @onclick="StartEdit">@SvgIcons.Edit</button>
+        }
     </div>
-    <div class="budget-stat-card bsc-spent">
+    <div class="budget-stat-card bsc-combo bsc-estimated">
         <div class="bsc-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11h6" /><path d="M9 15h6" /><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" /></svg>
         </div>
-        <div>
-            <p class="bsc-value">$@Spent.ToString("N0")</p>
-            <p class="bsc-label">Spent</p>
+        <div class="bsc-combo-content">
+            <p class="bsc-card-title">Cost overview</p>
+            <div class="bsc-metric-row bsc-mini-estimated">
+                <span class="bsc-label">Estimated</span>
+                <strong>$@Estimated.ToString("N0")</strong>
+            </div>
+            <div class="bsc-metric-row bsc-mini-actual">
+                <span class="bsc-label">Actual</span>
+                <strong>$@Spent.ToString("N0")</strong>
+            </div>
         </div>
     </div>
-    <div class="budget-stat-card bsc-paid">
+    <div class="budget-stat-card bsc-combo bsc-paid">
         <div class="bsc-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
         </div>
-        <div>
-            <p class="bsc-value">$@Paid.ToString("N0")</p>
-            <p class="bsc-label">Paid</p>
+        <div class="bsc-combo-content">
+            <p class="bsc-card-title">Payment status</p>
+            <div class="bsc-metric-row bsc-mini-paid">
+                <span class="bsc-label">Paid</span>
+                <strong>$@Paid.ToString("N0")</strong>
+            </div>
+            <div class="bsc-metric-row bsc-mini-unpaid">
+                <span class="bsc-label">Unpaid</span>
+                <strong>$@Unpaid.ToString("N0")</strong>
+            </div>
         </div>
     </div>
     <div class="budget-stat-card @(Remaining >= 0 ? "bsc-remaining" : "bsc-over")">
@@ -33,13 +69,43 @@
         <div>
             <p class="bsc-value">$@Math.Abs(Remaining).ToString("N0")</p>
             <p class="bsc-label">@(Remaining >= 0 ? "Remaining" : "Over budget")</p>
+            <p class="bsc-note">After estimated costs</p>
         </div>
     </div>
 </div>
 
 @code {
     [Parameter] public int Total { get; set; }
+    [Parameter] public int Estimated { get; set; }
     [Parameter] public int Spent { get; set; }
     [Parameter] public int Paid { get; set; }
+    [Parameter] public int Unpaid { get; set; }
     [Parameter] public int Remaining { get; set; }
+    [Parameter] public EventCallback<int> TotalChanged { get; set; }
+
+    bool IsEditingTotal;
+    int draftTotal;
+    string draftTotalText = "";
+
+    void StartEdit()
+    {
+        draftTotal = Total;
+        draftTotalText = Total.ToString();
+        IsEditingTotal = true;
+    }
+
+    void UpdateDraft(ChangeEventArgs e)
+    {
+        var digits = new string((e.Value?.ToString() ?? "").Where(char.IsDigit).Take(10).ToArray());
+        draftTotalText = digits;
+        draftTotal = int.TryParse(digits, out var value) ? value : 0;
+    }
+
+    async Task SaveTotal()
+    {
+        await TotalChanged.InvokeAsync(draftTotal);
+        IsEditingTotal = false;
+    }
+
+    void CancelEdit() => IsEditingTotal = false;
 }
