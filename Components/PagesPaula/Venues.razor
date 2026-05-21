@@ -107,10 +107,13 @@
                     {
                         var venue = v;
                         var fitsEventCapacity = VenueFitsEventCapacity(venue);
-                        <button class="carousel-card @(fitsEventCapacity ? "" : "venue-capacity-muted")" @onclick="@(() => SelectVenue(venue.VenueId))">
+                        var isBookedForEventDate = VenueIsBookedForEventDate(venue);
+                        <button class="carousel-card @(fitsEventCapacity && !isBookedForEventDate ? "" : "venue-capacity-muted")" @onclick="@(() => SelectVenue(venue.VenueId))">
                             <div class="carousel-img-wrap">
                                 <img src="@VenueImage(venue)" alt="@venue.Name" class="carousel-img" loading="lazy" decoding="async" />
-                                @if (!fitsEventCapacity)
+                                @if (isBookedForEventDate)
+                                { <span class="venue-image-badge venue-image-badge-capacity">Booked on your date</span> }
+                                else if (!fitsEventCapacity)
                                 { <span class="venue-image-badge venue-image-badge-capacity">@CapacityBadgeLabel(venue)</span> }
                             </div>
                             <div class="carousel-info">
@@ -144,6 +147,12 @@
                         else if (pendingVenueId == detail.VenueId)
                         {
                             <span></span>
+                        }
+                        else if (VenueIsBookedForEventDate(detail))
+                        {
+                            <span class="venue-booked-badge venue-capacity-badge">
+                                @SvgIcons.AlertCircle Booked on your date
+                            </span>
                         }
                         else if (!VenueFitsEventCapacity(detail))
                         {
@@ -240,10 +249,15 @@
                     {
                         var s = sv;
                         var fitsEventCapacity = VenueFitsEventCapacity(s);
+                        var isBookedForEventDate = VenueIsBookedForEventDate(s);
                         <button class="sidebar-venue-card" @onclick="@(() => SelectVenue(s.VenueId))">
                             <div class="sidebar-venue-img-wrap">
                                 <img src="@VenueImage(s)" alt="@s.Name" class="sidebar-venue-img" loading="lazy" decoding="async" />
-                                @if (HasEventCapacityRequirement)
+                                @if (isBookedForEventDate)
+                                {
+                                    <span class="sidebar-venue-match sidebar-venue-capacity-warning">Booked on your date</span>
+                                }
+                                else if (HasEventCapacityRequirement)
                                 {
                                     <span class="sidebar-venue-match @(fitsEventCapacity ? "" : "sidebar-venue-capacity-warning")">@CapacityBadgeLabel(s)</span>
                                 }
@@ -279,6 +293,10 @@
         {
             <div class="error-banner" style="margin-bottom:.75rem;">@CapacityMismatchText(bookVenue)</div>
         }
+        @if (VenueIsBookedForEventDate(bookVenue))
+        {
+            <div class="error-banner" style="margin-bottom:.75rem;">This venue is already booked for your event date.</div>
+        }
         <div class="book-confirm-venue">
             <img src="@VenueImage(bookVenue)" alt="@bookVenue.Name" class="book-confirm-img" loading="lazy" decoding="async" />
             <div>
@@ -294,7 +312,7 @@
         </div>
         <div class="venue-request-actions">
             <button class="btn-outline venue-request-action" @onclick="@(() => showBookConfirm = false)">Cancel</button>
-            <button class="btn-add-guest venue-request-action" disabled="@(!VenueFitsEventCapacity(bookVenue))" @onclick="ConfirmBooking">
+            <button class="btn-add-guest venue-request-action" disabled="@(!VenueFitsEventCapacity(bookVenue) || VenueIsBookedForEventDate(bookVenue))" @onclick="ConfirmBooking">
                 @SvgIcons.Check Send request
             </button>
         </div>
@@ -318,6 +336,7 @@
     int    userSelectedVenueId = 1;
     int    actualGuestCount = 0;
     int?   pendingVenueId   = null;
+    HashSet<int> bookedVenueIds = [];
     bool   showBookConfirm  = false;
     VenueApprovalNotice? venueApprovalNotice = null;
     string? venueApprovalStorageKey = null;
@@ -425,6 +444,7 @@
             eventItem = null;
             actualGuestCount = 0;
             pendingVenueId = null;
+            bookedVenueIds = [];
             ClearVenueApprovalNotice();
 
             var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
@@ -444,6 +464,7 @@
                     actualGuestCount = guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
                     userSelectedVenueId = eventItem.VenueId;
                     pendingVenueId = ReadVenueChangeRequest(eventItem.Notes);
+                    bookedVenueIds = await Api.GetBookedVenueIdsAsync(eventItem.EventDate, eventItem.EventId);
                     SetVenueApprovalNotice(eventItem);
                 }
             }
@@ -479,6 +500,13 @@
             return;
         }
 
+        if (VenueIsBookedForEventDate(current))
+        {
+            showBookConfirm = false;
+            _toast.Show("This venue is already booked for your event date.");
+            return;
+        }
+
         if (eventItem is null)
         {
             pendingVenueId = current.VenueId;
@@ -509,6 +537,9 @@
     bool VenueFitsEventCapacity(VenueDto venue) =>
         !HasEventCapacityRequirement ||
         (GuestsToFit >= venue.MinCapacity && GuestsToFit <= venue.MaxCapacity);
+
+    bool VenueIsBookedForEventDate(VenueDto venue) =>
+        eventItem is not null && bookedVenueIds.Contains(venue.VenueId);
 
     string CapacityBadgeLabel(VenueDto venue)
     {

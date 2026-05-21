@@ -118,6 +118,9 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         if (venue == null)
             return BadRequest($"Venue with id {model.RequestedVenueId} was not found.");
 
+        if (await VenueBookedOnEventDateAsync(eventItem.EventId, eventItem.EventDate, model.RequestedVenueId))
+            return BadRequest("An event already exists for this date and venue.");
+
         var actualGuests = eventItem.Guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
         var guestsToFit = Math.Max(eventItem.EstimatedGuests, actualGuests);
         if (!FitsCapacity(venue, guestsToFit))
@@ -150,6 +153,9 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         var venue = await context.Venues.SingleOrDefaultAsync(v => v.VenueId == requestedVenueId.Value);
         if (venue == null)
             return BadRequest($"Venue with id {requestedVenueId.Value} was not found.");
+
+        if (await VenueBookedOnEventDateAsync(eventItem.EventId, eventItem.EventDate, requestedVenueId.Value))
+            return BadRequest("An event already exists for this date and venue.");
 
         var actualGuests = eventItem.Guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
         var guestsToFit = Math.Max(eventItem.EstimatedGuests, actualGuests);
@@ -195,6 +201,18 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
 
     static bool FitsBudget(Event eventItem, Venue venue) =>
         eventItem.TotalBudget <= 0 || venue.EstimatedPrice <= eventItem.TotalBudget;
+
+    async Task<bool> VenueBookedOnEventDateAsync(int eventId, DateTime eventDate, int venueId)
+    {
+        var date = eventDate.Date;
+        var nextDate = date.AddDays(1);
+
+        return await context.Events.AnyAsync(e =>
+            e.EventId != eventId &&
+            e.VenueId == venueId &&
+            e.EventDate >= date &&
+            e.EventDate < nextDate);
+    }
 
     static int? ReadRequestedVenueId(string? notes)
     {
