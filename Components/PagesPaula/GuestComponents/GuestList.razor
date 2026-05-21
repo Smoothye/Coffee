@@ -14,92 +14,42 @@
     }
     else
     {
-        @foreach (var guest in Guests
-            .Where(g => !IsPlusOneGuest(g))
-            .OrderBy(g => CoupleSort(g))
-            .ThenBy(g => g.FirstName)
-            .ThenBy(g => g.LastName))
-        {
-            var g = guest;
-            var companion = FindCompanion(g.GuestId);
-            var companionOpen = companion is not null && IsCompanionOpen(g.GuestId);
-            var isCouple = IsCoupleGuest(g);
-            <div class="guest-row-stack">
-                <div class="guest-row @(isCouple ? "guest-row-couple" : "")">
-                    <div class="guest-avatar">@Initials(g)</div>
-                    <div class="guest-info">
-                        <p class="guest-name">@DisplayName(g)</p>
-                        <div class="guest-meta">
-                            @if (!isCouple)
-                            {
-                                <span>@g.Email</span>
-                            }
-                            @if (isCouple)
-                            {
-                                <span class="guest-tag guest-tag-couple">@CoupleRole(g)</span>
-                            }
-                            @if (!isCouple)
-                            {
-                                <span class="guest-tag guest-tag-group @GroupBadgeClass(g.Group)">@g.Group</span>
-                            }
-                            <span class="guest-tag guest-tag-menu @MenuCategoryClass(g.DietaryRequirements)">Menu: @MenuCategoryLabel(g.DietaryRequirements)</span>
-                            @if (g.HasPlusOne)
-                            {
-                                <span class="guest-tag guest-tag-plus">Companion invited</span>
-                            }
-                        </div>
-                    </div>
-                    <div class="guest-actions">
-                        @MenuSelect(g)
-                        @if (!isCouple && companion is not null)
-                        {
-                            <button type="button"
-                                    class="plus-one-toggle-row companion-view-toggle @(companionOpen ? "plus-one-active" : "")"
-                                    @onclick="@(() => ToggleCompanionVisibility(g.GuestId))">
-                                @(companionOpen ? "Hide companion" : "Show companion")
-                            </button>
-                            <button type="button"
-                                    class="plus-one-toggle-row"
-                                    @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
-                                Remove
-                            </button>
-                        }
-                        else if (!isCouple)
-                        {
-                            <button type="button"
-                                    class="plus-one-toggle-row"
-                                    @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
-                                Add companion
-                            </button>
-                        }
-                        @if (!isCouple)
-                        {
-                            @RsvpButtons(g)
-                            <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
-                        }
-                    </div>
-                </div>
+        var coupleGuests = OrderedGuests.Where(IsCoupleGuest).ToList();
+        var regularGuests = OrderedGuests.Where(g => !IsCoupleGuest(g)).ToList();
+        var guestSectionCount = regularGuests.Count + Guests.Count(IsPlusOneGuest);
 
-                @if (companionOpen && companion is not null)
+        @if (coupleGuests.Count > 0)
+        {
+            <div class="guest-list-section">
+                <button type="button" class="guest-section-toggle" @onclick="@(() => showCouple = !showCouple)">
+                    <span>Bride &amp; Groom</span>
+                    <span>@coupleGuests.Count</span>
+                    <span class="guest-section-caret @(showCouple ? "open" : "")">@SvgIcons.ArrowRight</span>
+                </button>
+                @if (showCouple)
                 {
-                    <div class="guest-companion-row">
-                        <div class="guest-companion-avatar">+1</div>
-                        <div class="guest-info">
-                            <p class="guest-name">Companion</p>
-                            <div class="guest-meta">
-                                <span>Invited with @g.FirstName @g.LastName</span>
-                                <span class="guest-tag guest-tag-menu @MenuCategoryClass(companion.DietaryRequirements)">Menu: @MenuCategoryLabel(companion.DietaryRequirements)</span>
-                            </div>
-                        </div>
-                        <div class="guest-actions">
-                            @MenuSelect(companion)
-                            @RsvpButtons(companion)
-                            <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(companion.GuestId))">@SvgIcons.Trash</button>
-                        </div>
-                    </div>
+                    @foreach (var guest in coupleGuests)
+                    {
+                        @GuestRow(guest)
+                    }
                 }
             </div>
         }
+
+        <div class="guest-list-section">
+            <button type="button" class="guest-section-toggle" @onclick="@(() => showGuests = !showGuests)">
+                <span>Guests</span>
+                <span>@guestSectionCount</span>
+                <span class="guest-section-caret @(showGuests ? "open" : "")">@SvgIcons.ArrowRight</span>
+            </button>
+            @if (showGuests)
+            {
+                @foreach (var guest in regularGuests)
+                {
+                    @GuestRow(guest)
+                }
+            }
+        </div>
     }
 </div>
 
@@ -108,11 +58,94 @@
     [Parameter] public EventCallback<int> OnTogglePlusOne { get; set; }
     [Parameter] public EventCallback<(int Id, RsvpStatus Status)> OnSetStatus { get; set; }
     [Parameter] public EventCallback<(int Id, DietaryRequirements Dietary)> OnSetDietary { get; set; }
+    [Parameter] public EventCallback<int> OnEdit { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
     [Parameter] public IReadOnlyList<GuestMenuOption> MenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
     const string PlusOneNotePrefix = "Plus one for guest ";
     const string CoupleNotePrefix = "Wedding couple:";
     readonly HashSet<int> openCompanions = new();
+    bool showCouple = true;
+    bool showGuests = true;
+
+    IEnumerable<GuestDto> OrderedGuests => Guests
+        .Where(g => !IsPlusOneGuest(g))
+        .OrderBy(g => CoupleSort(g))
+        .ThenBy(g => g.FirstName)
+        .ThenBy(g => g.LastName);
+
+    RenderFragment GuestRow(GuestDto guest) => @<div class="guest-row-stack">
+        @{
+            var g = guest;
+            var companion = FindCompanion(g.GuestId);
+            var companionOpen = companion is not null && IsCompanionOpen(g.GuestId);
+            var isCouple = IsCoupleGuest(g);
+        }
+        <div class="guest-row @(isCouple ? "guest-row-couple" : "")">
+            <div class="guest-avatar">@Initials(g)</div>
+            <div class="guest-info">
+                <p class="guest-name">@DisplayName(g)</p>
+                <div class="guest-meta">
+                    @if (isCouple)
+                    {
+                        <span class="guest-tag guest-tag-couple @CoupleTagClass(g)">@CoupleRole(g)</span>
+                    }
+                    else
+                    {
+                        <span class="guest-tag guest-tag-group @GroupBadgeClass(g.Group)">@g.Group</span>
+                    }
+                    @if (!isCouple && g.HasPlusOne)
+                    {
+                        <span class="guest-tag guest-tag-plus">Companion invited</span>
+                    }
+                </div>
+            </div>
+            <div class="guest-actions">
+                @MenuSelect(g)
+                @if (!isCouple && companion is not null)
+                {
+                    <button type="button"
+                            class="plus-one-toggle-row plus-one-compact companion-view-toggle @(companionOpen ? "plus-one-active" : "")"
+                            title="@(companionOpen ? "Hide companion" : "Show companion")"
+                            @onclick="@(() => ToggleCompanionVisibility(g.GuestId))">
+                        @(companionOpen ? "Hide" : "Show")
+                    </button>
+                }
+                else if (!isCouple)
+                {
+                    <button type="button"
+                            class="plus-one-toggle-row plus-one-compact"
+                            @onclick="@(() => OnTogglePlusOne.InvokeAsync(g.GuestId))">
+                        Add +1
+                    </button>
+                }
+                @if (!isCouple)
+                {
+                    @RsvpButtons(g)
+                    <button class="delete-btn" title="Edit guest" @onclick="@(() => OnEdit.InvokeAsync(g.GuestId))">@SvgIcons.Edit</button>
+                    <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(g.GuestId))">@SvgIcons.Trash</button>
+                }
+            </div>
+        </div>
+
+        @if (companionOpen && companion is not null)
+        {
+            <div class="guest-companion-row">
+                <div class="guest-companion-avatar">+1</div>
+                <div class="guest-info">
+                    <p class="guest-name">Companion</p>
+                    <div class="guest-meta">
+                        <span>With @g.FirstName @g.LastName</span>
+                    </div>
+                </div>
+                <div class="guest-actions">
+                    @MenuSelect(companion)
+                    @RsvpButtons(companion)
+                    <button class="delete-btn" title="Edit companion" @onclick="@(() => OnEdit.InvokeAsync(companion.GuestId))">@SvgIcons.Edit</button>
+                    <button class="delete-btn" @onclick="@(() => OnRemove.InvokeAsync(companion.GuestId))">@SvgIcons.Trash</button>
+                </div>
+            </div>
+        }
+    </div>;
 
     static string Initials(GuestDto guest)
     {
@@ -162,6 +195,11 @@
 
     static string CoupleRole(GuestDto guest) =>
         guest.Notes?.Contains("groom", StringComparison.OrdinalIgnoreCase) == true ? "Groom" : "Bride";
+
+    static string CoupleTagClass(GuestDto guest) =>
+        guest.Notes?.Contains("groom", StringComparison.OrdinalIgnoreCase) == true
+            ? "guest-tag-groom"
+            : "guest-tag-bride";
 
     static int CoupleSort(GuestDto guest)
     {

@@ -65,7 +65,7 @@
                     <div class="venue-hero-gallery-strip">
                         @foreach (var image in VenueImages(selected).Take(4))
                         {
-                            <img src="@image" alt="@selected.Name" />
+                            <img src="@image" alt="@selected.Name" loading="lazy" decoding="async" />
                         }
                     </div>
                 </div>
@@ -76,7 +76,7 @@
         {
             <div class="venue-pending-banner">
                 <div>
-                    <span class="venue-pending-kicker">Selected locally</span>
+                    <span class="venue-pending-kicker">Pending admin review</span>
                     <strong>@pendingVenue.Name</strong>
                 </div>
                 <button class="btn-outline" @onclick="@(() => SelectVenue(pendingVenue.VenueId))">Review request</button>
@@ -85,27 +85,39 @@
 
         <div class="venues-bottom">
             <div class="other-venues-header">
-                <h2 class="other-venues-title">Other venues</h2>
-                <p class="other-venues-sub">Swipe to explore - @(allVenues.Count - 1) more available</p>
-            </div>
-            <div class="venue-carousel">
-                @foreach (var v in allVenues.Where(v => v.VenueId != userSelectedVenueId))
-                {
-                    var venue = v;
-                    <button class="carousel-card" @onclick="@(() => SelectVenue(venue.VenueId))">
-                        <div class="carousel-img-wrap">
-                            <img src="@VenueImage(venue)" alt="@venue.Name" class="carousel-img" />
-                            @if (pendingVenueId == venue.VenueId)
-                            { <span class="venue-image-badge venue-image-badge-pending">Selected locally</span> }
-                        </div>
-                        <div class="carousel-info">
-                            <p class="carousel-name">@venue.Name</p>
-                            <p class="carousel-meta">@VenueType(venue) - @venue.MinCapacity-@venue.MaxCapacity guests</p>
-                            @if (venue.EstimatedPrice > 0) { <p class="carousel-price">est. $@venue.EstimatedPrice.ToString("N0")</p> }
-                            <p class="venue-card-score">@SvgIcons.Star @AdminReviewLabel(venue)</p>
-                        </div>
+                <div>
+                    <h2 class="other-venues-title">Other venues</h2>
+                    <p class="other-venues-sub">Explore @(allVenues.Count - 1) more available</p>
+                </div>
+                <div class="other-venues-actions">
+                    <button type="button" class="venue-carousel-nav" title="Previous venues" @onclick="@(() => ScrollOtherVenues(-1))">
+                        @SvgIcons.ArrowLeft
                     </button>
-                }
+                    <button type="button" class="venue-carousel-nav" title="Next venues" @onclick="@(() => ScrollOtherVenues(1))">
+                        @SvgIcons.ArrowRight
+                    </button>
+                </div>
+            </div>
+            <div class="venue-carousel-shell">
+                <div class="venue-carousel">
+                    @foreach (var v in allVenues.Where(v => v.VenueId != userSelectedVenueId))
+                    {
+                        var venue = v;
+                        <button class="carousel-card" @onclick="@(() => SelectVenue(venue.VenueId))">
+                            <div class="carousel-img-wrap">
+                                <img src="@VenueImage(venue)" alt="@venue.Name" class="carousel-img" loading="lazy" decoding="async" />
+                                @if (pendingVenueId == venue.VenueId)
+                                { <span class="venue-image-badge venue-image-badge-pending">Pending review</span> }
+                            </div>
+                            <div class="carousel-info">
+                                <p class="carousel-name">@venue.Name</p>
+                                <p class="carousel-meta">@VenueType(venue) - @venue.MinCapacity-@venue.MaxCapacity guests</p>
+                                @if (venue.EstimatedPrice > 0) { <p class="carousel-price">est. $@venue.EstimatedPrice.ToString("N0")</p> }
+                                <p class="venue-card-score">@SvgIcons.Star @AdminReviewLabel(venue)</p>
+                            </div>
+                        </button>
+                    }
+                </div>
             </div>
         </div>
     }
@@ -128,7 +140,7 @@
                         else if (pendingVenueId == detail.VenueId)
                         {
                             <span class="venue-booked-badge venue-pending-badge">
-                                @SvgIcons.Clock Selected locally
+                                @SvgIcons.Clock Pending admin review
                             </span>
                         }
                         else
@@ -154,7 +166,6 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:.25rem"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                                 @detail.Address - @detail.MinCapacity-@detail.MaxCapacity guests
                                 @if (detail.EstimatedPrice > 0) { <span class="venue-inline-price">est. $@detail.EstimatedPrice.ToString("N0")</span> }
-                                <span class="venue-inline-review">@SvgIcons.Star @AdminReviewLabel(detail)</span>
                             </p>
                         </div>
                     </div>
@@ -192,7 +203,7 @@
                             {
                                 var idx = i;
                                 <button type="button" class="gallery-item @(activeImage == idx ? "gallery-active" : "")" @onclick="@(() => activeImage = idx)">
-                                    <img src="@VenueImages(detail)[idx]" alt="@(idx + 1)" class="gallery-img" />
+                                    <img src="@VenueImages(detail)[idx]" alt="@(idx + 1)" class="gallery-img" loading="lazy" decoding="async" />
                                 </button>
                             }
                         </div>
@@ -215,11 +226,11 @@
                         var s = sv;
                         <button class="sidebar-venue-card" @onclick="@(() => SelectVenue(s.VenueId))">
                             <div class="sidebar-venue-img-wrap">
-                                <img src="@VenueImage(s)" alt="@s.Name" class="sidebar-venue-img" />
+                                <img src="@VenueImage(s)" alt="@s.Name" class="sidebar-venue-img" loading="lazy" decoding="async" />
                                 @if (s.MaxCapacity >= detail.MinCapacity && s.MinCapacity <= detail.MaxCapacity)
                                 { <span class="sidebar-venue-match">Similar capacity</span> }
                                 @if (pendingVenueId == s.VenueId)
-                                { <span class="sidebar-venue-match sidebar-venue-pending">Selected locally</span> }
+                                { <span class="sidebar-venue-match sidebar-venue-pending">Pending review</span> }
                             </div>
                             <div class="sidebar-venue-info">
                                 <p class="sidebar-venue-name">@s.Name</p>
@@ -236,7 +247,7 @@
 </div>
 
 <ModalShell IsOpen="showBookConfirm && current != null"
-            Title="Save this venue?"
+            Title="Request venue change?"
             ExtraClass="venue-confirm-box"
             OnClose="@(() => showBookConfirm = false)">
     @if (current != null)
@@ -244,10 +255,10 @@
         var bookVenue = current!;
         <div style="padding:.25rem 0 1.25rem;">
             <p style="font-size:.9rem;color:var(--text);margin:0 0 .75rem;">
-                You're about to save <strong>@bookVenue.Name</strong> as your wedding venue.
+                You're about to ask the admin to change your wedding venue to <strong>@bookVenue.Name</strong>.
             </p>
             <div class="book-confirm-venue">
-                <img src="@VenueImage(bookVenue)" alt="@bookVenue.Name" class="book-confirm-img" />
+                <img src="@VenueImage(bookVenue)" alt="@bookVenue.Name" class="book-confirm-img" loading="lazy" decoding="async" />
                 <div>
                     <p style="font-weight:700;font-size:.92rem;color:var(--sage-dark);margin:0 0 .2rem;">@bookVenue.Name</p>
                     <p style="font-size:.78rem;color:var(--muted);margin:0;">@bookVenue.Address</p>
@@ -259,10 +270,10 @@
                 </div>
             </div>
         </div>
-        <div style="display:flex;gap:.65rem;">
-            <button class="btn-outline" style="flex:1;" @onclick="@(() => showBookConfirm = false)">Cancel</button>
-            <button class="btn-add-guest" style="flex:2;" @onclick="ConfirmBooking">
-                @SvgIcons.Check Save venue
+        <div class="venue-request-actions">
+            <button class="btn-outline venue-request-action" @onclick="@(() => showBookConfirm = false)">Cancel</button>
+            <button class="btn-add-guest venue-request-action" @onclick="ConfirmBooking">
+                @SvgIcons.Check Send request
             </button>
         </div>
     }
@@ -299,6 +310,12 @@
 
     static string AdminReviewLabel(VenueDto venue) =>
         venue.Rating.HasValue ? $"Admin review {venue.Rating}/5" : "Admin review pending";
+
+    async Task ScrollOtherVenues(int direction)
+    {
+        var amount = direction < 0 ? "-320" : "320";
+        await JS.InvokeVoidAsync("eval", $"document.querySelector('.venue-carousel')?.scrollBy({{ left: {amount}, behavior: 'smooth' }});");
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -389,7 +406,10 @@
             {
                 eventItem = await Api.GetEventAsync(EventId);
                 if (eventItem != null)
+                {
                     userSelectedVenueId = eventItem.VenueId;
+                    pendingVenueId = ReadVenueChangeRequest(eventItem.Notes);
+                }
             }
             else
             {
@@ -426,29 +446,35 @@
 
         try
         {
-            await Api.UpdateEventAsync(eventItem.EventId, new EventUpdateDto
-            {
-                VenueId = current.VenueId,
-                MenuIds = eventItem.MenuIds,
-                Name = eventItem.Name,
-                BrideName = eventItem.BrideName,
-                GroomName = eventItem.GroomName,
-                EventDate = eventItem.EventDate,
-                EstimatedGuests = eventItem.EstimatedGuests,
-                TotalBudget = eventItem.TotalBudget,
-                Notes = eventItem.Notes
-            });
-
-            eventItem.VenueId = current.VenueId;
-            userSelectedVenueId = current.VenueId;
-            pendingVenueId = null;
+            await Api.CreateVenueChangeRequestAsync(eventItem.EventId, current.VenueId);
+            pendingVenueId = current.VenueId;
             showBookConfirm = false;
-            _toast.Show($"{current.Name} saved as your event venue.");
+            _toast.Show($"{current.Name} sent to admin for approval.");
         }
         catch (Exception ex)
         {
-            _toast.Show($"Could not save venue: {ex.Message}");
+            _toast.Show($"Could not request venue change: {ex.Message}");
         }
+    }
+
+    const string VenueRequestPrefix = "[[venue-change-request:";
+    const string VenueRequestSuffix = "]]";
+
+    static int? ReadVenueChangeRequest(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return null;
+
+        var start = notes.IndexOf(VenueRequestPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return null;
+
+        start += VenueRequestPrefix.Length;
+        var end = notes.IndexOf(VenueRequestSuffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return null;
+
+        return int.TryParse(notes[start..end], out var venueId) ? venueId : null;
     }
 
     public void Dispose()

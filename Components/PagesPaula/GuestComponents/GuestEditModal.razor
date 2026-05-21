@@ -1,0 +1,94 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.Models
+
+<ModalShell IsOpen="IsOpen" Title="Edit Guest" OnClose="OnClose">
+    @if (!string.IsNullOrEmpty(FormError))
+    {
+        <div class="error-banner">@SvgIcons.AlertCircle @FormError</div>
+    }
+    <div class="form-grid-2">
+        <div class="field">
+            <label>First Name *</label>
+            <input class="input @(HasGuestError(nameof(Guest.FirstName)) ? "field-invalid" : "")" @bind="Guest.FirstName" @bind:event="oninput" placeholder="First name" />
+            @GuestFieldError(nameof(Guest.FirstName))
+        </div>
+        <div class="field">
+            <label>Last Name *</label>
+            <input class="input @(HasGuestError(nameof(Guest.LastName)) ? "field-invalid" : "")" @bind="Guest.LastName" @bind:event="oninput" placeholder="Last name" />
+            @GuestFieldError(nameof(Guest.LastName))
+        </div>
+    </div>
+    <div class="form-grid-2">
+        <div class="field">
+            <label>Email *</label>
+            <input class="input @(HasGuestError(nameof(Guest.Email)) ? "field-invalid" : "")" @bind="Guest.Email" @bind:event="oninput" placeholder="email@example.com" />
+            @GuestFieldError(nameof(Guest.Email))
+        </div>
+        <div class="field">
+            <label>Phone</label>
+            <input class="input @(HasGuestError(nameof(Guest.Phone)) ? "field-invalid" : "")" @bind="Guest.Phone" @bind:event="oninput" placeholder="+1234567890" />
+            @GuestFieldError(nameof(Guest.Phone))
+        </div>
+    </div>
+    <div class="form-grid-3">
+        <div class="field">
+            <label>Age</label>
+            <input class="input @(HasGuestError(nameof(Guest.Age)) ? "field-invalid" : "")" type="number" min="0" @bind="Guest.Age" @bind:event="oninput" />
+            @GuestFieldError(nameof(Guest.Age))
+        </div>
+        <div class="field">
+            <label>Status</label>
+            <select class="input select-input" @bind="Guest.RsvpStatus">
+                <option value="@RsvpStatus.Confirmed">Confirmed</option>
+                <option value="@RsvpStatus.Pending">Pending</option>
+                <option value="@RsvpStatus.Declined">Declined</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Menu preference</label>
+            <select class="input select-input" @bind="Guest.DietaryRequirements">
+                @foreach (var option in AvailableMenuOptions)
+                {
+                    <option value="@option.Value">@option.Label</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="field">
+        <label>Group</label>
+        <select class="input select-input" @bind="Guest.Group">
+            <option value="@Group.Family">Family</option>
+            <option value="@Group.Friends">Friends</option>
+            <option value="@Group.Colleagues">Colleagues</option>
+            <option value="@Group.Other">Other</option>
+        </select>
+    </div>
+    <button class="btn-add-guest" @onclick="OnSave">@SvgIcons.CheckSmall Save changes</button>
+</ModalShell>
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public GuestUpdateDto Guest { get; set; } = new()
+    {
+        FirstName = "",
+        LastName = "",
+        Email = ""
+    };
+    [Parameter] public string FormError { get; set; } = "";
+    [Parameter] public IReadOnlyDictionary<string, string> FieldErrors { get; set; } = new Dictionary<string, string>();
+    [Parameter] public IReadOnlyList<GuestMenuOption> AvailableMenuOptions { get; set; } = GuestMenuOption.DefaultOptions;
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    bool HasGuestError(string field) => FieldErrors.ContainsKey(field);
+
+    RenderFragment GuestFieldError(string field) => builder =>
+    {
+        if (!FieldErrors.TryGetValue(field, out var message)) return;
+        builder.OpenElement(0, "p");
+        builder.AddAttribute(1, "class", "field-error");
+        builder.AddContent(2, message);
+        builder.CloseElement();
+    };
+}

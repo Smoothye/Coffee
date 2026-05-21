@@ -8,7 +8,6 @@
             </div>
             <h3 class="widget-title">Menu &amp; Details</h3>
         </div>
-        <a href="@Href" class="widget-link-icon" title="Open menu" aria-label="Open menu">@SvgIcons.ArrowRight</a>
     </div>
 
     @if (!string.IsNullOrEmpty(SelectedMenu))
@@ -47,7 +46,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
             </Icon>
         </QuickDetailLink>
-        <QuickDetailLink Href="@GuestsHref" Label="Expected guests" Value="@ExpectedGuests.ToString()">
+        <QuickDetailLink Href="@GuestsHref" Label="Guests" Value="@GuestSummary">
             <Icon>@SvgIcons.Users</Icon>
         </QuickDetailLink>
         <QuickDetailLink Href="@TablesHref"
@@ -71,6 +70,7 @@
     [Parameter] public int MenuEstimate { get; set; }
     [Parameter] public string VenueName { get; set; } = "";
     [Parameter] public int ExpectedGuests { get; set; }
+    [Parameter] public int ActualGuests { get; set; }
     [Parameter] public int SeatedGuests { get; set; }
     [Parameter] public int SeatingTotalGuests { get; set; }
     [Parameter] public bool TablesConfirmed { get; set; }
@@ -81,4 +81,5 @@
     [Parameter] public string TablesHref { get; set; } = "/tables";
     [Parameter] public string BudgetHref { get; set; } = "/budget";
 
+    string GuestSummary => $"{ActualGuests} actual / {ExpectedGuests} estimated";
 }

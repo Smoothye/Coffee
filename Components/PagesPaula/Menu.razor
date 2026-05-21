@@ -13,6 +13,7 @@
 @using WeddingPlannerApp.Components.PagesPaula.MenuComponents
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.DTOs.Menu
 @using WeddingPlannerApp.Models
 @using GuestGroup = WeddingPlannerApp.Models.Group
 @implements IDisposable
@@ -645,7 +646,7 @@
         _ => "standard"
     };
 
-    static MenuPackage ToMenuPackage(WeddingPlannerApp.Models.Menu menu)
+    static MenuPackage ToMenuPackage(MenuDto menu)
     {
         var courses = menu.MenuItems
             .GroupBy(item => string.IsNullOrWhiteSpace(item.CourseName) ? "Items" : item.CourseName)

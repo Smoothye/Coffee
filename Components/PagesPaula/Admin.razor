@@ -7,6 +7,7 @@
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using Microsoft.AspNetCore.Components.Forms
 @using WeddingPlannerApp.DTOs.Event
+@using WeddingPlannerApp.DTOs.Menu
 @using WeddingPlannerApp.DTOs.Venue
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Services
@@ -32,14 +33,14 @@
             <form action="Account/Logout" method="post">
                 <AntiforgeryToken />
                 <input type="hidden" name="ReturnUrl" value="" />
-            <button type="submit" class="btn-signout">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                Sign Out
-            </button>
+                <button type="submit" class="btn-signout">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Log out
+                </button>
             </form>
         </div>
     </nav>
@@ -48,7 +49,12 @@
         <AdminStatsRow TotalEvents="@events.Count"
                        UpcomingEvents="@UpcomingEventCount"
                        TotalGuests="@TotalGuestCount"
-                       TotalBudget="@TotalBudget" />
+                       TotalVenues="@venues.Count"
+                       TotalMenus="@menus.Count" />
+
+        <AdminVenueRequestsPanel Requests="venueChangeRequests"
+                                 OnApprove="ApproveVenueRequest"
+                                 OnReject="RejectVenueRequest" />
 
         <AdminEventsPanel Events="EventList"
                           ExpandedEventId="expandedEventId"
@@ -393,6 +399,7 @@
     List<AdminEventModel> events = new();
     List<AdminVenueModel> venues = new();
     List<AdminMenuModel> menus = new();
+    List<VenueChangeRequestDto> venueChangeRequests = new();
 
     int? expandedEventId = null;
 
@@ -423,7 +430,6 @@
     IReadOnlyList<AdminEventModel> EventList => events.OrderBy(e => e.EventDate).ToList();
     int UpcomingEventCount => events.Count(e => e.EventDate.Date >= DateTime.Today);
     int TotalGuestCount => events.Sum(e => e.GuestCount);
-    decimal TotalBudget => events.Sum(e => e.TotalBudget);
 
     static AdminMenuModel NewMenuDraft() => new()
     {
@@ -478,13 +484,46 @@
         VenueId = eventItem.VenueId,
         VenueName = venueNames.GetValueOrDefault(eventItem.VenueId, $"Venue #{eventItem.VenueId}"),
         GuestCount = guestCount,
+        EstimatedGuests = eventItem.EstimatedGuests,
         TotalBudget = eventItem.TotalBudget,
+        OwnerName = eventItem.OwnerName ?? "",
+        OwnerEmail = eventItem.OwnerEmail ?? "",
         MenuName = FormatMenuNames(eventItem.MenuIds, menuNames),
-        Notes = eventItem.Notes ?? "",
+        Notes = RemoveHeadConfig(eventItem.Notes),
         CreatedAt = eventItem.CreatedAt
     };
 
-    static AdminMenuModel ToAdminMenu(WeddingPlannerApp.Models.Menu menu) => new()
+    const string HeadConfigPrefix = "[[head-godparents:";
+    const string HeadConfigSuffix = "]]";
+    const string VenueRequestPrefix = "[[venue-change-request:";
+    const string VenueApprovedPrefix = "[[venue-change-approved:";
+    const string VenueRequestSuffix = "]]";
+
+    static string RemoveHeadConfig(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return "";
+
+        var cleaned = RemoveMarker(notes, HeadConfigPrefix, HeadConfigSuffix);
+        cleaned = RemoveMarker(cleaned, VenueRequestPrefix, VenueRequestSuffix);
+        cleaned = RemoveMarker(cleaned, VenueApprovedPrefix, VenueRequestSuffix);
+        return cleaned.Trim();
+    }
+
+    static string RemoveMarker(string notes, string prefix, string suffix)
+    {
+        var start = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return notes;
+
+        var end = notes.IndexOf(suffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return notes[..start].Trim();
+
+        return (notes[..start] + notes[(end + suffix.Length)..]).Trim();
+    }
+
+    static AdminMenuModel ToAdminMenu(MenuDto menu) => new()
     {
         Id = menu.MenuId,
         Name = menu.Name,
@@ -798,7 +837,7 @@
         {
             try
             {
-                await Api.UpdateMenuAsync(menuId, ToMenuEntity(newMenu));
+                await Api.UpdateMenuAsync(menuId, ToMenuUpdateDto(newMenu));
                 savedMenu.Id = menuId;
 
                 var index = menus.FindIndex(menu => menu.Id == menuId);
@@ -818,7 +857,7 @@
 
         try
         {
-            var created = await Api.CreateMenuAsync(ToMenuEntity(newMenu));
+            var created = await Api.CreateMenuAsync(ToMenuCreateDto(newMenu));
             menus.Add(ToAdminMenu(created));
             CloseMenuModal();
             ShowToast($"\"{newMenu.Name}\" added.");
@@ -854,7 +893,7 @@
         }).ToList()
     };
 
-    static WeddingPlannerApp.Models.Menu ToMenuEntity(AdminMenuModel menu)
+    static MenuCreateDto ToMenuCreateDto(AdminMenuModel menu)
     {
         var dietaryType = Enum.TryParse<MenuDietaryType>(
             menu.DietaryType,
@@ -863,20 +902,36 @@
             ? parsedType
             : MenuDietaryType.Standard;
 
-        var entity = new WeddingPlannerApp.Models.Menu
+        return new MenuCreateDto
         {
             Name = menu.Name.Trim(),
             DietaryType = dietaryType,
             Price = menu.PricePerPerson,
-            Description = menu.Description.Trim()
+            Description = menu.Description.Trim(),
+            MenuItems = ToMenuItemDtos(menu)
         };
+    }
 
+    static MenuUpdateDto ToMenuUpdateDto(AdminMenuModel menu) => new()
+    {
+        Name = menu.Name.Trim(),
+        DietaryType = Enum.TryParse<MenuDietaryType>(menu.DietaryType, ignoreCase: true, out var parsedType)
+            ? parsedType
+            : MenuDietaryType.Standard,
+        Price = menu.PricePerPerson,
+        Description = menu.Description.Trim(),
+        MenuItems = ToMenuItemDtos(menu)
+    };
+
+    static List<MenuItemCreateDto> ToMenuItemDtos(AdminMenuModel menu)
+    {
+        var items = new List<MenuItemCreateDto>();
         var displayOrder = 0;
         foreach (var course in menu.Courses)
         {
             foreach (var item in course.Items)
             {
-                entity.MenuItems.Add(new WeddingPlannerApp.Models.MenuItem
+                items.Add(new MenuItemCreateDto
                 {
                     CourseName = course.Label.Trim(),
                     Name = item.Name.Trim(),
@@ -886,7 +941,7 @@
             }
         }
 
-        return entity;
+        return items;
     }
 
     static AdminVenueModel CloneVenue(AdminVenueModel venue) => new()
@@ -962,6 +1017,34 @@
         }
 
         CloseConfirm();
+    }
+
+    async Task ApproveVenueRequest(int eventId)
+    {
+        try
+        {
+            await Api.ApproveVenueChangeRequestAsync(eventId);
+            ShowToast("Venue change approved.");
+            await LoadAdminData();
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not approve venue request: {ex.Message}", error: true);
+        }
+    }
+
+    async Task RejectVenueRequest(int eventId)
+    {
+        try
+        {
+            await Api.RejectVenueChangeRequestAsync(eventId);
+            venueChangeRequests.RemoveAll(request => request.EventId == eventId);
+            ShowToast("Venue change rejected.");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not reject venue request: {ex.Message}", error: true);
+        }
     }
 
     string PrimaryVenueTag => newVenue.Tags.FirstOrDefault() ?? "Select a tag";
@@ -1049,6 +1132,7 @@
             }
 
             events = loadedEvents;
+            venueChangeRequests = await Api.GetVenueChangeRequestsAsync();
         }
         catch (Exception ex)
         {

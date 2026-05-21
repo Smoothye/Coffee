@@ -35,6 +35,10 @@
                             Head Table
                         </h4>
                         <p class="head-table-sub">@BrideName, @GroomName &amp; @GodparentCouples godparent couple@(GodparentCouples > 1 ? "s" : "")</p>
+                        <div class="head-role-mini">
+                            <span>Bride &amp; Groom</span>
+                            <span>Guests</span>
+                        </div>
                     </div>
                     <span class="seat-count-badge @(headFilled >= head.Capacity ? "badge-full" : "badge-ok")">
                         @headFilled/@head.Capacity
@@ -69,25 +73,16 @@
                 var t = table;
                 var filled = t.Seats.Count(s => s != null);
                 var seatPositions = TableDisplay.GetSeatPositions(t.Capacity, 85);
-                <div class="round-table-card">
-                    <button class="icon-btn delete round-table-del" title="Remove table" @onclick="@(() => OnRemoveTable.InvokeAsync(t.Id))">
-                        @SvgIcons.Trash
-                    </button>
+                <div class="round-table-card @(t.IsLocked ? "round-table-locked" : "")">
                     <div class="round-table-header">
-                        <h4 class="round-table-name">@t.Name</h4>
-                        <div class="table-cap-controls">
-                            <button class="cap-btn" title="Remove seat"
-                                    disabled="@(t.Capacity <= 2 || filled >= t.Capacity)"
-                                    @onclick="@(() => OnResizeTable.InvokeAsync(new TableResizeRequest(t.Id, -1)))">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                            </button>
-                            <span class="seat-count-badge @(filled >= t.Capacity ? "badge-full" : "badge-ok")">@filled/@t.Capacity</span>
-                            <button class="cap-btn" title="Add seat"
-                                    disabled="@(t.Capacity >= 10)"
-                                    @onclick="@(() => OnResizeTable.InvokeAsync(new TableResizeRequest(t.Id, 1)))">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                            </button>
+                        <div class="round-table-title-wrap">
+                            <h4 class="round-table-name">@t.Name</h4>
+                            @if (!string.IsNullOrWhiteSpace(t.Notes))
+                            {
+                                <span class="round-table-note-preview">@t.Notes</span>
+                            }
                         </div>
+                        <span class="seat-count-badge @(filled >= t.Capacity ? "badge-full" : "badge-ok")">@filled/@t.Capacity</span>
                     </div>
 
                     <div class="round-table-wrap"
@@ -108,6 +103,31 @@
 
                     <div class="progress-bar-wrap">
                         <div class="progress-bar" style="width:@((filled * 100 / Math.Max(t.Capacity, 1)))%;background:@(filled >= t.Capacity ? "#f87171" : "var(--sage)");"></div>
+                    </div>
+
+                    <div class="round-table-actions">
+                        <button class="cap-btn table-note-btn" title="Table notes"
+                                @onclick="@(() => OnEditTableNotes.InvokeAsync(t.Id))">
+                            @SvgIcons.Edit
+                        </button>
+                        <button class="cap-btn table-lock-btn @(t.IsLocked ? "table-lock-on" : "")"
+                                title="@(t.IsLocked ? "Unlock table" : "Lock table")"
+                                @onclick="@(() => OnToggleTableLock.InvokeAsync(t.Id))">
+                            @(t.IsLocked ? SvgIcons.Lock : SvgIcons.Unlock)
+                        </button>
+                        <button class="cap-btn" title="Remove seat"
+                                disabled="@(t.IsLocked || t.Capacity <= 2 || filled >= t.Capacity)"
+                                @onclick="@(() => OnResizeTable.InvokeAsync(new TableResizeRequest(t.Id, -1)))">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                        </button>
+                        <button class="cap-btn" title="Add seat"
+                                disabled="@(t.IsLocked || t.Capacity >= 10)"
+                                @onclick="@(() => OnResizeTable.InvokeAsync(new TableResizeRequest(t.Id, 1)))">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                        </button>
+                        <button class="cap-btn table-delete-btn" title="Remove table" disabled="@t.IsLocked" @onclick="@(() => OnRemoveTable.InvokeAsync(t.Id))">
+                            @SvgIcons.Trash
+                        </button>
                     </div>
                 </div>
             }
@@ -138,4 +158,6 @@
     [Parameter] public EventCallback OnAddTable { get; set; }
     [Parameter] public EventCallback<int> OnRemoveTable { get; set; }
     [Parameter] public EventCallback<TableResizeRequest> OnResizeTable { get; set; }
+    [Parameter] public EventCallback<int> OnToggleTableLock { get; set; }
+    [Parameter] public EventCallback<int> OnEditTableNotes { get; set; }
 }

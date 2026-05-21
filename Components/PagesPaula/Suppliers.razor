@@ -329,11 +329,20 @@
         { importSummary = "Only .csv files are accepted."; importHasWarning = true; return; }
         using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
         var text = await reader.ReadToEndAsync();
-        int imported = 0, skipped = 0, counter = 0;
+        int imported = 0, duplicateSkipped = 0, invalidSkipped = 0, counter = 0;
         var nextId = allSuppliers.Count == 0 ? 1 : allSuppliers.Max(s => s.Id) + 1;
-        foreach (var line in text.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        var lines = CsvImportHelper.NonEmptyLines(text);
+        if (lines.Count <= 1)
         {
-            var c = line.TrimEnd('\r').Split(',');
+            importSummary = "No supplier rows found in this CSV.";
+            importHasWarning = true;
+            return;
+        }
+
+        var delimiter = CsvImportHelper.DetectDelimiter(lines[0]);
+        foreach (var line in lines.Skip(1))
+        {
+            var c = CsvImportHelper.ParseFields(line, delimiter);
             var supplier = new SupplierModel
             {
                 Id = nextId + counter++,
@@ -350,15 +359,18 @@
             ValidateSupplierDraft(supplier, rowErrors);
             if (rowErrors.Count > 0)
             {
-                skipped++;
+                if (CsvImportHelper.ContainsOnlyDuplicateErrors(rowErrors))
+                    duplicateSkipped++;
+                else
+                    invalidSkipped++;
                 continue;
             }
 
             allSuppliers.Add(SanitizeSupplier(supplier));
             imported++;
         }
-        importSummary = skipped > 0 ? $"Imported {imported} supplier(s). Skipped {skipped} duplicate/invalid row(s)." : $"Successfully imported {imported} supplier(s).";
-        importHasWarning = skipped > 0;
+        importSummary = CsvImportHelper.BuildImportMessage("supplier", imported, duplicateSkipped, invalidSkipped);
+        importHasWarning = duplicateSkipped > 0 || invalidSkipped > 0;
         ApplyFilters();
     }
 

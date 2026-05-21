@@ -25,6 +25,10 @@ public sealed class EventDto
     public int EstimatedGuests { get; set; }
     
     public decimal TotalBudget { get; set; }
+
+    public string? OwnerName { get; set; }
+
+    public string? OwnerEmail { get; set; }
     
     [MaxLength(256)]
     public string? Notes { get; set; }

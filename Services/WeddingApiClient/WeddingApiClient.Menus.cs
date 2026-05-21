@@ -1,27 +1,26 @@
 using WeddingPlannerApp.DTOs.Event;
 using System.Net.Http.Json;
 using WeddingPlannerApp.DTOs.Menu;
-using WeddingPlannerApp.Models;
 
 namespace WeddingPlannerApp.Services;
 
 public sealed partial class WeddingApiClient
 {
-    public async Task<List<Menu>> GetMenusAsync() =>
-        await _http.GetFromJsonAsync<List<Menu>>("api/Menus") ?? [];
+    public async Task<List<MenuDto>> GetMenusAsync() =>
+        await _http.GetFromJsonAsync<List<MenuDto>>("api/Menus") ?? [];
 
-    public async Task<Menu> CreateMenuAsync(Menu menu)
+    public async Task<MenuDto> CreateMenuAsync(MenuCreateDto menu)
     {
-        var response = await _http.PostAsJsonAsync("api/Menus", ToMenuCreateDto(menu));
+        var response = await _http.PostAsJsonAsync("api/Menus", menu);
         response.EnsureSuccessStatusCode();
 
-        return await response.Content.ReadFromJsonAsync<Menu>()
+        return await response.Content.ReadFromJsonAsync<MenuDto>()
             ?? throw new InvalidOperationException("Menu API returned an empty response.");
     }
 
-    public async Task UpdateMenuAsync(int menuId, Menu menu)
+    public async Task UpdateMenuAsync(int menuId, MenuUpdateDto menu)
     {
-        var response = await _http.PutAsJsonAsync($"api/Menus/{menuId}", ToMenuUpdateDto(menu));
+        var response = await _http.PutAsJsonAsync($"api/Menus/{menuId}", menu);
         response.EnsureSuccessStatusCode();
     }
 
@@ -45,40 +44,4 @@ public sealed partial class WeddingApiClient
             new EventMenuSelectionsUpdateDto { MenuIds = menuIds.Distinct().ToList() });
         response.EnsureSuccessStatusCode();
     }
-
-    static MenuCreateDto ToMenuCreateDto(Menu menu) => new()
-    {
-        Name = menu.Name,
-        Price = menu.Price,
-        DietaryType = menu.DietaryType,
-        Description = menu.Description,
-        MenuItems = menu.MenuItems
-            .OrderBy(item => item.DisplayOrder)
-            .Select((item, index) => new MenuItemCreateDto
-            {
-                CourseName = item.CourseName,
-                Name = item.Name,
-                Description = item.Description,
-                DisplayOrder = index
-            })
-            .ToList()
-    };
-
-    static MenuUpdateDto ToMenuUpdateDto(Menu menu) => new()
-    {
-        Name = menu.Name,
-        Price = menu.Price,
-        DietaryType = menu.DietaryType,
-        Description = menu.Description,
-        MenuItems = menu.MenuItems
-            .OrderBy(item => item.DisplayOrder)
-            .Select((item, index) => new MenuItemCreateDto
-            {
-                CourseName = item.CourseName,
-                Name = item.Name,
-                Description = item.Description,
-                DisplayOrder = index
-            })
-            .ToList()
-    };
 }

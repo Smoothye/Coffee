@@ -168,7 +168,7 @@
                                     class="venue-card @(selectedVenue == venue.VenueId ? "venue-card-active" : "")"
                                     @onclick="@(() => selectedVenue = venue.VenueId)">
                                 <div class="venue-img-wrap">
-                                    <img src="@VenueImage(venue)" alt="@venue.Name" class="venue-img" />
+                                    <img src="@VenueImage(venue)" alt="@venue.Name" class="venue-img" loading="lazy" decoding="async" />
                                     @if (selectedVenue == venue.VenueId)
                                     {
                                         <div class="venue-check">@SvgIcons.CheckSmall</div>
@@ -207,7 +207,7 @@
                             {
                                 <div class="venue-card">
                                     <div class="venue-img-wrap">
-                                        <img src="@VenueImage(v)" alt="@v.Name" class="venue-img grayscale" />
+                                        <img src="@VenueImage(v)" alt="@v.Name" class="venue-img grayscale" loading="lazy" decoding="async" />
                                     </div>
                                     <div class="venue-info">
                                         <p class="venue-name">@v.Name</p>

@@ -102,8 +102,10 @@
 
 .dash-header {
     display: flex;
-    flex-direction: column;
-    gap: .2rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
 }
 
 .dash-greeting {
@@ -118,6 +120,28 @@
     font-size: .82rem;
     color: var(--muted);
     margin: 0;
+}
+
+.dash-notes-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .45rem .8rem;
+    border-radius: .65rem;
+    border: 1px solid rgba(79,107,74,.24);
+    background: rgba(255,255,255,.72);
+    color: var(--sage-dark);
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .18s, border-color .18s, transform .15s;
+}
+
+.dash-notes-btn:hover {
+    background: var(--sage-muted);
+    border-color: var(--sage);
+    transform: translateY(-1px);
 }
 
 .countdown-card {

@@ -28,17 +28,17 @@ body {
 .paula-layout-body:has(.suppliers-page),
 .paula-layout-body:has(.budget-page),
 .paula-layout-body:has(.tasks-page) {
-    animation: pageFadeIn .18s ease-out both;
+    animation: pageFadeIn .28s cubic-bezier(.22,1,.36,1) both;
 }
 
 @keyframes pageFadeIn {
     from {
-        opacity: .72;
-        transform: translateY(4px);
+        opacity: .62;
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: none;
     }
 }
 

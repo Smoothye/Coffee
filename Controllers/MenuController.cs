@@ -12,18 +12,20 @@ public class MenusController(ApplicationDbContext context) : ControllerBase
 {
     // GET: api/Menus
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Menu>>> GetAll()
+    public async Task<ActionResult<IEnumerable<MenuDto>>> GetAll()
     {
         var menus = await context.Menus
             .Include(menu => menu.MenuItems)
+            .OrderBy(menu => menu.DietaryType)
+            .ThenBy(menu => menu.Name)
             .ToListAsync();
 
-        return Ok(menus);
+        return Ok(menus.Select(ToDto));
     }
 
     // GET: api/Menus/{id}
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<Menu>> GetById(int id)
+    public async Task<ActionResult<MenuDto>> GetById(int id)
     {
         var menu = await context.Menus
             .Include(menu => menu.MenuItems)
@@ -32,12 +34,12 @@ public class MenusController(ApplicationDbContext context) : ControllerBase
         if (menu == null)
             return NotFound($"Menu with id: {id} was not found.");
         
-        return Ok(menu);
+        return Ok(ToDto(menu));
     }
 
     // POST: api/Menus
     [HttpPost]
-    public async Task<ActionResult<Menu>> Create([FromBody] MenuCreateDto model)
+    public async Task<ActionResult<MenuDto>> Create([FromBody] MenuCreateDto model)
     {
         if (model.MenuItems.Count == 0)
             return BadRequest("At least one menu item is required.");
@@ -63,7 +65,7 @@ public class MenusController(ApplicationDbContext context) : ControllerBase
         context.Menus.Add(menu);
         await context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetById), new { id = menu.MenuId }, menu);
+        return CreatedAtAction(nameof(GetById), new { id = menu.MenuId }, ToDto(menu));
     }
 
     // PUT: api/Menus/{id}
@@ -128,4 +130,25 @@ public class MenusController(ApplicationDbContext context) : ControllerBase
 
         return NoContent();
     }
+
+    static MenuDto ToDto(Menu menu) => new()
+    {
+        MenuId = menu.MenuId,
+        Name = menu.Name,
+        Price = menu.Price,
+        DietaryType = menu.DietaryType,
+        Description = menu.Description,
+        MenuItems = menu.MenuItems
+            .OrderBy(item => item.DisplayOrder)
+            .Select(item => new MenuItemDto
+            {
+                MenuItemId = item.MenuItemId,
+                MenuId = item.MenuId,
+                CourseName = item.CourseName,
+                Name = item.Name,
+                Description = item.Description,
+                DisplayOrder = item.DisplayOrder
+            })
+            .ToList()
+    };
 }
