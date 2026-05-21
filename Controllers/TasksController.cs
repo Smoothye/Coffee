@@ -13,12 +13,20 @@ namespace WeddingPlannerApp.Controllers;
 [Authorize]
 public class TasksController(ApplicationDbContext context) : ControllerBase
 {
+    const string PaymentTaskPrefix = "[[payment-task:";
+    const string PaymentTaskSuffix = "]]";
+    const string SupplierPrefix = "Supplier: ";
+
     // GET: api/Events/{eventId}/Tasks
     [HttpGet]
     public async Task<ActionResult<IEnumerable<WeddingTaskDto>>> GetAll(int eventId)
     {
         if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id: {eventId} was not found.");
+
+        await RemoveDuplicatePaymentTasksAsync(eventId);
+        await EnsureSupplierPaymentTasksAsync(eventId);
+        await RemoveDuplicatePaymentTasksAsync(eventId);
 
         var tasks = await context.CheckListTasks
             .Where(t => t.EventId == eventId)
@@ -182,8 +190,112 @@ public class TasksController(ApplicationDbContext context) : ControllerBase
     static bool TryParsePriority(string value, out CheckListTaskPriority priority) =>
         Enum.TryParse(value, ignoreCase: true, out priority);
 
-    static bool TryParseCategory(string value, out CheckListTaskCategory category) =>
-        Enum.TryParse(value, ignoreCase: true, out category);
+    async Task RemoveDuplicatePaymentTasksAsync(int eventId)
+    {
+        var paymentTasks = await context.CheckListTasks
+            .Where(t => t.EventId == eventId && t.Notes != null && t.Notes.StartsWith(PaymentTaskPrefix))
+            .OrderByDescending(t => t.TaskId)
+            .ToListAsync();
+
+        var duplicates = paymentTasks
+            .GroupBy(t => t.Notes)
+            .SelectMany(g => g.Skip(1))
+            .Concat(paymentTasks.GroupBy(t => t.Title).SelectMany(g => g.Skip(1)))
+            .DistinctBy(t => t.TaskId)
+            .ToList();
+
+        if (duplicates.Count == 0)
+            return;
+
+        context.CheckListTasks.RemoveRange(duplicates);
+        await context.SaveChangesAsync();
+    }
+
+    async Task EnsureSupplierPaymentTasksAsync(int eventId)
+    {
+        var eventDate = await context.Events
+            .Where(e => e.EventId == eventId)
+            .Select(e => e.EventDate)
+            .SingleAsync();
+
+        var expenses = await context.Expenses
+            .Include(e => e.Supplier)
+            .Where(e => e.EventId == eventId && e.EstimatedAmount > 0)
+            .ToListAsync();
+
+        foreach (var expense in expenses)
+        {
+            var key = PaymentTaskKey(expense.ExpenseId);
+            var marker = PaymentMarker(key);
+            var existing = await context.CheckListTasks
+                .Where(t => t.EventId == eventId && t.Notes == marker)
+                .OrderBy(t => t.TaskId)
+                .FirstOrDefaultAsync();
+            var title = $"Pay: {CleanName(expense.Description, expense.Supplier?.Name)}";
+            var isPaid = expense.PaymentStatus == PaymentStatus.Paid;
+
+            if (existing is null)
+            {
+                context.CheckListTasks.Add(new CheckListTask
+                {
+                    EventId = eventId,
+                    Title = title,
+                    DueDate = PaymentDueDate(eventDate),
+                    Priority = CheckListTaskPriority.High,
+                    Category = CheckListTaskCategory.Vendors,
+                    Status = isPaid ? CheckListTaskStatus.Completed : CheckListTaskStatus.Pending,
+                    CompletedAt = isPaid ? DateTime.UtcNow : null,
+                    Notes = marker
+                });
+            }
+            else
+            {
+                existing.Title = title;
+                existing.DueDate = PaymentDueDate(eventDate);
+                existing.Priority = CheckListTaskPriority.High;
+                existing.Category = CheckListTaskCategory.Vendors;
+                existing.Status = isPaid ? CheckListTaskStatus.Completed : CheckListTaskStatus.Pending;
+                existing.CompletedAt = isPaid ? existing.CompletedAt ?? DateTime.UtcNow : null;
+            }
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    static string PaymentTaskKey(int expenseId) => $"expense:{expenseId}";
+    static string PaymentMarker(string key) => $"{PaymentTaskPrefix}{key}{PaymentTaskSuffix}";
+
+    static DateTime PaymentDueDate(DateTime eventDate)
+    {
+        var dueDate = eventDate.AddDays(-14).Date;
+        return dueDate < DateTime.Today ? DateTime.Today : dueDate;
+    }
+
+    static string CleanName(string? description, string? supplierName)
+    {
+        var name = string.IsNullOrWhiteSpace(description) ? supplierName : description;
+        if (string.IsNullOrWhiteSpace(name))
+            return "Supplier payment";
+
+        var clean = name.Trim();
+        return clean.StartsWith(SupplierPrefix, StringComparison.OrdinalIgnoreCase)
+            ? clean[SupplierPrefix.Length..].Trim()
+            : clean;
+    }
+
+    static bool TryParseCategory(string value, out CheckListTaskCategory category)
+    {
+        if (value.Equals("Suppliers", StringComparison.OrdinalIgnoreCase))
+        {
+            category = CheckListTaskCategory.Vendors;
+            return true;
+        }
+
+        return Enum.TryParse(value, ignoreCase: true, out category);
+    }
+
+    static string DisplayCategory(CheckListTaskCategory category) =>
+        category == CheckListTaskCategory.Vendors ? "Suppliers" : category.ToString();
 
     static WeddingTaskDto ToDto(CheckListTask task) => new()
     {
@@ -193,7 +305,7 @@ public class TasksController(ApplicationDbContext context) : ControllerBase
         DueDate = task.DueDate,
         Status = task.Status.ToString().ToLowerInvariant(),
         Priority = task.Priority.ToString().ToLowerInvariant(),
-        Category = task.Category.ToString(),
+        Category = DisplayCategory(task.Category),
         Done = task.Status == CheckListTaskStatus.Completed,
         CompletedAt = task.CompletedAt,
         Notes = task.Notes

@@ -4,14 +4,6 @@ namespace WeddingPlannerApp.DTOs.Supplier;
 
 public sealed class SupplierUpdateDto
 {
-    [Required]
-    [MaxLength(120)]
-    public required string Name { get; set; }
-
-    [Required]
-    [MaxLength(32)]
-    public string Category { get; set; } = "Other";
-
     [MaxLength(64)]
     public string? Phone { get; set; }
 
@@ -22,11 +14,8 @@ public sealed class SupplierUpdateDto
     [MaxLength(256)]
     public string? Description { get; set; }
 
-    [Range(0, double.MaxValue)]
+    [Range(typeof(decimal), "0", "1000000")]
     public decimal Price { get; set; }
 
-    [Range(0, double.MaxValue)]
-    public decimal Advance { get; set; }
-
-    public bool RemainingPaid { get; set; }
+    public bool Paid { get; set; }
 }

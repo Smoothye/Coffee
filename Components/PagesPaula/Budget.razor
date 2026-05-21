@@ -159,17 +159,32 @@
         State.UpdateBudgetItem(item);
     }
 
-    void TogglePaid(int id)
+    async Task TogglePaid(int id)
     {
         var item = State.BudgetItems.FirstOrDefault(i => i.Id == id);
-        if (item is null || item.IsProtected)
+        if (item is null || !item.CanTogglePaid)
             return;
 
+        var previousPaid = item.Paid;
         item.Paid = !item.Paid;
         if (item.Paid && item.Actual <= 0)
             item.Actual = item.Estimated;
 
         State.UpdateBudgetItem(item);
+
+        if (!item.IsSupplierLinked || currentEvent is null)
+            return;
+
+        try
+        {
+            await Api.UpdateBudgetItemPaymentAsync(currentEvent.EventId, item.Id, item.Paid);
+        }
+        catch
+        {
+            item.Paid = previousPaid;
+            State.UpdateBudgetItem(item);
+            _toast.Show("Could not update supplier payment status.", true);
+        }
     }
 
     void RemoveItem(int id)
@@ -257,19 +272,7 @@
         if (currentEvent is null)
             return;
 
-        await Api.UpdateEventAsync(currentEvent.EventId, new EventUpdateDto
-        {
-            VenueId = currentEvent.VenueId,
-            MenuIds = currentEvent.MenuIds,
-            Name = currentEvent.Name,
-            BrideName = currentEvent.BrideName,
-            GroomName = currentEvent.GroomName,
-            EventDate = currentEvent.EventDate,
-            EstimatedGuests = currentEvent.EstimatedGuests,
-            TotalBudget = total,
-            Notes = currentEvent.Notes
-        });
-
+        await Api.UpdateEventBudgetAsync(currentEvent.EventId, total);
         currentEvent.TotalBudget = total;
     }
 

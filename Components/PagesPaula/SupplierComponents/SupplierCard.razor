@@ -30,10 +30,42 @@
             </div>
         }
         <p class="supplier-notes">@Supplier.Description</p>
-        <div class="supplier-cost-row supplier-cost-edit">
-            <label><span>Price</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.Price" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
-            <label><span>Advance</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.Advance" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
-            <label><span>Remaining</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled value="@Supplier.Remaining.ToString("0")" /></label>
+        <div class="supplier-cost-row supplier-cost-edit @(EventSupplier is null ? "supplier-cost-row-single" : "")">
+            <label>
+                <span>Price</span>
+                <input class="input supplier-cost-input"
+                       type="number"
+                       min="0"
+                       max="@MaxSupplierPrice"
+                       step="50"
+                       disabled="@(!CanEditCosts || IsPaid)"
+                       @bind="Supplier.Price"
+                       @bind:after="NotifyBudgetSync" />
+            </label>
+            @if (EventSupplier != null)
+            {
+                <div class="supplier-payment-inline">
+                    <div class="supplier-payment-label-row">
+                        <span>Payment</span>
+                        @if (IsPaid)
+                        {
+                            <span class="supplier-payment-info"
+                                  tabindex="0"
+                                  aria-label="Paid suppliers are locked until switched back to unpaid.">
+                                @SvgIcons.AlertCircle
+                                <span class="supplier-payment-tooltip" role="tooltip">
+                                    Switch to unpaid before editing the price.
+                                </span>
+                            </span>
+                        }
+                    </div>
+                    <button type="button"
+                            class="paid-toggle @(EventSupplier.Paid ? "paid-toggle-paid" : "")"
+                            @onclick="@(() => OnPaidChanged.InvokeAsync((Supplier.Id, !EventSupplier.Paid)))">
+                        @(EventSupplier.Paid ? "Paid" : "Unpaid")
+                    </button>
+                </div>
+            }
         </div>
         @if (!CanEditCosts)
         {
@@ -43,24 +75,15 @@
 
     @if (EventSupplier != null)
     {
-        <div class="supplier-payment-row">
-            <span>Remaining payment</span>
-            <button type="button"
-                    class="paid-toggle @(EventSupplier.RemainingPaid ? "paid-toggle-paid" : "")"
-                    @onclick="@(() => OnRemainingPaidChanged.InvokeAsync((Supplier.Id, !EventSupplier.RemainingPaid)))">
-                @(EventSupplier.RemainingPaid ? "Paid" : "Unpaid")
-            </button>
-        </div>
         <div class="supplier-notes-field">
             <input class="input" style="font-size:.78rem;padding:.35rem .6rem;" placeholder="Add notes..." @bind="EventSupplier.Notes" />
         </div>
     }
 
-    <div class="supplier-actions">
+    <div class="supplier-actions @(Status == null ? "supplier-actions-single" : "")">
         @if (Status == null)
         {
             <button class="supplier-book-btn supplier-book-pending"
-                    style="background:linear-gradient(135deg,var(--sage),var(--sage-dark));color:#fff;border:none;box-shadow:0 3px 12px rgba(79,107,74,.3);"
                     @onclick="@(() => OnSetStatus.InvokeAsync((Supplier.Id, "pending")))">
                 @SvgIcons.PhoneOutgoing
                 Contact supplier
@@ -69,18 +92,17 @@
         else if (Status == "pending")
         {
             <button class="supplier-book-btn supplier-book-booked"
-                    style="background:linear-gradient(135deg,var(--sage),var(--sage-dark));color:#fff;border:none;"
                     @onclick="@(() => OnSetStatus.InvokeAsync((Supplier.Id, "confirmed")))">
-                @SvgIcons.Check Mark confirmed
+                @SvgIcons.Check Mark as confirmed
             </button>
-            <button class="btn-outline" style="font-size:.78rem;padding:.35rem .65rem;" @onclick="@(() => OnRemoveStatus.InvokeAsync(Supplier.Id))">Remove</button>
+            <button class="btn-outline supplier-remove-btn" @onclick="@(() => OnRemoveStatus.InvokeAsync(Supplier.Id))">Remove</button>
         }
         else if (Status == "confirmed")
         {
-            <button class="supplier-book-btn supplier-book-booked" @onclick="@(() => OnSetStatus.InvokeAsync((Supplier.Id, "pending")))">
+            <button type="button" class="supplier-book-btn supplier-book-booked supplier-confirmed-state" disabled>
                 @SvgIcons.Check Confirmed
             </button>
-            <button class="btn-outline" style="font-size:.78rem;padding:.35rem .65rem;" @onclick="@(() => OnRemoveStatus.InvokeAsync(Supplier.Id))">Remove</button>
+            <button class="btn-outline supplier-remove-btn" @onclick="@(() => OnRemoveStatus.InvokeAsync(Supplier.Id))">Remove</button>
         }
     </div>
 </div>
@@ -90,10 +112,12 @@
     [Parameter] public string? Status { get; set; }
     [Parameter] public EventSupplierModel? EventSupplier { get; set; }
     [Parameter] public EventCallback<(int SupplierId, string Status)> OnSetStatus { get; set; }
-    [Parameter] public EventCallback<(int SupplierId, bool RemainingPaid)> OnRemainingPaidChanged { get; set; }
+    [Parameter] public EventCallback<(int SupplierId, bool Paid)> OnPaidChanged { get; set; }
     [Parameter] public EventCallback<int> OnRemoveStatus { get; set; }
     [Parameter] public EventCallback<SupplierModel> OnSyncBudget { get; set; }
 
     bool CanEditCosts => Status != null;
+    bool IsPaid => EventSupplier?.Paid == true;
+    const int MaxSupplierPrice = 1000000;
     Task NotifyBudgetSync() => OnSyncBudget.InvokeAsync(Supplier);
 }

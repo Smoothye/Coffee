@@ -26,7 +26,7 @@
 
 <CsvGuideModal IsOpen="csvGuideOpen"
                Title="Import Suppliers"
-               IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, BasePrice, Advance, RemainingPaid, Status and Notes columns."
+               IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, Price, Paid, Status and Notes columns."
                Columns="supplierCsvColumns"
                OnClose="@(() => csvGuideOpen = false)">
     <LeftFooter>
@@ -90,18 +90,11 @@
         <label>Description</label>
         <input class="input" @bind="draftSupplier.Description" @bind:event="oninput" placeholder="Short notes" />
     </div>
-    <div class="form-grid-2">
         <div class="field">
-            <label>Base price</label>
-            <input class="input @(HasFormError(nameof(draftSupplier.Price)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.Price" @bind:event="oninput" />
+            <label>Price</label>
+            <input class="input @(HasFormError(nameof(draftSupplier.Price)) ? "field-invalid" : "")" type="number" min="0" max="@MaxSupplierPrice" step="50" @bind="draftSupplier.Price" @bind:event="oninput" />
             @FormFieldError(nameof(draftSupplier.Price))
         </div>
-        <div class="field">
-            <label>Advance</label>
-            <input class="input @(HasFormError(nameof(draftSupplier.Advance)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.Advance" @bind:event="oninput" />
-            @FormFieldError(nameof(draftSupplier.Advance))
-        </div>
-    </div>
     <button class="btn-add-guest" disabled="@savingSupplier" @onclick="AddSupplier">@SvgIcons.Plus @(savingSupplier ? "Adding..." : "Add Supplier")</button>
 </ModalShell>
 
@@ -140,7 +133,7 @@
                           Status="@GetStatus(sid)"
                           EventSupplier="GetEventSupplier(sid)"
                           OnSetStatus="SetStatus"
-                          OnRemainingPaidChanged="SetRemainingPaid"
+                          OnPaidChanged="SetPaid"
                           OnRemoveStatus="RemoveStatus"
                           OnSyncBudget="SyncSupplier" />
         }
@@ -167,9 +160,8 @@
         new() { Name = "Phone", ValidValues = "Any format" },
         new() { Name = "Email", ValidValues = "Used for duplicate check" },
         new() { Name = "Description", ValidValues = "Short notes" },
-        new() { Name = "BasePrice", ValidValues = "Number, cannot be negative" },
-        new() { Name = "Advance", ValidValues = "Number, cannot be negative and cannot exceed BasePrice" },
-        new() { Name = "RemainingPaid", ValidValues = "Yes/No, true/false, paid/unpaid" },
+        new() { Name = "Price", ValidValues = "Number, cannot be negative" },
+        new() { Name = "Paid", ValidValues = "Yes/No, true/false, paid/unpaid" },
         new() { Name = "Status", ValidValues = "pending, confirmed or empty" },
         new() { Name = "Notes", ValidValues = "Optional event-specific notes" },
     };
@@ -177,6 +169,7 @@
     readonly List<SupplierModel> allSuppliers = [];
     readonly List<EventSupplierModel> eventSuppliers = [];
     readonly EmailAddressAttribute emailValidator = new();
+    const int MaxSupplierPrice = 1000000;
 
     IEnumerable<SupplierModel> ActiveSuppliers => allSuppliers.Where(s => GetStatus(s.Id) != null);
     decimal PaidTotal => ActiveSuppliers.Sum(PaidAmount);
@@ -247,7 +240,7 @@
             {
                 SupplierId = s.SupplierId,
                 CollaborationStatus = s.CollaborationStatus,
-                RemainingPaid = s.RemainingPaid,
+                Paid = s.Paid,
                 Notes = s.EventNotes
             }));
 
@@ -311,8 +304,7 @@
                 Phone = NullIfBlank(draftSupplier.Phone),
                 Email = NullIfBlank(draftSupplier.Email),
                 Description = NullIfBlank(draftSupplier.Description),
-                Price = draftSupplier.Price,
-                Advance = draftSupplier.Advance
+                Price = draftSupplier.Price
             });
 
             if (created is not null)
@@ -352,13 +344,13 @@
         if (_filterStatus != "all") ApplyFilters();
     }
 
-    async Task SetRemainingPaid((int SupplierId, bool RemainingPaid) change)
+    async Task SetPaid((int SupplierId, bool Paid) change)
     {
         var es = eventSuppliers.FirstOrDefault(e => e.SupplierId == change.SupplierId);
         if (es is null)
             return;
 
-        es.RemainingPaid = change.RemainingPaid;
+        es.Paid = change.Paid;
         await SaveSupplierStatus(change.SupplierId);
     }
 
@@ -389,9 +381,9 @@
 
     async Task SyncSupplier(SupplierModel supplier)
     {
-        if (supplier.Advance > supplier.Price)
+        if (supplier.Price < 0 || supplier.Price > MaxSupplierPrice)
         {
-            loadError = "Advance cannot be greater than base price.";
+            loadError = $"Price must be between 0 and {MaxSupplierPrice:N0}.";
             return;
         }
 
@@ -399,14 +391,11 @@
         {
             await Api.UpdateSupplierAsync(EventId, supplier.Id, new SupplierUpdateDto
             {
-                Name = supplier.Name,
-                Category = supplier.Category,
                 Phone = NullIfBlank(supplier.Phone),
                 Email = NullIfBlank(supplier.Email),
                 Description = NullIfBlank(supplier.Description),
                 Price = supplier.Price,
-                Advance = supplier.Advance,
-                RemainingPaid = GetEventSupplier(supplier.Id)?.RemainingPaid == true
+                Paid = GetEventSupplier(supplier.Id)?.Paid == true
             });
             await SaveSupplierStatus(supplier.Id);
             loadError = "";
@@ -427,8 +416,7 @@
         await Api.UpdateSupplierStatusAsync(EventId, supplierId, new EventSupplierStatusUpdateDto
         {
             CollaborationStatus = es.CollaborationStatus,
-            Advance = supplier.Advance,
-            RemainingPaid = es.RemainingPaid,
+            Paid = es.Paid,
             Notes = es.Notes
         });
     }
@@ -436,11 +424,11 @@
     async Task ExportCSV()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Name,Category,Phone,Email,Description,BasePrice,Advance,RemainingPaid,Status,Notes");
+        sb.AppendLine("Name,Category,Phone,Email,Description,Price,Paid,Status,Notes");
         foreach (var s in allSuppliers)
         {
             var es = GetEventSupplier(s.Id);
-            sb.AppendLine($"{Csv(s.Name)},{Csv(s.Category)},{Csv(s.Phone)},{Csv(s.Email)},{Csv(s.Description)},{s.Price},{s.Advance},{(es?.RemainingPaid == true ? "yes" : "no")},{es?.CollaborationStatus ?? ""},{Csv(es?.Notes ?? "")}");
+            sb.AppendLine($"{Csv(s.Name)},{Csv(s.Category)},{Csv(s.Phone)},{Csv(s.Email)},{Csv(s.Description)},{s.Price},{(es?.Paid == true ? "yes" : "no")},{es?.CollaborationStatus ?? ""},{Csv(es?.Notes ?? "")}");
         }
         var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='suppliers.csv';a.click()");
@@ -475,11 +463,10 @@
                 Email = c.ElementAtOrDefault(3)?.Trim() ?? "",
                 Description = c.ElementAtOrDefault(4)?.Trim() ?? "",
                 Price = decimal.TryParse(c.ElementAtOrDefault(5), out var price) ? price : 0,
-                Advance = decimal.TryParse(c.ElementAtOrDefault(6), out var advance) ? advance : 0,
             };
-            var remainingPaid = ParsePaid(c.ElementAtOrDefault(7));
-            var status = ParseSupplierStatus(c.ElementAtOrDefault(8));
-            var notes = c.ElementAtOrDefault(9)?.Trim();
+            var paid = ParsePaid(c.ElementAtOrDefault(6));
+            var status = ParseSupplierStatus(c.ElementAtOrDefault(7));
+            var notes = c.ElementAtOrDefault(8)?.Trim();
 
             var rowErrors = new Dictionary<string, string>();
             ValidateSupplierDraft(supplier, rowErrors);
@@ -499,8 +486,7 @@
                 Phone = NullIfBlank(supplier.Phone),
                 Email = NullIfBlank(supplier.Email),
                 Description = NullIfBlank(supplier.Description),
-                Price = supplier.Price,
-                Advance = supplier.Advance
+                Price = supplier.Price
             });
 
             if (created is null)
@@ -516,7 +502,7 @@
                 {
                     SupplierId = created.SupplierId,
                     CollaborationStatus = status,
-                    RemainingPaid = remainingPaid,
+                    Paid = paid,
                     Notes = string.IsNullOrWhiteSpace(notes) ? null : notes
                 });
                 await SaveSupplierStatus(created.SupplierId);
@@ -530,7 +516,7 @@
 
     async Task DownloadTemplate()
     {
-        var csv = "Name,Category,Phone,Email,Description,BasePrice,Advance,RemainingPaid,Status,Notes\n";
+        var csv = "Name,Category,Phone,Email,Description,Price,Paid,Status,Notes\n";
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='suppliers_template.csv';a.click()");
     }
@@ -567,22 +553,18 @@
         }
 
         if (supplier.Price < 0)
-            errors[nameof(supplier.Price)] = "Base price cannot be negative.";
-
-        if (supplier.Advance < 0)
-            errors[nameof(supplier.Advance)] = "Advance cannot be negative.";
-        else if (supplier.Advance > supplier.Price)
-            errors[nameof(supplier.Advance)] = "Advance cannot be greater than base price.";
+            errors[nameof(supplier.Price)] = "Price cannot be negative.";
+        else if (supplier.Price > MaxSupplierPrice)
+            errors[nameof(supplier.Price)] = $"Price cannot exceed {MaxSupplierPrice:N0}.";
     }
 
     decimal PaidAmount(SupplierModel supplier)
     {
         var status = GetStatus(supplier.Id);
-        if (status != "confirmed")
+        if (status is null || GetEventSupplier(supplier.Id)?.Paid != true)
             return 0;
 
-        var remainingPaid = GetEventSupplier(supplier.Id)?.RemainingPaid == true;
-        return Math.Min(supplier.Advance, supplier.Price) + (remainingPaid ? supplier.Remaining : 0);
+        return supplier.Price;
     }
 
     decimal UnpaidAmount(SupplierModel supplier)
@@ -590,10 +572,8 @@
         var status = GetStatus(supplier.Id);
         if (status is null)
             return 0;
-        if (status == "pending")
-            return supplier.Price;
 
-        return GetEventSupplier(supplier.Id)?.RemainingPaid == true ? 0 : supplier.Remaining;
+        return GetEventSupplier(supplier.Id)?.Paid == true ? 0 : supplier.Price;
     }
 
     static bool ParsePaid(string? value)
@@ -617,8 +597,7 @@
         Email = supplier.Email ?? "",
         Description = supplier.Description ?? "",
         Price = supplier.Price,
-        Advance = supplier.Advance,
-        RemainingPaid = supplier.RemainingPaid
+        Paid = supplier.Paid
     };
 
     static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

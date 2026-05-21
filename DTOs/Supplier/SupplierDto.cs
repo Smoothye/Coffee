@@ -9,9 +9,7 @@ public sealed class SupplierDto
     public string? Email { get; set; }
     public string? Description { get; set; }
     public decimal Price { get; set; }
-    public decimal Advance { get; set; }
-    public decimal Remaining { get; set; }
-    public bool RemainingPaid { get; set; }
+    public bool Paid { get; set; }
     public string? CollaborationStatus { get; set; }
     public string? EventNotes { get; set; }
 }

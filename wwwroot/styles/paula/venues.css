@@ -792,6 +792,12 @@
     display: flex;
     align-items: center;
     gap: .75rem;
+    min-width: 0;
+    height: 100%;
+}
+
+.vinfo-card > div:not(.vinfo-icon) {
+    min-width: 0;
 }
 
 .vinfo-icon {
@@ -1168,7 +1174,8 @@
     color: #92400e;
 }
 
-.venue-approved-banner {
+.venue-approved-banner,
+.venue-rejected-banner {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1181,7 +1188,14 @@
     color: #14532d;
 }
 
-.venue-approved-banner div:not(.venue-approved-icon) {
+.venue-rejected-banner {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.venue-approved-banner div:not(.venue-approved-icon),
+.venue-rejected-banner div:not(.venue-approved-icon) {
     display: flex;
     flex-direction: column;
     gap: .15rem;
@@ -1203,6 +1217,11 @@
     color: #15803d;
 }
 
+.venue-rejected-banner .venue-approved-icon {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
 .venue-approved-dismiss {
     border: 1px solid rgba(22,101,52,.18);
     background: rgba(255,255,255,.72);
@@ -1212,6 +1231,11 @@
 
 .venue-approved-dismiss:hover {
     background: #fff;
+}
+
+.venue-rejected-banner .venue-approved-dismiss {
+    border-color: rgba(153,27,27,.18);
+    color: #991b1b;
 }
 
 .venue-pending-banner div {
@@ -1246,6 +1270,14 @@
 
 .venue-capacity-warning-card .vinfo-icon {
     color: #b91c1c;
+}
+
+.venue-capacity-warning-card .vinfo-val {
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.25;
+    font-size: .8rem;
 }
 
 .gallery-active {

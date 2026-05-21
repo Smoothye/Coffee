@@ -51,7 +51,7 @@
 }
 
 .guests-wrap {
-    --app-page-max: 1080px;
+    --app-page-max: 1180px;
 }
 
 .menu-page,
@@ -177,13 +177,13 @@
 
 .guests-wrap .guest-tools-row {
     display: grid;
-    grid-template-columns: minmax(20rem, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
 }
 
 .guests-wrap .guests-filter-toolbar {
     display: grid;
-    grid-template-columns: minmax(16rem, 1fr) 8.5rem 8.5rem;
+    grid-template-columns: minmax(10rem, .9fr) 7.35rem 7.35rem;
     align-items: end;
     min-width: 0;
 }
@@ -252,7 +252,7 @@
     justify-self: end;
     min-width: 0;
     max-width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 @media (max-width: 1120px) {
@@ -267,17 +267,26 @@
     }
 
     .guests-wrap .guest-tools-row {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr) auto;
     }
 
     .guests-wrap .guest-command-bar {
-        justify-self: start;
+        justify-self: end;
     }
 }
 
 @media (max-width: 900px) {
+    .guests-wrap .guest-tools-row {
+        grid-template-columns: 1fr;
+    }
+
     .guests-wrap .guests-filter-toolbar {
         grid-template-columns: minmax(12rem, 1fr) 8.5rem 8.5rem;
+    }
+
+    .guests-wrap .guest-command-bar {
+        justify-self: start;
+        flex-wrap: wrap;
     }
 }
 

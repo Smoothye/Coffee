@@ -1,4 +1,5 @@
 using WeddingPlannerApp.Components.LayoutPaula;
+using System.ComponentModel.DataAnnotations;
 
 namespace WeddingPlannerApp.Components.PagesPaula.TableComponents;
 
@@ -16,6 +17,8 @@ public sealed record TableCsvImportOutcome(
 
 public static class TableCsvImport
 {
+    static readonly EmailAddressAttribute EmailValidator = new();
+
     public static TableCsvImportOutcome Parse(string content, IEnumerable<TableGuest> existingGuests)
     {
         var lines = CsvImportHelper.NonEmptyLines(content);
@@ -58,6 +61,12 @@ public static class TableCsvImport
             var group = validGroups.Contains(rawGroup) ? rawGroup : "other";
 
             if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName))
+            {
+                invalidSkipped++;
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(email) && !EmailValidator.IsValid(email))
             {
                 invalidSkipped++;
                 continue;
@@ -156,7 +165,7 @@ public static class TableCsvImport
 
         if (!string.IsNullOrWhiteSpace(email) &&
             guests.Any(g => !string.IsNullOrWhiteSpace(g.Email) &&
-                            g.Email.Trim().Equals(email.Trim(), StringComparison.OrdinalIgnoreCase)))
+                            CleanEmail(g.Email).Equals(email.Trim(), StringComparison.OrdinalIgnoreCase)))
             return true;
 
         if (!string.IsNullOrWhiteSpace(phone) &&
@@ -190,4 +199,7 @@ public static class TableCsvImport
         importedGuests.Add(plusOneGuest);
         allGuests.Add(plusOneGuest);
     }
+
+    static string CleanEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
 }

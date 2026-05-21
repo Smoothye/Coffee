@@ -9,7 +9,5 @@ public sealed class SupplierModel
     public string Email { get; set; } = "";
     public string Description { get; set; } = "";
     public decimal Price { get; set; }
-    public decimal Advance { get; set; }
-    public decimal Remaining => Math.Max(0, Price - Advance);
-    public bool RemainingPaid { get; set; }
+    public bool Paid { get; set; }
 }

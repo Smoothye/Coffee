@@ -18,6 +18,11 @@
                     @onclick="@(() => selectedStatus = RequestStatus.Accepted)">
                 @AcceptedCount accepted
             </button>
+            <button type="button"
+                    class="venue-request-tab @(selectedStatus == RequestStatus.Rejected ? "venue-request-tab-active" : "")"
+                    @onclick="@(() => selectedStatus = RequestStatus.Rejected)">
+                @RejectedCount refused
+            </button>
         </div>
     </div>
 
@@ -26,7 +31,7 @@
         {
             <div class="admin-empty">
                 <span class="admin-empty-icon">@SvgIcons.CheckCircle</span>
-                <p>@(selectedStatus == RequestStatus.Pending ? "No pending venue changes." : "No accepted venue changes yet.")</p>
+                <p>@EmptyMessage</p>
             </div>
         }
 
@@ -34,8 +39,9 @@
         {
             var request = item;
             var isPending = string.Equals(request.Status, "Pending", StringComparison.OrdinalIgnoreCase);
+            var isRejected = string.Equals(request.Status, "Rejected", StringComparison.OrdinalIgnoreCase);
             var canApprove = isPending && request.FitsCapacity && request.FitsBudget;
-            <div class="admin-venue-request-card @(isPending ? "admin-venue-request-pending" : "admin-venue-request-accepted")">
+            <div class="admin-venue-request-card @(isPending ? "admin-venue-request-pending" : isRejected ? "admin-venue-request-rejected" : "admin-venue-request-accepted")">
                 <div class="admin-venue-request-icon">
                     @((MarkupString)SvgIcons.VenuesNav)
                 </div>
@@ -52,8 +58,8 @@
                                 }
                             </p>
                         </div>
-                        <span class="admin-venue-status-badge @(isPending ? "admin-venue-status-pending" : "admin-venue-status-accepted")">
-                            @request.Status
+                        <span class="admin-venue-status-badge @(isPending ? "admin-venue-status-pending" : isRejected ? "admin-venue-status-rejected" : "admin-venue-status-accepted")">
+                            @(isRejected ? "Refused" : request.Status)
                         </span>
                     </div>
                     <div class="admin-venue-request-route">
@@ -111,6 +117,13 @@
 
     int PendingCount => Requests.Count(request => string.Equals(request.Status, "Pending", StringComparison.OrdinalIgnoreCase));
     int AcceptedCount => Requests.Count(request => string.Equals(request.Status, "Accepted", StringComparison.OrdinalIgnoreCase));
+    int RejectedCount => Requests.Count(request => string.Equals(request.Status, "Rejected", StringComparison.OrdinalIgnoreCase));
+    string EmptyMessage => selectedStatus switch
+    {
+        RequestStatus.Pending => "No pending venue changes.",
+        RequestStatus.Accepted => "No accepted venue changes yet.",
+        _ => "No refused venue changes yet."
+    };
 
     IReadOnlyList<VenueChangeRequestDto> FilteredRequests =>
         Requests
@@ -120,6 +133,7 @@
     enum RequestStatus
     {
         Pending,
-        Accepted
+        Accepted,
+        Rejected
     }
 }

@@ -208,6 +208,53 @@
     margin-top: auto;
 }
 
+.supplier-actions {
+    display: flex;
+    align-items: stretch;
+    gap: .55rem;
+    margin-top: auto;
+}
+
+.supplier-actions-single {
+    display: block;
+}
+
+.supplier-actions .supplier-book-btn,
+.supplier-actions .btn-outline {
+    width: 100%;
+    min-height: 2.65rem;
+    margin-top: 0;
+    padding: .55rem .6rem;
+    font-size: .76rem;
+    border-radius: .75rem;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.supplier-actions .supplier-book-btn {
+    flex: 1 1 auto;
+}
+
+.supplier-actions .supplier-book-btn svg,
+.supplier-actions .btn-outline svg {
+    flex: 0 0 auto;
+}
+
+.supplier-remove-btn {
+    flex: 0 0 5.25rem;
+    width: auto !important;
+    justify-content: center;
+    border-color: rgba(79,107,74,.28);
+    color: var(--sage-dark);
+    background: rgba(255,255,255,.72);
+}
+
+.supplier-confirmed-state,
+.supplier-confirmed-state:disabled {
+    cursor: default;
+    opacity: 1;
+}
+
 .supplier-book-pending {
     background: linear-gradient(135deg, var(--sage), var(--sage-dark)) !important;
     color: #fff !important;
@@ -226,13 +273,14 @@
 }
 
 .supplier-book-booked {
-    background: #dcfce7;
-    color: #16a34a;
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0) !important;
+    color: #147a34;
     border: 1.5px solid #86efac;
+    box-shadow: 0 3px 10px rgba(22,163,74,.12);
 }
 
     .supplier-book-booked:hover {
-        background: #bbf7d0;
+        background: linear-gradient(135deg, #bbf7d0, #86efac) !important;
     }
 
 .suppliers-empty {

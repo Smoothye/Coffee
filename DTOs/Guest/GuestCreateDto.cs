@@ -5,6 +5,7 @@ namespace WeddingPlannerApp.DTOs.Guest;
 
 public sealed class GuestCreateDto
 {
+    [Range(0, int.MaxValue, ErrorMessage = "TableId must be a positive number.")]
     public int? TableId { get; set; }
 
     [RegularExpression(
@@ -22,8 +23,8 @@ public sealed class GuestCreateDto
     [Range(0, int.MaxValue, ErrorMessage = "Age must be a positive number.")]
     public int? Age { get; set; }
 
-    [EmailAddress(ErrorMessage = "Invalid email address.")]
-    public required string Email { get; set; }
+    [RegularExpression(@"^$|^[^\s@]+@[^\s@]+$", ErrorMessage = "Invalid email address.")]
+    public string? Email { get; set; }
 
     public string? Phone { get; set; }
     public Gender? Gender { get; set; }

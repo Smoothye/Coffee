@@ -22,9 +22,6 @@ public sealed class SupplierCreateDto
     [MaxLength(256)]
     public string? Description { get; set; }
 
-    [Range(0, double.MaxValue)]
+    [Range(typeof(decimal), "0", "1000000")]
     public decimal Price { get; set; }
-
-    [Range(0, double.MaxValue)]
-    public decimal Advance { get; set; }
 }

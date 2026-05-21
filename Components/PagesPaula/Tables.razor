@@ -7,6 +7,7 @@
 @inject IJSRuntime JS
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using System.Text
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
@@ -251,6 +252,7 @@
     int pendingDeleteId;
     string loadError = "";
     EventDto? currentEvent;
+    readonly EmailAddressAttribute emailValidator = new();
     bool seatPickerOpen = false;
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
@@ -830,7 +832,7 @@
         FirstName = dto.FirstName,
         LastName = dto.LastName,
         Group = dto.Group.ToString().ToLowerInvariant(),
-        Email = dto.Email,
+        Email = dto.Email ?? "",
         Phone = dto.Phone ?? "",
         Age = dto.Age,
         Gender = dto.Gender?.ToString().ToLowerInvariant() ?? "",
@@ -848,7 +850,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = ToGender(guest.Gender),
         RsvpStatus = ToRsvpStatus(guest.Status),
@@ -865,7 +867,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = ToGender(guest.Gender),
         RsvpStatus = ToRsvpStatus(guest.Status),
@@ -882,7 +884,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = guest.Gender,
         RsvpStatus = guest.RsvpStatus,
@@ -925,6 +927,15 @@
         "fasting" => DietaryRequirements.Fasting,
         _ => DietaryRequirements.Standard,
     };
+
+    static string CleanEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
+
+    static string? EmailForApi(string? email)
+    {
+        var cleaned = CleanEmail(email);
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+    }
 
     static string ToDietaryValue(DietaryRequirements value) => value switch
     {
@@ -1157,12 +1168,12 @@
         var allGuests = AllGuests().ToList();
         var dupByEmail = !string.IsNullOrWhiteSpace(ng_Email) &&
                          allGuests.Any(g => !string.IsNullOrWhiteSpace(g.Email) &&
-                                            g.Email.Trim().ToLower() == ng_Email.Trim().ToLower());
+                                            CleanEmail(g.Email).Equals(ng_Email.Trim(), StringComparison.OrdinalIgnoreCase));
         var dupByPhone = !string.IsNullOrWhiteSpace(ng_Phone) &&
                          allGuests.Any(g => !string.IsNullOrWhiteSpace(g.Phone) &&
                                             g.Phone.Trim() == ng_Phone.Trim());
 
-        if (!string.IsNullOrWhiteSpace(ng_Email) && !ng_Email.Contains('@'))
+        if (!string.IsNullOrWhiteSpace(ng_Email) && !emailValidator.IsValid(ng_Email.Trim()))
             addGuestFieldErrors["Email"] = "Enter a valid email address.";
         if (dupByEmail)
             addGuestFieldErrors["Email"] = "A guest with this email already exists.";

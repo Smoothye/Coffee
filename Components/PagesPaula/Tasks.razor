@@ -205,7 +205,8 @@
 
 <ModalShell IsOpen="addOpen"
             Title="Add Task"
-            OnClose="CloseAdd">
+            OnClose="CloseAdd"
+            ExtraClass="task-add-modal">
 
     @if (!string.IsNullOrEmpty(addError))
     {
@@ -283,7 +284,7 @@
     };
 
     static readonly string[] categories = {
-        "General","Budget","Venue","Invitations","Catering","Vendors","Decor","Travel","Details"
+        "General","Budget","Venue","Invitations","Catering","Suppliers","Decor","Travel","Details"
     };
 
     readonly List<WeddingTaskDto> tasks = [];

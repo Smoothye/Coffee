@@ -1,3 +1,6 @@
+using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WeddingPlannerApp.Data;
@@ -8,6 +11,7 @@ namespace WeddingPlannerApp.Controllers;
 
 [ApiController]
 [Route("api/Events/{eventId:int}/[controller]")]
+[Authorize]
 public class GuestsController(ApplicationDbContext context) : ControllerBase
 {
     
@@ -15,15 +19,18 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GuestDto>>> GetAll(int eventId)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
-            return BadRequest($"Event with id {eventId} was not found.");       
+        if (!await EventExistsAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
+
+        if (!await CanAccessEventAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
         
         var guestItems = await context.Guests
             .Where(g => g.EventId == eventId)
             .Select(g => new GuestDto
             {
                 GuestId = g.GuestId,
+                EventId = g.EventId,
                 Age = g.Age,
                 TableId = g.TableId,
                 FirstName = g.FirstName,
@@ -47,8 +54,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpGet("{guestId:int}")]
     public async Task<ActionResult<GuestDto>> GetById(int eventId, int guestId)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        if (!await EventExistsAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
+
+        if (!await CanAccessEventAsync(eventId))
             return BadRequest($"Event with id {eventId} was not found.");
         
         var guestItem = await context.Guests
@@ -56,6 +65,7 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             .Select(g => new GuestDto
             {
                 GuestId = g.GuestId,
+                EventId = g.EventId,
                 Age = g.Age,
                 TableId = g.TableId,
                 FirstName = g.FirstName,
@@ -77,11 +87,17 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     
     // POST: api/Events/{eventId}/Guests
     [HttpPost]
-    public async Task<ActionResult<GuestDto>> Create([FromBody] GuestDto model, int eventId)
+    public async Task<ActionResult<GuestDto>> Create([FromBody] GuestCreateDto model, int eventId)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
-            return BadRequest($"Event with id {model.EventId} doesn't exist.");
+        var validationError = ValidateDto(model);
+        if (validationError is not null)
+            return validationError;
+
+        if (!await EventExistsAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
+
+        if (!await CanAccessEventAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
 
         var entity = new Guest
         {
@@ -90,7 +106,7 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             FirstName = model.FirstName,
             LastName = model.LastName,
             Age = model.Age,
-            Email = model.Email,
+            Email = CleanEmail(model.Email),
             Phone = model.Phone,
             Gender = model.Gender,
             RsvpStatus = model.RsvpStatus,
@@ -129,6 +145,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             result
         );
     }
+
+    [NonAction]
+    public Task<ActionResult<GuestDto>> Create(GuestDto model, int eventId) =>
+        Create(ToCreateDto(model), eventId);
     
     // POST api/Events/{eventId}/Guests/bulk
     [HttpPost("bulk")]
@@ -137,14 +157,23 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
         [FromBody] IEnumerable<GuestCreateDto> models
     )
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        if (!await EventExistsAsync(eventId))
+            return NotFound($"Event with id {eventId} was not found.");
+
+        if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id {eventId} was not found.");
 
         var guestModels = models.ToList();
 
         if (guestModels.Count == 0)
             return BadRequest("At least one guest is required.");
+
+        foreach (var guestModel in guestModels)
+        {
+            var validationError = ValidateDto(guestModel);
+            if (validationError is not null)
+                return validationError;
+        }
 
         var guests = guestModels.Select(model => new Guest
         {
@@ -153,7 +182,7 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
             FirstName = model.FirstName,
             LastName = model.LastName,
             Age = model.Age,
-            Email = model.Email,
+            Email = CleanEmail(model.Email),
             Phone = model.Phone,
             Gender = model.Gender,
             RsvpStatus = model.RsvpStatus,
@@ -197,8 +226,14 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpPut("{guestId:int}")]
     public async Task<IActionResult> Update(int eventId, int guestId, [FromBody] GuestUpdateDto model)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        var validationError = ValidateDto(model);
+        if (validationError is not null)
+            return validationError;
+
+        if (!await EventExistsAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
+
+        if (!await CanAccessEventAsync(eventId))
             return BadRequest($"Event with id {eventId} was not found.");
         
         var guestItem = await context.Guests.FindAsync(guestId);
@@ -212,7 +247,7 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
         guestItem.FirstName = model.FirstName;
         guestItem.LastName = model.LastName;
         guestItem.Age = model.Age;
-        guestItem.Email = model.Email;
+        guestItem.Email = CleanEmail(model.Email);
         guestItem.Phone = model.Phone;
         guestItem.Gender = model.Gender;
         guestItem.RsvpStatus = model.RsvpStatus;
@@ -230,8 +265,10 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
     [HttpDelete("{guestId:int}")]
     public async Task<IActionResult> Delete(int eventId, int guestId)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        if (!await EventExistsAsync(eventId))
+            return BadRequest($"Event with id {eventId} was not found.");
+
+        if (!await CanAccessEventAsync(eventId))
             return BadRequest($"Event with id {eventId} was not found.");
         
         var guestItem = await context.Guests.FindAsync(guestId);
@@ -245,5 +282,56 @@ public class GuestsController(ApplicationDbContext context) : ControllerBase
         await context.SaveChangesAsync();
         
         return NoContent();       
+    }
+
+    static string CleanEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
+
+    static BadRequestObjectResult? ValidateDto<T>(T model)
+    {
+        var context = new ValidationContext(model!);
+        var results = new List<ValidationResult>();
+
+        return Validator.TryValidateObject(model!, context, results, validateAllProperties: true)
+            ? null
+            : new BadRequestObjectResult(results);
+    }
+
+    static GuestCreateDto ToCreateDto(GuestDto guest) => new()
+    {
+        TableId = guest.TableId,
+        FirstName = guest.FirstName,
+        LastName = guest.LastName,
+        Age = guest.Age,
+        Email = guest.Email,
+        Phone = guest.Phone,
+        Gender = guest.Gender,
+        RsvpStatus = guest.RsvpStatus,
+        Group = guest.Group,
+        DietaryRequirements = guest.DietaryRequirements,
+        HasPlusOne = guest.HasPlusOne,
+        SeatNumber = guest.SeatNumber,
+        Notes = guest.Notes
+    };
+
+    async Task<bool> EventExistsAsync(int eventId) =>
+        await context.Events.AnyAsync(e => e.EventId == eventId);
+
+    bool TryGetCurrentUserId(out int userId)
+    {
+        var userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(userIdText, out userId);
+    }
+
+    async Task<bool> CanAccessEventAsync(int eventId)
+    {
+        if (User.Identity?.IsAuthenticated != true)
+            return await EventExistsAsync(eventId);
+
+        if (User.IsInRole("Admin"))
+            return await context.Events.AnyAsync(e => e.EventId == eventId);
+
+        return TryGetCurrentUserId(out var userId) &&
+               await context.UserEvents.AnyAsync(ue => ue.EventId == eventId && ue.UserId == userId);
     }
 }

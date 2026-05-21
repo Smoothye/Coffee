@@ -160,6 +160,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 1rem;
 }
 
@@ -188,18 +189,21 @@
 
 .venue-request-tabs {
     display: inline-grid;
-    grid-template-columns: repeat(2, minmax(0, auto));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: center;
     gap: .2rem;
     padding: .2rem;
+    width: min(100%, 23rem);
+    flex-shrink: 0;
     border-radius: 999px;
     background: rgba(200,219,197,.35);
     border: 1px solid rgba(125,155,118,.18);
 }
 
 .venue-request-tab {
-    min-width: 5.75rem;
+    min-width: 0;
     height: 2rem;
+    padding: 0 .65rem;
     border: none;
     border-radius: 999px;
     background: transparent;
@@ -247,6 +251,12 @@
     background: rgba(248,252,248,.78);
 }
 
+.admin-venue-request-rejected {
+    grid-template-columns: 2.55rem minmax(0, 1fr) auto;
+    border-color: rgba(220,38,38,.2);
+    background: rgba(254,242,242,.72);
+}
+
 .admin-venue-request-icon {
     width: 2.55rem;
     height: 2.55rem;
@@ -292,6 +302,11 @@
 .admin-venue-status-accepted {
     background: #dcfce7;
     color: #15803d;
+}
+
+.admin-venue-status-rejected {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
 .admin-venue-request-title {

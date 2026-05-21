@@ -44,6 +44,15 @@ public sealed partial class WeddingApiClient
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task UpdateEventBudgetAsync(int eventId, decimal totalBudget)
+    {
+        var response = await _http.PutAsJsonAsync($"api/Events/{eventId}/Budget", new EventBudgetUpdateDto
+        {
+            TotalBudget = totalBudget
+        });
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task DeleteEventAsync(int eventId)
     {
         var response = await _http.DeleteAsync($"api/Events/{eventId}");

@@ -16,8 +16,6 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
     const string PaymentTaskPrefix = "[[payment-task:";
     const string PaymentTaskSuffix = "]]";
     const string SupplierPrefix = "Supplier: ";
-    const string SupplierDepositPrefix = "Supplier advance: ";
-    const string SupplierRemainingPrefix = "Supplier remaining: ";
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<SupplierDto>>> GetAll(int eventId)
@@ -49,9 +47,6 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
     {
         if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id: {eventId} was not found.");
-
-        if (model.Advance > model.Price)
-            return BadRequest("Advance cannot be greater than price.");
 
         var supplier = new Supplier
         {
@@ -96,9 +91,6 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
         if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id: {eventId} was not found.");
 
-        if (model.Advance > model.Price)
-            return BadRequest("Advance cannot be greater than price.");
-
         var supplier = await context.Suppliers.FindAsync(supplierId);
         if (supplier is null)
             return NotFound($"Supplier with id: {supplierId} was not found.");
@@ -113,7 +105,7 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
         var eventSupplier = await context.EventSuppliers
             .SingleOrDefaultAsync(es => es.EventId == eventId && es.SupplierId == supplierId);
         if (eventSupplier?.CollaborationStatus is not null)
-            await SyncSupplierBudgetAsync(eventId, supplierId, model.Advance, model.RemainingPaid);
+            await SyncSupplierBudgetAsync(eventId, supplierId, model.Paid);
 
         return NoContent();
     }
@@ -127,9 +119,6 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
         var supplier = await context.Suppliers.FindAsync(supplierId);
         if (supplier is null)
             return NotFound($"Supplier with id: {supplierId} was not found.");
-
-        if (model.Advance > supplier.BasePrice)
-            return BadRequest("Advance cannot be greater than price.");
 
         var status = NormalizeStatus(model.CollaborationStatus);
         var eventSupplier = await context.EventSuppliers
@@ -162,12 +151,12 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
         }
 
         await context.SaveChangesAsync();
-        await SyncSupplierBudgetAsync(eventId, supplierId, model.Advance, model.RemainingPaid);
+        await SyncSupplierBudgetAsync(eventId, supplierId, model.Paid);
 
         return NoContent();
     }
 
-    async Task SyncSupplierBudgetAsync(int eventId, int supplierId, decimal advanceAmount, bool remainingPaid)
+    async Task SyncSupplierBudgetAsync(int eventId, int supplierId, bool paid)
     {
         await RemoveSupplierBudgetAsync(eventId, supplierId);
 
@@ -179,53 +168,16 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
             return;
 
         var category = ExpenseCategoryFor(supplier.SupplierType);
-        if (eventSupplier.CollaborationStatus == "pending")
+        context.Expenses.Add(new Expense
         {
-            context.Expenses.Add(new Expense
-            {
-                EventId = eventId,
-                SupplierId = supplierId,
-                Description = $"{SupplierPrefix}{supplier.Name}",
-                ExpenseCategory = category,
-                EstimatedAmount = supplier.BasePrice,
-                ActualAmount = supplier.BasePrice,
-                PaymentStatus = PaymentStatus.Unpaid
-            });
-            await context.SaveChangesAsync();
-            await SyncSupplierPaymentTasksAsync(eventId, supplierId);
-            return;
-        }
-
-        var advance = Math.Min(advanceAmount, supplier.BasePrice);
-        var remaining = Math.Max(0, supplier.BasePrice - advance);
-
-        if (advance > 0)
-        {
-            context.Expenses.Add(new Expense
-            {
-                EventId = eventId,
-                SupplierId = supplierId,
-                Description = $"{SupplierDepositPrefix}{supplier.Name}",
-                ExpenseCategory = category,
-                EstimatedAmount = advance,
-                ActualAmount = advance,
-                PaymentStatus = PaymentStatus.Paid
-            });
-        }
-
-        if (remaining > 0)
-        {
-            context.Expenses.Add(new Expense
-            {
-                EventId = eventId,
-                SupplierId = supplierId,
-                Description = $"{SupplierRemainingPrefix}{supplier.Name}",
-                ExpenseCategory = category,
-                EstimatedAmount = remaining,
-                ActualAmount = remaining,
-                PaymentStatus = remainingPaid ? PaymentStatus.Paid : PaymentStatus.Unpaid
-            });
-        }
+            EventId = eventId,
+            SupplierId = supplierId,
+            Description = $"{SupplierPrefix}{supplier.Name}",
+            ExpenseCategory = category,
+            EstimatedAmount = supplier.BasePrice,
+            ActualAmount = supplier.BasePrice,
+            PaymentStatus = paid ? PaymentStatus.Paid : PaymentStatus.Unpaid
+        });
 
         await context.SaveChangesAsync();
         await SyncSupplierPaymentTasksAsync(eventId, supplierId);
@@ -254,7 +206,7 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
         foreach (var expense in expenses)
         {
             var key = PaymentTaskKey(expense.ExpenseId);
-            if (expense.PaymentStatus == PaymentStatus.Paid || expense.EstimatedAmount <= 0)
+            if (expense.EstimatedAmount <= 0)
             {
                 await DeletePaymentTaskAsync(eventId, key);
                 continue;
@@ -266,6 +218,7 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
                 .Select(e => e.EventDate)
                 .SingleAsync();
             var title = $"Pay: {CleanName(expense.Description)}";
+            var isPaid = expense.PaymentStatus == PaymentStatus.Paid;
 
             if (existing is null)
             {
@@ -276,6 +229,8 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
                     DueDate = PaymentDueDate(eventDate),
                     Priority = CheckListTaskPriority.High,
                     Category = CheckListTaskCategory.Vendors,
+                    Status = isPaid ? CheckListTaskStatus.Completed : CheckListTaskStatus.Pending,
+                    CompletedAt = isPaid ? DateTime.UtcNow : null,
                     Notes = PaymentMarker(key)
                 });
             }
@@ -283,25 +238,40 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
             {
                 existing.Title = title;
                 existing.DueDate = PaymentDueDate(eventDate);
-                existing.Status = CheckListTaskStatus.Pending;
-                existing.CompletedAt = null;
+                existing.Status = isPaid ? CheckListTaskStatus.Completed : CheckListTaskStatus.Pending;
+                existing.CompletedAt = isPaid ? existing.CompletedAt ?? DateTime.UtcNow : null;
             }
 
             await context.SaveChangesAsync();
         }
     }
 
-    Task<CheckListTask?> FindPaymentTaskAsync(int eventId, string key) =>
-        context.CheckListTasks
-            .SingleOrDefaultAsync(t => t.EventId == eventId && t.Notes == PaymentMarker(key));
+    async Task<CheckListTask?> FindPaymentTaskAsync(int eventId, string key)
+    {
+        var tasks = await context.CheckListTasks
+            .Where(t => t.EventId == eventId && t.Notes == PaymentMarker(key))
+            .OrderBy(t => t.TaskId)
+            .ToListAsync();
+
+        if (tasks.Count > 1)
+        {
+            context.CheckListTasks.RemoveRange(tasks.Skip(1));
+            await context.SaveChangesAsync();
+        }
+
+        return tasks.FirstOrDefault();
+    }
 
     async Task DeletePaymentTaskAsync(int eventId, string key)
     {
-        var task = await FindPaymentTaskAsync(eventId, key);
-        if (task is null)
+        var tasks = await context.CheckListTasks
+            .Where(t => t.EventId == eventId && t.Notes == PaymentMarker(key))
+            .ToListAsync();
+
+        if (tasks.Count == 0)
             return;
 
-        context.CheckListTasks.Remove(task);
+        context.CheckListTasks.RemoveRange(tasks);
         await context.SaveChangesAsync();
     }
 
@@ -345,18 +315,26 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
         return dueDate < DateTime.Today ? DateTime.Today : dueDate;
     }
 
-    static string CleanName(string? value) => string.IsNullOrWhiteSpace(value) ? "Supplier payment" : value.Trim();
+    static string CleanName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Supplier payment";
+
+        var clean = value.Trim();
+        return clean.StartsWith(SupplierPrefix, StringComparison.OrdinalIgnoreCase)
+            ? clean[SupplierPrefix.Length..].Trim()
+            : clean;
+    }
 
     static SupplierDto ToDto(Supplier supplier, EventSupplier? eventSupplier, IEnumerable<Expense> expenses)
     {
         var expenseList = expenses.ToList();
-        var remainingExpense = expenseList.FirstOrDefault(e =>
-            e.Description != null && e.Description.StartsWith(SupplierRemainingPrefix, StringComparison.OrdinalIgnoreCase));
-        var advance = expenseList
-            .Where(e => e.Description != null && e.Description.StartsWith(SupplierDepositPrefix, StringComparison.OrdinalIgnoreCase))
-            .Sum(e => e.ActualAmount > 0 ? e.ActualAmount : e.EstimatedAmount);
-        advance = Math.Min(advance, supplier.BasePrice);
-        var remaining = Math.Max(0, supplier.BasePrice - advance);
+        var supplierExpense = expenseList.FirstOrDefault(e =>
+            e.Description != null && e.Description.StartsWith(SupplierPrefix, StringComparison.OrdinalIgnoreCase));
+        var paid = supplierExpense?.PaymentStatus == PaymentStatus.Paid;
+
+        if (supplierExpense is null && expenseList.Count > 0)
+            paid = expenseList.All(e => e.PaymentStatus == PaymentStatus.Paid);
 
         return new SupplierDto
         {
@@ -367,9 +345,7 @@ public class SuppliersController(ApplicationDbContext context) : ControllerBase
             Email = supplier.Email,
             Description = supplier.Notes,
             Price = supplier.BasePrice,
-            Advance = advance,
-            Remaining = remaining,
-            RemainingPaid = remainingExpense?.PaymentStatus == PaymentStatus.Paid || remaining <= 0,
+            Paid = paid,
             CollaborationStatus = eventSupplier?.CollaborationStatus,
             EventNotes = eventSupplier?.Notes
         };

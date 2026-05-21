@@ -200,6 +200,8 @@
         public int Id { get; set; }
         public int? SupplierId { get; set; }
         public bool IsProtected => SupplierId.HasValue;
+        public bool IsSupplierLinked => SupplierId > 0;
+        public bool CanTogglePaid => true;
         public string Name { get; set; } = "";
         public string Category { get; set; } = "Other";
         public int Estimated { get; set; }
