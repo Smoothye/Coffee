@@ -17,7 +17,17 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<EventDto>>> GetAll()
     {
-        var events = await context.Events
+        var query = context.Events.AsQueryable();
+
+        if (!User.IsInRole("Admin"))
+        {
+            if (!TryGetCurrentUserId(out var userId))
+                return Unauthorized();
+
+            query = query.Where(e => e.UserEvents.Any(ue => ue.UserId == userId));
+        }
+
+        var events = await query
             .Select(e => new EventDto
             {
                 EventId = e.EventId,
@@ -29,6 +39,12 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
                 EventDate = e.EventDate,
                 EstimatedGuests = e.EstimatedGuests,
                 TotalBudget = e.TotalBudget,
+                OwnerName = e.UserEvents
+                    .Select(ue => ((ue.User!.FirstName ?? "") + " " + (ue.User.LastName ?? "")).Trim())
+                    .FirstOrDefault(),
+                OwnerEmail = e.UserEvents
+                    .Select(ue => ue.User!.Email)
+                    .FirstOrDefault(),
                 Notes = e.Notes,
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt
@@ -42,7 +58,17 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<ActionResult<EventDto>> GetById(int id)
     {
-        var eventItem = await context.Events
+        var query = context.Events.Where(e => e.EventId == id);
+
+        if (!User.IsInRole("Admin"))
+        {
+            if (!TryGetCurrentUserId(out var userId))
+                return Unauthorized();
+
+            query = query.Where(e => e.UserEvents.Any(ue => ue.UserId == userId));
+        }
+
+        var eventItem = await query
             .Where(e => e.EventId == id)
             .Select(e => new EventDto
             {
@@ -55,6 +81,12 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
                 EventDate = e.EventDate,
                 EstimatedGuests = e.EstimatedGuests,
                 TotalBudget = e.TotalBudget,
+                OwnerName = e.UserEvents
+                    .Select(ue => ((ue.User!.FirstName ?? "") + " " + (ue.User.LastName ?? "")).Trim())
+                    .FirstOrDefault(),
+                OwnerEmail = e.UserEvents
+                    .Select(ue => ue.User!.Email)
+                    .FirstOrDefault(),
                 Notes = e.Notes,
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt
@@ -72,8 +104,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpGet("{eventId:int}/MenuSelections")]
     public async Task<ActionResult<IEnumerable<EventMenuSelectionDto>>> GetMenuSelections(int eventId)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id: {eventId} was not found.");
 
         var menuSelections = await context.Events
@@ -108,6 +139,9 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpPut("{eventId:int}/MenuSelections")]
     public async Task<IActionResult> UpdateMenuSelections(int eventId, [FromBody] EventMenuSelectionsUpdateDto model)
     {
+        if (!await CanAccessEventAsync(eventId))
+            return NotFound($"Event with id: {eventId} was not found.");
+
         var eventItem = await context.Events
             .Include(e => e.Menus)
             .SingleOrDefaultAsync(e => e.EventId == eventId);
@@ -208,6 +242,9 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] EventUpdateDto model)
     {
+        if (!await CanAccessEventAsync(id))
+            return NotFound($"Event with id: {id} was not found.");
+
         var eventItem = await context.Events
             .Include(e => e.Menus)
             .SingleOrDefaultAsync(e => e.EventId == id);
@@ -255,6 +292,9 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
+        if (!await CanAccessEventAsync(id))
+            return NotFound();
+
         var eventItem = await context.Events.FindAsync(id);
         if (eventItem == null)
             return NotFound();
@@ -263,6 +303,21 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         await context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    bool TryGetCurrentUserId(out int userId)
+    {
+        var userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(userIdText, out userId);
+    }
+
+    async Task<bool> CanAccessEventAsync(int eventId)
+    {
+        if (User.IsInRole("Admin"))
+            return await context.Events.AnyAsync(e => e.EventId == eventId);
+
+        return TryGetCurrentUserId(out var userId) &&
+               await context.UserEvents.AnyAsync(ue => ue.EventId == eventId && ue.UserId == userId);
     }
 
     static EventDto ToDto(Event entity) => new()
@@ -276,6 +331,12 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         EventDate = entity.EventDate,
         EstimatedGuests = entity.EstimatedGuests,
         TotalBudget = entity.TotalBudget,
+        OwnerName = entity.UserEvents
+            .Select(ue => ((ue.User?.FirstName ?? "") + " " + (ue.User?.LastName ?? "")).Trim())
+            .FirstOrDefault(),
+        OwnerEmail = entity.UserEvents
+            .Select(ue => ue.User?.Email)
+            .FirstOrDefault(),
         Notes = entity.Notes,
         CreatedAt = entity.CreatedAt,
         UpdatedAt = entity.UpdatedAt

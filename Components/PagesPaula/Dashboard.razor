@@ -6,6 +6,7 @@
 @using WeddingPlannerApp.Components.PagesPaula.DashboardWidgets
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.DTOs.Menu
 @using WeddingPlannerApp.DTOs.Venue
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Data
@@ -26,6 +27,29 @@
          Subtitle="@($"{daysUntilWedding} days until your wedding")"
          IconSvg="@SvgIcons.DashboardNav" />
 
+<ModalShell IsOpen="eventNotesOpen" Title="Event notes" OnClose="CloseEventNotes" ExtraClass="table-notes-modal">
+    <div class="table-notes-body">
+        <label class="form-label">Wedding notes</label>
+        <textarea class="input table-notes-input"
+                  maxlength="180"
+                  rows="4"
+                  @bind="eventNotesDraft"
+                  @bind:event="oninput"
+                  placeholder="Add a short note for this event"></textarea>
+        <p class="field-hint">@eventNotesDraft.Length/180 characters</p>
+        @if (!string.IsNullOrWhiteSpace(eventNotesError))
+        {
+            <div class="error-banner">@SvgIcons.AlertCircle @eventNotesError</div>
+        }
+        <div class="table-notes-actions">
+            <button class="btn-outline" @onclick="CloseEventNotes">Cancel</button>
+            <button class="btn-add-guest" disabled="@eventNotesSaving" @onclick="SaveEventNotes">
+                @SvgIcons.CheckSmall @(eventNotesSaving ? "Saving..." : "Save")
+            </button>
+        </div>
+    </div>
+</ModalShell>
+
 <div class="dash-body">
     @if (!string.IsNullOrEmpty(loadError))
     {
@@ -33,11 +57,16 @@
     }
 
     <div class="dash-header">
-        <h1 class="dash-greeting">@Greeting, @userDisplayName</h1>
-        <p class="dash-subtitle">
-            @SvgIcons.CalendarSmall
-            @daysUntilWedding days until your wedding - @weddingDate.ToString("MMMM d, yyyy")
-        </p>
+        <div>
+            <h1 class="dash-greeting">@Greeting, @userDisplayName</h1>
+            <p class="dash-subtitle">
+                @SvgIcons.CalendarSmall
+                @daysUntilWedding days until your wedding - @weddingDate.ToString("MMMM d, yyyy")
+            </p>
+        </div>
+        <button type="button" class="dash-notes-btn" @onclick="OpenEventNotes">
+            @SvgIcons.Edit Notes
+        </button>
     </div>
 
     <CountdownCard WeddingDate="weddingDate"
@@ -66,6 +95,7 @@
                            MenuEstimate="menuEstimate"
                            VenueName="@venueName"
                            ExpectedGuests="expectedGuests"
+                           ActualGuests="actualGuests"
                            SeatedGuests="seatedGuests"
                            SeatingTotalGuests="seatingTotalGuests"
                            TablesConfirmed="tablesConfirmed"
@@ -84,6 +114,7 @@
     DateTime weddingDate = DateTime.Today;
     string venueName = "";
     int expectedGuests = 0;
+    int actualGuests = 0;
     bool tablesConfirmed = false;
     string selectedMenu = "";
     List<string> menuRows = [];
@@ -92,6 +123,13 @@
     int seatingTotalGuests = 0;
     string loadError = "";
     string userDisplayName = "there";
+    EventDto? currentEvent;
+    bool eventNotesOpen = false;
+    bool eventNotesSaving = false;
+    string eventNotesDraft = "";
+    string eventNotesError = "";
+    const string HeadConfigPrefix = "[[head-godparents:";
+    const string HeadConfigSuffix = "]]";
 
     [CascadingParameter] public Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
@@ -207,6 +245,7 @@
 
     void ApplyEvent(EventDto eventItem)
     {
+        currentEvent = eventItem;
         weddingDate = eventItem.EventDate;
         expectedGuests = eventItem.EstimatedGuests;
         if (State.BudgetTotal <= 0)
@@ -216,9 +255,99 @@
             : "Select a menu";
     }
 
+    void OpenEventNotes()
+    {
+        eventNotesError = "";
+        eventNotesDraft = RemoveHeadConfig(currentEvent?.Notes).Trim();
+        eventNotesOpen = true;
+    }
+
+    void CloseEventNotes()
+    {
+        eventNotesOpen = false;
+        eventNotesError = "";
+    }
+
+    async Task SaveEventNotes()
+    {
+        if (currentEvent is null)
+            return;
+
+        eventNotesSaving = true;
+        eventNotesError = "";
+
+        try
+        {
+            var notes = WithHeadConfigPreserved(currentEvent.Notes, eventNotesDraft.Trim());
+            await Api.UpdateEventAsync(currentEvent.EventId, new EventUpdateDto
+            {
+                VenueId = currentEvent.VenueId,
+                MenuIds = currentEvent.MenuIds,
+                Name = currentEvent.Name,
+                BrideName = currentEvent.BrideName,
+                GroomName = currentEvent.GroomName,
+                EventDate = currentEvent.EventDate,
+                EstimatedGuests = currentEvent.EstimatedGuests,
+                TotalBudget = currentEvent.TotalBudget,
+                Notes = string.IsNullOrWhiteSpace(notes) ? null : notes
+            });
+
+            currentEvent.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes;
+            CloseEventNotes();
+        }
+        catch (Exception ex)
+        {
+            eventNotesError = $"Could not save notes: {ex.Message}";
+        }
+        finally
+        {
+            eventNotesSaving = false;
+        }
+    }
+
+    static string WithHeadConfigPreserved(string? existingNotes, string visibleNotes)
+    {
+        var marker = ReadHeadConfigMarker(existingNotes);
+        return string.IsNullOrWhiteSpace(marker)
+            ? visibleNotes
+            : $"{visibleNotes.Trim()} {marker}".Trim();
+    }
+
+    static string ReadHeadConfigMarker(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return "";
+
+        var start = notes.IndexOf(HeadConfigPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return "";
+
+        var end = notes.IndexOf(HeadConfigSuffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return "";
+
+        return notes[start..(end + HeadConfigSuffix.Length)].Trim();
+    }
+
+    static string RemoveHeadConfig(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return "";
+
+        var start = notes.IndexOf(HeadConfigPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return notes;
+
+        var end = notes.IndexOf(HeadConfigSuffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return notes[..start];
+
+        return (notes[..start] + notes[(end + HeadConfigSuffix.Length)..]).Trim();
+    }
+
     static string FormatMenuNames(
         IReadOnlyCollection<int> menuIds,
-        IReadOnlyCollection<WeddingPlannerApp.Models.Menu> menus)
+        IReadOnlyCollection<MenuDto> menus)
     {
         if (menuIds.Count == 0)
             return "Select a menu";
@@ -240,6 +369,7 @@
         rsvpDeclined = guests.Count(g => g.RsvpStatus == RsvpStatus.Declined);
         rsvpPlusOnes = guests.Count(g => g.HasPlusOne);
         var activeGuests = guests.Where(g => g.RsvpStatus != RsvpStatus.Declined).ToList();
+        actualGuests = activeGuests.Count;
         seatingTotalGuests = activeGuests.Count;
         seatedGuests = activeGuests.Count(g => g.TableId.HasValue && g.SeatNumber.HasValue);
         tablesConfirmed = seatingTotalGuests > 0 && seatedGuests == seatingTotalGuests;
@@ -247,7 +377,7 @@
 
     void ApplyMenuRows(
         IReadOnlyCollection<int> menuIds,
-        IReadOnlyCollection<WeddingPlannerApp.Models.Menu> menus,
+        IReadOnlyCollection<MenuDto> menus,
         IReadOnlyCollection<GuestDto> guests,
         int estimatedGuests)
     {

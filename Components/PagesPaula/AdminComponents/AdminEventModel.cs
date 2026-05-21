@@ -9,6 +9,7 @@ public sealed class AdminEventModel
     public int VenueId { get; set; }
     public string VenueName { get; set; } = "";
     public int GuestCount { get; set; }
+    public int EstimatedGuests { get; set; }
     public decimal TotalBudget { get; set; }
     public string OwnerName { get; set; } = "";
     public string OwnerEmail { get; set; } = "";

@@ -89,6 +89,14 @@
                OnAdd="AddGuest"
                OnClose="CloseDialog" />
 
+<GuestEditModal IsOpen="editDialogOpen"
+                Guest="editGuest"
+                FormError="@editFormError"
+                FieldErrors="editGuestFieldErrors"
+                AvailableMenuOptions="availableMenuOptions"
+                OnSave="SaveGuestEdit"
+                OnClose="CloseEditDialog" />
+
 @if (!string.IsNullOrEmpty(importSummary))
 {
     <div class="import-toast @(importHasWarning ? "import-toast-warn" : "import-toast-ok")">
@@ -139,6 +147,7 @@
                    OnTogglePlusOne="TogglePlusOne"
                    OnSetStatus="SetStatus"
                    OnSetDietary="SetDietary"
+                   OnEdit="OpenEditDialog"
                    OnRemove="RemoveGuest"
                    MenuOptions="availableMenuOptions" />
     </div>
@@ -148,7 +157,9 @@
     [Parameter] public int EventId { get; set; }
 
     bool   dialogOpen      = false;
+    bool   editDialogOpen  = false;
     string formError       = "";
+    string editFormError   = "";
     string search          = "";
     string filterGroup     = "all";
     string filterStatus    = "all";
@@ -159,10 +170,12 @@
     bool   confirmDeleteOpen = false;
     bool   isLoading      = true;
     int    pendingDeleteGuestId;
+    int    editingGuestId;
     string confirmDeleteMessage = "Delete this guest? This cannot be undone.";
     string loadError = "";
     ImportResult? importResult = null;
     Dictionary<string, string> guestFieldErrors = new();
+    Dictionary<string, string> editGuestFieldErrors = new();
     DietaryRequirements plusOneDietary = DietaryRequirements.Standard;
     const string PlusOneNotePrefix = "Plus one for guest ";
     const string CoupleNotePrefix = "Wedding couple:";
@@ -189,6 +202,7 @@
     List<GuestDto> guests = new();
 
     GuestCreateDto newGuest = EmptyGuestCreateDto();
+    GuestUpdateDto editGuest = EmptyGuestUpdateDto();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -258,6 +272,16 @@
         RsvpStatus = RsvpStatus.Pending
     };
 
+    static GuestUpdateDto EmptyGuestUpdateDto() => new()
+    {
+        FirstName = "",
+        LastName = "",
+        Email = "",
+        Group = GuestGroup.Friends,
+        DietaryRequirements = DietaryRequirements.Standard,
+        RsvpStatus = RsvpStatus.Pending
+    };
+
     static GuestCreateDto CleanCreateDto(GuestCreateDto guest) => new()
     {
         TableId = guest.TableId,
@@ -290,6 +314,23 @@
         HasPlusOne = guest.HasPlusOne,
         SeatNumber = guest.SeatNumber,
         Notes = string.IsNullOrWhiteSpace(guest.Notes) ? null : guest.Notes,
+    };
+
+    static GuestCreateDto ToCreateDto(GuestUpdateDto guest) => new()
+    {
+        TableId = guest.TableId,
+        FirstName = guest.FirstName,
+        LastName = guest.LastName,
+        Age = guest.Age,
+        Email = guest.Email,
+        Phone = guest.Phone,
+        Gender = guest.Gender,
+        RsvpStatus = guest.RsvpStatus,
+        Group = guest.Group,
+        DietaryRequirements = guest.DietaryRequirements,
+        HasPlusOne = guest.HasPlusOne,
+        SeatNumber = guest.SeatNumber,
+        Notes = guest.Notes,
     };
 
     static GuestCreateDto BuildPlusOneCreateDto(GuestDto owner, DietaryRequirements dietary) => new()
@@ -470,6 +511,74 @@
     }
     void CloseDialog() { dialogOpen = false; formError = ""; guestFieldErrors.Clear(); }
 
+    void OpenEditDialog(int id)
+    {
+        var guest = guests.FirstOrDefault(g => g.GuestId == id);
+        if (guest is null || IsCoupleGuest(guest))
+            return;
+
+        editingGuestId = id;
+        editGuest = ToUpdateDto(guest);
+        editFormError = "";
+        editGuestFieldErrors.Clear();
+        editDialogOpen = true;
+    }
+
+    void CloseEditDialog()
+    {
+        editDialogOpen = false;
+        editFormError = "";
+        editGuestFieldErrors.Clear();
+        editingGuestId = 0;
+        editGuest = EmptyGuestUpdateDto();
+    }
+
+    async Task SaveGuestEdit()
+    {
+        var guest = guests.FirstOrDefault(g => g.GuestId == editingGuestId);
+        if (guest is null)
+            return;
+
+        editFormError = "";
+        editGuestFieldErrors.Clear();
+        ValidateGuestDraft(ToCreateDto(editGuest), editGuestFieldErrors, editingGuestId);
+        if (editGuestFieldErrors.Count > 0)
+        {
+            editFormError = "Please fix the highlighted fields.";
+            return;
+        }
+
+        editGuest.DietaryRequirements = NormalizeDietaryForSelectedMenus(editGuest.DietaryRequirements);
+        editGuest.FirstName = editGuest.FirstName.Trim();
+        editGuest.LastName = editGuest.LastName.Trim();
+        editGuest.Email = editGuest.Email.Trim();
+        editGuest.Phone = string.IsNullOrWhiteSpace(editGuest.Phone) ? null : editGuest.Phone.Trim();
+        editGuest.Notes = string.IsNullOrWhiteSpace(editGuest.Notes) ? null : editGuest.Notes;
+
+        try
+        {
+            await Api.UpdateGuestAsync(EventId, editingGuestId, editGuest);
+            guest.TableId = editGuest.TableId;
+            guest.FirstName = editGuest.FirstName;
+            guest.LastName = editGuest.LastName;
+            guest.Age = editGuest.Age;
+            guest.Email = editGuest.Email;
+            guest.Phone = editGuest.Phone;
+            guest.Gender = editGuest.Gender;
+            guest.RsvpStatus = editGuest.RsvpStatus;
+            guest.Group = editGuest.Group;
+            guest.DietaryRequirements = editGuest.DietaryRequirements;
+            guest.HasPlusOne = editGuest.HasPlusOne;
+            guest.SeatNumber = editGuest.SeatNumber;
+            guest.Notes = editGuest.Notes;
+            CloseEditDialog();
+        }
+        catch (Exception ex)
+        {
+            editFormError = $"Could not update guest: {ex.Message}";
+        }
+    }
+
     bool IsDuplicate(string fn, string ln, string email, string phone) =>
         guests.Any(g =>
             $"{g.FirstName.ToLower()} {g.LastName.ToLower()}" == $"{fn.Trim().ToLower()} {ln.Trim().ToLower()}"
@@ -649,14 +758,30 @@
         { importResult = new ImportResult("Only .csv files are accepted.", true); return; }
         using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
         var text = await reader.ReadToEndAsync();
-        int imported = 0, skipped = 0;
+        int imported = 0, duplicateSkipped = 0, invalidSkipped = 0;
         var guestsToCreate = new List<GuestCreateDto>();
+        var importEmails = new HashSet<string>(
+            guests.Select(g => g.Email.Trim()).Where(email => !string.IsNullOrWhiteSpace(email)),
+            StringComparer.OrdinalIgnoreCase);
+        var importPhones = new HashSet<string>(
+            guests.Select(g => (g.Phone ?? "").Trim()).Where(phone => !string.IsNullOrWhiteSpace(phone)),
+            StringComparer.OrdinalIgnoreCase);
         var validGroups   = new[] { "family", "friends", "colleagues", "other" };
         var validDietary  = new[] { "none", "standard", "casual", "vegan", "vegetarian", "fasting" };
         var validStatuses = new[] { "confirmed", "pending", "declined" };
-        foreach (var line in text.Split('\n').Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
+        var lines = text.Split('\n').Select(line => line.TrimEnd('\r')).Where(line => !string.IsNullOrWhiteSpace(line)).ToList();
+        if (lines.Count <= 1)
         {
-            var c         = line.TrimEnd('\r').Split(',');
+            importResult = new ImportResult("No guest rows found in this CSV.", true);
+            importSummary = importResult.Message;
+            importHasWarning = true;
+            return;
+        }
+
+        var delimiter = DetectCsvDelimiter(lines[0]);
+        foreach (var line in lines.Skip(1))
+        {
+            var c         = ParseCsvFields(line, delimiter);
             var firstName = c.ElementAtOrDefault(0)?.Trim() ?? "";
             var lastName  = c.ElementAtOrDefault(1)?.Trim() ?? "";
             var email     = c.ElementAtOrDefault(2)?.Trim() ?? "";
@@ -679,7 +804,22 @@
             };
             var rowErrors = new Dictionary<string, string>();
             ValidateGuestDraft(importedGuest, rowErrors);
-            if (rowErrors.Count > 0) { skipped++; continue; }
+            if (rowErrors.Count > 0)
+            {
+                if (ContainsOnlyDuplicateErrors(rowErrors))
+                    duplicateSkipped++;
+                else
+                    invalidSkipped++;
+                continue;
+            }
+
+            if (IsDuplicateImportIdentity(importedGuest, importEmails, importPhones))
+            {
+                duplicateSkipped++;
+                continue;
+            }
+
+            TrackImportIdentity(importedGuest, importEmails, importPhones);
             guestsToCreate.Add(CleanCreateDto(importedGuest));
             imported++;
         }
@@ -705,15 +845,103 @@
             }
         }
 
-        var msg = skipped > 0
-            ? $"Imported {imported} guest(s). Skipped {skipped} duplicate(s)."
-            : $"Successfully imported {imported} guest(s).";
-        importResult    = new ImportResult(msg, skipped > 0);
+        var msg = BuildImportMessage(imported, duplicateSkipped, invalidSkipped);
+        importResult    = new ImportResult(msg, duplicateSkipped > 0 || invalidSkipped > 0);
         importSummary   = msg;
-        importHasWarning = skipped > 0;
+        importHasWarning = duplicateSkipped > 0 || invalidSkipped > 0;
     }
 
-    void ValidateGuestDraft(GuestCreateDto guest, Dictionary<string, string> errors)
+    static char DetectCsvDelimiter(string header)
+    {
+        var commaCount = header.Count(ch => ch == ',');
+        var semicolonCount = header.Count(ch => ch == ';');
+        return semicolonCount > commaCount ? ';' : ',';
+    }
+
+    static List<string> ParseCsvFields(string line, char delimiter)
+    {
+        var fields = new List<string>();
+        var field = new StringBuilder();
+        var inQuotes = false;
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var ch = line[i];
+            if (ch == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    field.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+
+            if (ch == delimiter && !inQuotes)
+            {
+                fields.Add(field.ToString());
+                field.Clear();
+                continue;
+            }
+
+            field.Append(ch);
+        }
+
+        fields.Add(field.ToString());
+        if (fields.Count == 1 && fields[0].Contains(delimiter))
+            return ParseCsvFields(fields[0], delimiter);
+
+        return fields;
+    }
+
+    static bool ContainsOnlyDuplicateErrors(Dictionary<string, string> errors) =>
+        errors.Values.All(error => error.Contains("already exists", StringComparison.OrdinalIgnoreCase));
+
+    static bool IsDuplicateImportIdentity(
+        GuestCreateDto guest,
+        HashSet<string> importEmails,
+        HashSet<string> importPhones)
+    {
+        var email = guest.Email.Trim();
+        var phone = guest.Phone?.Trim() ?? "";
+
+        return (!string.IsNullOrWhiteSpace(email) && importEmails.Contains(email)) ||
+               (!string.IsNullOrWhiteSpace(phone) && importPhones.Contains(phone));
+    }
+
+    static void TrackImportIdentity(
+        GuestCreateDto guest,
+        HashSet<string> importEmails,
+        HashSet<string> importPhones)
+    {
+        var email = guest.Email.Trim();
+        var phone = guest.Phone?.Trim() ?? "";
+
+        if (!string.IsNullOrWhiteSpace(email))
+            importEmails.Add(email);
+        if (!string.IsNullOrWhiteSpace(phone))
+            importPhones.Add(phone);
+    }
+
+    static string BuildImportMessage(int imported, int duplicateSkipped, int invalidSkipped)
+    {
+        if (duplicateSkipped == 0 && invalidSkipped == 0)
+            return $"Successfully imported {imported} guest(s).";
+
+        var skippedParts = new List<string>();
+        if (duplicateSkipped > 0)
+            skippedParts.Add($"{duplicateSkipped} duplicate(s)");
+        if (invalidSkipped > 0)
+            skippedParts.Add($"{invalidSkipped} invalid row(s)");
+
+        return $"Imported {imported} guest(s). Skipped {string.Join(" and ", skippedParts)}.";
+    }
+
+    void ValidateGuestDraft(GuestCreateDto guest, Dictionary<string, string> errors, int? ignoredGuestId = null)
     {
         var firstName = guest.FirstName.Trim();
         var lastName = guest.LastName.Trim();
@@ -739,24 +967,20 @@
             errors[nameof(guest.Age)] = "Age cannot be negative.";
 
         if (!string.IsNullOrWhiteSpace(email) &&
-            guests.Any(g => g.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase)))
+            guests.Any(g => g.GuestId != ignoredGuestId && g.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase)))
             errors[nameof(guest.Email)] = "A guest with this email already exists.";
 
         if (!string.IsNullOrWhiteSpace(phone) &&
-            guests.Any(g => string.Equals((g.Phone ?? "").Trim(), phone, StringComparison.OrdinalIgnoreCase)))
+            guests.Any(g => g.GuestId != ignoredGuestId && string.Equals((g.Phone ?? "").Trim(), phone, StringComparison.OrdinalIgnoreCase)))
             errors[nameof(guest.Phone)] = "A guest with this phone already exists.";
 
-        if (!string.IsNullOrWhiteSpace(firstName) &&
-            !string.IsNullOrWhiteSpace(lastName) &&
-            guests.Any(g => string.Equals($"{g.FirstName.Trim()} {g.LastName.Trim()}", $"{firstName} {lastName}", StringComparison.OrdinalIgnoreCase)))
-            errors[nameof(guest.FirstName)] = "A guest with this full name already exists.";
     }
 
     async Task DownloadTemplate()
     {
         var csv = "FirstName,LastName,Email,Phone,Age,Gender,Dietary,Group,Status,PlusOne\n" +
-                  "Maria,Ionescu,maria@@example.com,+40721000001,30,female,standard,family,confirmed,No\n" +
-                  "Andrei,Pop,andrei@@example.com,,28,male,vegetarian,friends,pending,Yes\n";
+                  "Maria,Ionescu,maria@example.com,+40721000001,30,female,standard,family,confirmed,No\n" +
+                  "Andrei,Pop,andrei@example.com,,28,male,vegetarian,friends,pending,Yes\n";
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='guests_template.csv';a.click()");
     }

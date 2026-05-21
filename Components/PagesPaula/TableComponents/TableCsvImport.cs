@@ -1,23 +1,29 @@
+using WeddingPlannerApp.Components.LayoutPaula;
+
 namespace WeddingPlannerApp.Components.PagesPaula.TableComponents;
 
-public sealed record TableCsvImportOutcome(IReadOnlyList<TableGuest> Guests, int Imported, int Skipped)
+public sealed record TableCsvImportOutcome(
+    IReadOnlyList<TableGuest> Guests,
+    int Imported,
+    int DuplicateSkipped,
+    int InvalidSkipped)
 {
+    public int Skipped => DuplicateSkipped + InvalidSkipped;
     public bool HasWarning => Skipped > 0;
 
-    public string Message => Skipped > 0
-        ? $"Imported {Imported}. Skipped {Skipped} duplicate(s)."
-        : $"Imported {Imported} guest(s).";
+    public string Message => CsvImportHelper.BuildImportMessage("guest", Imported, DuplicateSkipped, InvalidSkipped);
 }
 
 public static class TableCsvImport
 {
     public static TableCsvImportOutcome Parse(string content, IEnumerable<TableGuest> existingGuests)
     {
-        var lines = content.Split('\n');
-        if (lines.Length == 0)
-            return new TableCsvImportOutcome(Array.Empty<TableGuest>(), 0, 0);
+        var lines = CsvImportHelper.NonEmptyLines(content);
+        if (lines.Count == 0)
+            return new TableCsvImportOutcome(Array.Empty<TableGuest>(), 0, 0, 0);
 
-        var header = lines[0].TrimEnd('\r').Split(',');
+        var delimiter = CsvImportHelper.DetectDelimiter(lines[0]);
+        var header = CsvImportHelper.ParseFields(lines[0], delimiter).ToArray();
         int colFn = FindColumn(header, "FirstName", 0);
         int colLn = FindColumn(header, "LastName", 1);
         int colGroup = FindColumn(header, "Group", 2);
@@ -30,13 +36,18 @@ public static class TableCsvImport
         var allGuests = existingGuests.ToList();
         var importedGuests = new List<TableGuest>();
         int imported = 0;
-        int skipped = 0;
+        int duplicateSkipped = 0;
+        int invalidSkipped = 0;
         int counter = 0;
 
         foreach (var line in lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
         {
-            var c = line.TrimEnd('\r').Split(',');
-            if (c.Length < 2) continue;
+            var c = CsvImportHelper.ParseFields(line, delimiter);
+            if (c.Count < 2)
+            {
+                invalidSkipped++;
+                continue;
+            }
 
             var firstName = c.ElementAtOrDefault(colFn)?.Trim() ?? "";
             var lastName = c.ElementAtOrDefault(colLn)?.Trim() ?? "";
@@ -48,14 +59,19 @@ public static class TableCsvImport
 
             if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName))
             {
-                skipped++;
+                invalidSkipped++;
                 continue;
             }
 
-            if (IsPlusOneRow(firstName, lastName, ownersWithPlusOne, allGuests) ||
-                IsDuplicate(firstName, lastName, email, phone, allGuests))
+            if (IsPlusOneRow(firstName, lastName, ownersWithPlusOne, allGuests))
             {
-                skipped++;
+                duplicateSkipped++;
+                continue;
+            }
+
+            if (IsDuplicate(firstName, lastName, email, phone, allGuests))
+            {
+                duplicateSkipped++;
                 continue;
             }
 
@@ -78,7 +94,7 @@ public static class TableCsvImport
             imported++;
         }
 
-        return new TableCsvImportOutcome(importedGuests, imported, skipped);
+        return new TableCsvImportOutcome(importedGuests, imported, duplicateSkipped, invalidSkipped);
     }
 
     static int FindColumn(string[] header, string name, int fallback)
@@ -87,12 +103,13 @@ public static class TableCsvImport
         return index >= 0 ? index : fallback;
     }
 
-    static HashSet<string> FindImportedPlusOneOwners(string[] lines, int colFn, int colLn, int colPlusOne)
+    static HashSet<string> FindImportedPlusOneOwners(IReadOnlyList<string> lines, int colFn, int colLn, int colPlusOne)
     {
         var owners = new HashSet<string>();
         foreach (var line in lines.Skip(1).Where(l => !string.IsNullOrWhiteSpace(l)))
         {
-            var c = line.TrimEnd('\r').Split(',');
+            var delimiter = CsvImportHelper.DetectDelimiter(lines[0]);
+            var c = CsvImportHelper.ParseFields(line, delimiter);
             if (!IsTruthy(c.ElementAtOrDefault(colPlusOne))) continue;
 
             var firstName = c.ElementAtOrDefault(colFn)?.Trim() ?? "";

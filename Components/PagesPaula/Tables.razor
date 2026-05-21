@@ -10,6 +10,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
+@using WeddingPlannerApp.DTOs.Table
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Components.PagesPaula.TableComponents
 @inject AuthenticationStateProvider AuthStateProvider
@@ -113,6 +114,23 @@
                       OnClose="@(() => headConfigOpen = false)"
                       OnApply="ApplyHeadConfig" />
 
+<ModalShell IsOpen="tableNotesOpen" Title="@tableNotesTitle" OnClose="CloseTableNotes" ExtraClass="table-notes-modal">
+    <div class="table-notes-body">
+        <label class="form-label">Table notes</label>
+        <textarea class="input table-notes-input"
+                  maxlength="220"
+                  rows="4"
+                  @bind="tableNotesDraft"
+                  @bind:event="oninput"
+                  placeholder="Add a small note for this table"></textarea>
+        <p class="field-hint">@tableNotesDraft.Length/220 characters</p>
+        <div class="table-notes-actions">
+            <button class="btn-outline" @onclick="CloseTableNotes">Cancel</button>
+            <button class="btn-add-guest" @onclick="SaveTableNotes">@SvgIcons.CheckSmall Save</button>
+        </div>
+    </div>
+</ModalShell>
+
 <TableSeatPickerModal IsOpen="@(seatPickerOpen && pickerTable != null)"
                       Title="@SeatPickerTitle"
                       Guests="PickerGuests().ToList()"
@@ -143,7 +161,9 @@
                         OnExport="ExportCSV"
                         OnAddTable="AddTable"
                         OnRemoveTable="RemoveTable"
-                        OnResizeTable="ResizeTable" />
+                        OnResizeTable="ResizeTable"
+                        OnToggleTableLock="ToggleTableLock"
+                        OnEditTableNotes="OpenTableNotes" />
 
     <TableGuestPool Guests="pool"
                     Groups="GroupDefs"
@@ -189,7 +209,9 @@
     const string CoupleNotePrefix = "Wedding couple:";
     const string HeadConfigPrefix = "[[head-godparents:";
     const string HeadConfigSuffix = "]]";
+    const string TableLockMarker = "[[table-locked]]";
     int godparentCouples = 2;
+    int? headTableDbId;
     bool headTableLocked = true;
     string brideName = "Bride";
     string groomName = "Groom";
@@ -231,6 +253,10 @@
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
     string pickerSearch = "";
+    bool tableNotesOpen = false;
+    int tableNotesTableId;
+    string tableNotesTitle = "Table notes";
+    string tableNotesDraft = "";
 
     string SeatPickerTitle
     {
@@ -268,6 +294,12 @@
 
     void OpenSeatPicker(EventTable table, int idx)
     {
+        if (table.IsLocked)
+        {
+            ShowToast("Unlock this table before changing seats.", error: true);
+            return;
+        }
+
         pickerTable = table;
         pickerSeatIndex = idx;
         pickerSearch = "";
@@ -280,6 +312,48 @@
         pickerTable = null;
         pickerSeatIndex = -1;
         pickerSearch = "";
+    }
+
+    void OpenTableNotes(int tableId)
+    {
+        var table = tables.FirstOrDefault(t => t.Id == tableId);
+        if (table is null)
+            return;
+
+        tableNotesTableId = tableId;
+        tableNotesTitle = $"{table.Name} notes";
+        tableNotesDraft = table.Notes ?? "";
+        tableNotesOpen = true;
+    }
+
+    void CloseTableNotes()
+    {
+        tableNotesOpen = false;
+        tableNotesTableId = 0;
+        tableNotesDraft = "";
+    }
+
+    async Task SaveTableNotes()
+    {
+        var table = tables.FirstOrDefault(t => t.Id == tableNotesTableId);
+        if (table is null)
+            return;
+
+        table.Notes = tableNotesDraft.Trim();
+        await SaveTableShapeAsync(table);
+        CloseTableNotes();
+        ShowToast("Table notes saved.");
+    }
+
+    async Task ToggleTableLock(int tableId)
+    {
+        var table = tables.FirstOrDefault(t => t.Id == tableId);
+        if (table is null || table.IsHeadTable)
+            return;
+
+        table.IsLocked = !table.IsLocked;
+        await SaveTableShapeAsync(table);
+        ShowToast(table.IsLocked ? $"{table.Name} locked." : $"{table.Name} unlocked.");
     }
 
     async Task AutoArrangeGuests()
@@ -296,6 +370,10 @@
             ShowToast("No guests in pool to arrange.", error: true);
             return;
         }
+
+        var seatsReady = await EnsureAutoArrangeTablesAsync(allMovableGuests.Count);
+        if (!seatsReady)
+            return;
 
         pool.Clear();
 
@@ -322,7 +400,7 @@
     bool TryPlaceGuestNearSimilarGroup(TableGuest guest)
     {
         var candidateTables = tables
-            .Where(t => !t.IsHeadTable)
+            .Where(t => !t.IsHeadTable && !t.IsLocked)
             .Select(t => new
             {
                 Table = t,
@@ -348,6 +426,97 @@
         return true;
     }
 
+    async Task<bool> EnsureAutoArrangeTablesAsync(int guestCountToSeat)
+    {
+        var arrangeTables = tables
+            .Where(t => !t.IsHeadTable && !t.IsLocked)
+            .OrderBy(TableNumberFromName)
+            .ToList();
+        var seatedOnArrangeTables = arrangeTables.Sum(t => t.Seats.Count(s => s != null));
+        var guestsToPlan = seatedOnArrangeTables + guestCountToSeat;
+        var targetTableCount = Math.Max(1, (int)Math.Ceiling(guestsToPlan / 8d));
+        targetTableCount = Math.Max(targetTableCount, arrangeTables.Count);
+        var targetCapacity = Math.Clamp((int)Math.Ceiling(guestsToPlan / (double)targetTableCount), 2, 8);
+
+        var nextTableNumber = tables
+            .Where(t => !t.IsHeadTable)
+            .Select(TableNumberFromName)
+            .DefaultIfEmpty(0)
+            .Max() + 1;
+        var createdCount = 0;
+        var resizedCount = 0;
+
+        try
+        {
+            while (arrangeTables.Count < targetTableCount)
+            {
+                var created = await Api.CreateTableAsync(EventId, new WeddingTableCreateDto
+                {
+                    TableNumber = nextTableNumber,
+                    Capacity = targetCapacity,
+                    IsHeadTable = false,
+                    Notes = null
+                });
+
+                if (created is null)
+                    break;
+
+                var eventTable = ToEventTable(created);
+                tables.Add(eventTable);
+                arrangeTables.Add(eventTable);
+                nextTableNumber++;
+                createdCount++;
+            }
+
+            foreach (var table in arrangeTables)
+            {
+                var capacityToKeep = Math.Max(targetCapacity, LastOccupiedSeatCount(table));
+                capacityToKeep = Math.Clamp(capacityToKeep, 2, 10);
+                if (capacityToKeep == table.Capacity)
+                    continue;
+
+                while (table.Seats.Count < capacityToKeep)
+                    table.Seats.Add(null);
+
+                while (table.Seats.Count > capacityToKeep)
+                    table.Seats.RemoveAt(table.Seats.Count - 1);
+
+                table.Capacity = table.Seats.Count;
+                resizedCount++;
+                await SaveTableShapeAsync(table);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not prepare tables for auto arrange: {ex.Message}", error: true);
+            return false;
+        }
+
+        var availableSeats = arrangeTables.Sum(t => t.Seats.Count(s => s == null));
+        var seatsNeeded = guestCountToSeat - availableSeats;
+        if (seatsNeeded > 0)
+        {
+            ShowToast("Could not create enough seats for auto arrange.", error: true);
+            return false;
+        }
+
+        if (createdCount > 0 || resizedCount > 0)
+            ShowToast($"Balanced tables for auto arrange: {createdCount} created, {resizedCount} adjusted.");
+
+        return true;
+    }
+
+    static int LastOccupiedSeatCount(EventTable table)
+    {
+        for (var i = table.Seats.Count - 1; i >= 0; i--)
+        {
+            if (table.Seats[i] is not null)
+                return i + 1;
+        }
+
+        return 0;
+    }
+
     int GroupPriority(string group) => group switch
     {
         "family" => 1,
@@ -360,6 +529,12 @@
     async Task AssignGuestToSeat(TableGuest guest)
     {
         if (pickerTable == null || pickerSeatIndex < 0) return;
+        if (pickerTable.IsLocked)
+        {
+            ShowToast("Unlock this table before changing seats.", error: true);
+            CloseSeatPicker();
+            return;
+        }
         if (IsLockedHeadSeat(pickerTable, pickerSeatIndex))
         {
             ShowToast("Bride and groom stay at the head table.", error: true);
@@ -393,12 +568,15 @@
         CloseSeatPicker();
     }
 
-    Task PersistGuestPlacement(TableGuest guest, int? tableId, int? seatNumber)
+    async Task PersistGuestPlacement(TableGuest guest, int? tableId, int? seatNumber)
     {
-        // WeddingTable API is not exposed yet, so the visual seating plan stays local for now.
+        if (guest.Id <= 0)
+            return;
+
         guest.TableId = tableId;
         guest.SeatNumber = seatNumber;
-        return Task.CompletedTask;
+
+        await Api.UpdateGuestAsync(EventId, guest.Id, ToUpdateDto(guest, tableId, seatNumber));
     }
 
     IEnumerable<TableGuest> PickerGuests()
@@ -454,7 +632,8 @@
             BuildHeadTable();
 
             var guests = await Api.GetGuestsAsync(EventId);
-            ConfigureRoundTablesForGuests(guests);
+            var savedTables = await Api.GetTablesAsync(EventId);
+            await ConfigureTablesForGuests(guests, savedTables);
             LoadGuestsIntoPlan(guests);
         }
         catch (Exception ex)
@@ -464,7 +643,7 @@
         }
     }
 
-    void ConfigureRoundTablesForGuests(IReadOnlyList<GuestDto> guests)
+    async Task ConfigureTablesForGuests(IReadOnlyList<GuestDto> guests, IReadOnlyList<WeddingTableDto> savedTables)
     {
         var existingRoundTables = tables.Where(t => !t.IsHeadTable).ToList();
         foreach (var table in existingRoundTables)
@@ -475,40 +654,69 @@
             .Where(g => !IsCoupleGuest(g))
             .ToList();
 
-        var assignedTableIds = activeGuests
-            .Where(g => g.TableId.HasValue && g.TableId.Value > 0)
-            .Select(g => g.TableId!.Value)
-            .Distinct()
-            .OrderBy(id => id)
-            .ToList();
-
-        if (assignedTableIds.Count > 0)
-        {
-            foreach (var tableId in assignedTableIds)
+        var headCapacity = 2 + godparentCouples * 2;
+        var headTable = savedTables.FirstOrDefault(t => t.IsHeadTable)
+            ?? await Api.CreateTableAsync(EventId, new WeddingTableCreateDto
             {
-                var assignedSeats = activeGuests
-                    .Where(g => g.TableId == tableId)
-                    .Select(g => g.SeatNumber ?? 0)
-                    .Where(seat => seat > 0)
-                    .DefaultIfEmpty(0)
-                    .Max();
-                var assignedCount = activeGuests.Count(g => g.TableId == tableId);
-                var capacity = Math.Clamp(Math.Max(assignedSeats, assignedCount), 2, 10);
-                tables.Add(MakeTable(tableId, $"Table {tables.Count(t => !t.IsHeadTable) + 1}", capacity));
+                TableNumber = 0,
+                Capacity = headCapacity,
+                IsHeadTable = true,
+                Notes = WriteTableNotes(null, false)
+            });
+
+        if (headTable is not null)
+        {
+            headTableDbId = headTable.TableId;
+            if (headTable.Capacity != headCapacity)
+            {
+                await Api.UpdateTableAsync(EventId, headTable.TableId, new WeddingTableUpdateDto
+                {
+                    TableNumber = headTable.TableNumber,
+                    Capacity = headCapacity,
+                    IsHeadTable = true,
+                    Notes = WriteTableNotes(ReadTableNote(headTable.Notes), ReadTableLocked(headTable.Notes))
+                });
             }
         }
 
-        var unassignedGuests = activeGuests.Count(g => !g.TableId.HasValue || g.TableId < 0);
+        BuildHeadTable();
+
+        var roundTables = savedTables
+            .Where(t => !t.IsHeadTable)
+            .OrderBy(t => t.TableNumber)
+            .ToList();
+
+        if (roundTables.Count > 0)
+        {
+            foreach (var table in roundTables)
+                tables.Add(ToEventTable(table));
+
+            return;
+        }
+
+        var unassignedGuests = activeGuests.Count;
         var remainingSeats = Math.Max(0, unassignedGuests);
+        var tableNumber = 1;
+
         while (remainingSeats > 0)
         {
             var capacity = Math.Min(8, remainingSeats);
             if (capacity < 2)
                 capacity = 2;
 
-            var newId = tables.Count > 0 ? tables.Max(t => t.Id) + 1 : 1;
-            tables.Add(MakeTable(newId, $"Table {tables.Count(t => !t.IsHeadTable) + 1}", capacity));
+            var created = await Api.CreateTableAsync(EventId, new WeddingTableCreateDto
+            {
+                TableNumber = tableNumber,
+                Capacity = capacity,
+                IsHeadTable = false,
+                Notes = null
+            });
+
+            if (created is not null)
+                tables.Add(ToEventTable(created));
+
             remainingSeats -= capacity;
+            tableNumber++;
         }
     }
 
@@ -562,7 +770,7 @@
 
         var ht = new EventTable
         {
-            Id = 0,
+            Id = headTableDbId ?? existing?.Id ?? 0,
             Name = "Head Table",
             IsHeadTable = true,
             Capacity = capacity,
@@ -598,6 +806,17 @@
         Name = name,
         Capacity = cap,
         Seats = new List<TableGuest?>(Enumerable.Repeat<TableGuest?>(null, cap))
+    };
+
+    static EventTable ToEventTable(WeddingTableDto table) => new()
+    {
+        Id = table.TableId,
+        Name = table.IsHeadTable ? "Head Table" : $"Table {table.TableNumber}",
+        Capacity = table.Capacity,
+        IsHeadTable = table.IsHeadTable,
+        IsLocked = ReadTableLocked(table.Notes),
+        Notes = ReadTableNote(table.Notes),
+        Seats = new List<TableGuest?>(Enumerable.Repeat<TableGuest?>(null, table.Capacity))
     };
 
     static TableGuest MakeGuest(int id, string fn, string ln, string group) =>
@@ -651,6 +870,23 @@
         Group = ToGroup(guest.Group),
         DietaryRequirements = ToDietary(guest.DietaryRequirements),
         HasPlusOne = guest.PlusOne,
+        SeatNumber = seatNumber,
+        Notes = guest.Notes,
+    };
+
+    static GuestUpdateDto ToUpdateDto(GuestDto guest, int? tableId, int? seatNumber) => new()
+    {
+        TableId = tableId,
+        FirstName = guest.FirstName.Trim(),
+        LastName = guest.LastName.Trim(),
+        Age = guest.Age,
+        Email = guest.Email.Trim(),
+        Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
+        Gender = guest.Gender,
+        RsvpStatus = guest.RsvpStatus,
+        Group = guest.Group,
+        DietaryRequirements = guest.DietaryRequirements,
+        HasPlusOne = guest.HasPlusOne,
         SeatNumber = seatNumber,
         Notes = guest.Notes,
     };
@@ -727,6 +963,9 @@
         BuildHeadTable();
         headConfigOpen = false;
         await SaveHeadNamesAsync();
+        var headTable = tables.FirstOrDefault(t => t.IsHeadTable);
+        if (headTable is not null)
+            await SaveTableShapeAsync(headTable);
         ShowToast($"Head table updated - {2 + godparentCouples * 2} seats total.");
     }
 
@@ -776,6 +1015,13 @@
         dragOverSeat = null;
 
         var existing = targetTable.Seats[seatIndex];
+        if (targetTable.IsLocked || IsLockedTableSource(dragSource))
+        {
+            ShowToast("Unlock the table before changing seats.", error: true);
+            draggedGuest = null;
+            dragSource = null;
+            return;
+        }
         if (IsLockedHeadSeat(targetTable, seatIndex) || IsLockedHeadGuest(existing))
         {
             ShowToast("Bride and groom stay at the head table.", error: true);
@@ -835,6 +1081,13 @@
             ShowToast("Unlock the head table before changing those seats.", error: true);
             return;
         }
+        if (IsLockedTableSource(dragSource))
+        {
+            draggedGuest = null;
+            dragSource = null;
+            ShowToast("Unlock the table before changing seats.", error: true);
+            return;
+        }
 
         if (dragSource.Type == "pool") { draggedGuest = null; dragSource = null; return; }
 
@@ -855,6 +1108,11 @@
     {
         var g = table.Seats[idx];
         if (g == null) return;
+        if (table.IsLocked)
+        {
+            ShowToast("Unlock this table before changing seats.", error: true);
+            return;
+        }
         if (IsLockedHeadSeat(table, idx) || IsLockedHeadGuest(g))
         {
             ShowToast("Bride and groom stay at the head table.", error: true);
@@ -1012,10 +1270,9 @@
         OpenDeleteConfirm("Remove guest?", "Remove this guest from the table plan?", "Remove guest", "pool", id);
     }
 
-    void AddTable()
+    async Task AddTable()
     {
         var roundTables = tables.Where(t => !t.IsHeadTable).ToList();
-        var newId = tables.Count > 0 ? tables.Max(t => t.Id) + 1 : 1;
         var newCount = roundTables.Count + 1;
         var headCap = tables.FirstOrDefault(t => t.IsHeadTable)?.Capacity ?? 0;
         var guestsToSeat = Math.Max(0, totalGuests - headCap);
@@ -1044,13 +1301,32 @@
                 }
             }
             tbl.Capacity = tbl.Seats.Count;
+            await SaveTableShapeAsync(tbl);
         }
 
-        tables.Add(MakeTable(newId, $"Table {newCount}", idealCap));
+        try
+        {
+            var created = await Api.CreateTableAsync(EventId, new WeddingTableCreateDto
+            {
+                TableNumber = newCount,
+                Capacity = idealCap,
+                IsHeadTable = false,
+                Notes = null
+            });
+
+            if (created is not null)
+                tables.Add(ToEventTable(created));
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not add table: {ex.Message}", error: true);
+            return;
+        }
+
         ShowToast($"Table added - {newCount} tables, ~{idealCap} seats each.");
     }
 
-    void ResizeTable(int id, int delta)
+    async Task ResizeTable(int id, int delta)
     {
         var tbl = tables.FirstOrDefault(t => t.Id == id);
         if (tbl == null || tbl.IsHeadTable) return;
@@ -1070,10 +1346,42 @@
         }
 
         tbl.Capacity = newCap;
+        await SaveTableShapeAsync(tbl);
     }
 
-    void ResizeTable(TableResizeRequest request) =>
+    Task ResizeTable(TableResizeRequest request) =>
         ResizeTable(request.TableId, request.Delta);
+
+    async Task SaveTableShapeAsync(EventTable table)
+    {
+        if (table.Id <= 0)
+            return;
+
+        try
+        {
+            await Api.UpdateTableAsync(EventId, table.Id, new WeddingTableUpdateDto
+            {
+                TableNumber = TableNumberFromName(table),
+                Capacity = table.Capacity,
+                IsHeadTable = table.IsHeadTable,
+                Notes = WriteTableNotes(table.Notes, table.IsLocked)
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Could not save table: {ex.Message}", error: true);
+        }
+    }
+
+    static int TableNumberFromName(EventTable table)
+    {
+        if (table.IsHeadTable)
+            return 0;
+
+        return int.TryParse(table.Name.Replace("Table", "", StringComparison.OrdinalIgnoreCase).Trim(), out var number)
+            ? number
+            : 1;
+    }
 
     void RemoveTable(int id)
     {
@@ -1112,13 +1420,35 @@
             var tbl = tables.FirstOrDefault(t => t.Id == pendingDeleteId);
             if (tbl != null && !tbl.IsHeadTable)
             {
-                var seatedGuests = tbl.Seats.Where(s => s != null).Cast<TableGuest>().ToList();
-                foreach (var guest in seatedGuests)
-                    await PersistGuestPlacement(guest, null, null);
+                try
+                {
+                    var visibleSeatedGuests = tbl.Seats.Where(s => s != null).Cast<TableGuest>().ToList();
+                    var dbGuestsForTable = (await Api.GetGuestsAsync(EventId))
+                        .Where(g => g.TableId == tbl.Id)
+                        .ToList();
 
-                pool.AddRange(seatedGuests);
-                tables.Remove(tbl);
-                ShowToast("Table removed, guests returned to pool.");
+                    foreach (var guest in dbGuestsForTable)
+                        await Api.UpdateGuestAsync(EventId, guest.GuestId, ToUpdateDto(guest, null, null));
+
+                    foreach (var guest in visibleSeatedGuests)
+                    {
+                        guest.TableId = null;
+                        guest.SeatNumber = null;
+                        if (pool.All(g => g.Id != guest.Id))
+                            pool.Add(guest);
+                    }
+
+                    for (var i = 0; i < tbl.Seats.Count; i++)
+                        tbl.Seats[i] = null;
+
+                    await Api.DeleteTableAsync(EventId, tbl.Id);
+                    tables.Remove(tbl);
+                    ShowToast("Table removed, guests returned to pool.");
+                }
+                catch (Exception ex)
+                {
+                    ShowToast($"Could not remove table: {ex.Message}", error: true);
+                }
             }
         }
 
@@ -1177,18 +1507,21 @@
         var content = await reader.ReadToEndAsync();
 
         var result = TableCsvImport.Parse(content, AllGuests());
-        try
+        if (result.Guests.Count > 0)
         {
-            var created = await Api.CreateGuestsBulkAsync(EventId, result.Guests.Select(ToCreateDto));
-            if (created != null)
-                pool.AddRange(created.Guests.Select(ToTableGuest));
-        }
-        catch (Exception ex)
-        {
-            csvImportResult = new CsvImportResult($"Could not import guests: {ex.Message}", true);
-            dragActive = false;
-            ShowToast(csvImportResult.Message, error: true);
-            return;
+            try
+            {
+                var created = await Api.CreateGuestsBulkAsync(EventId, result.Guests.Select(ToCreateDto));
+                if (created != null)
+                    pool.AddRange(created.Guests.Select(ToTableGuest));
+            }
+            catch (Exception ex)
+            {
+                csvImportResult = new CsvImportResult($"Could not import guests: {ex.Message}", true);
+                dragActive = false;
+                ShowToast(csvImportResult.Message, error: true);
+                return;
+            }
         }
 
         csvImportResult = new CsvImportResult(result.Message, result.HasWarning);
@@ -1248,6 +1581,31 @@
         return (notes[..start] + notes[(end + HeadConfigSuffix.Length)..]).Trim();
     }
 
+    static bool ReadTableLocked(string? notes) =>
+        notes?.Contains(TableLockMarker, StringComparison.OrdinalIgnoreCase) == true;
+
+    static string ReadTableNote(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return "";
+
+        return notes.Replace(TableLockMarker, "", StringComparison.OrdinalIgnoreCase).Trim();
+    }
+
+    static string? WriteTableNotes(string? note, bool locked)
+    {
+        var cleanNote = ReadTableNote(note);
+        if (cleanNote.Length > 220)
+            cleanNote = cleanNote[..220];
+
+        if (locked)
+            return string.IsNullOrWhiteSpace(cleanNote)
+                ? TableLockMarker
+                : $"{cleanNote} {TableLockMarker}";
+
+        return string.IsNullOrWhiteSpace(cleanNote) ? null : cleanNote;
+    }
+
     static bool IsLockedHeadGuest(TableGuest? guest) =>
         guest?.Id is -1 or -2;
 
@@ -1266,6 +1624,10 @@
         tables.FirstOrDefault(t => t.Id == source.TableId)?.IsHeadTable == true &&
         headTableLocked;
 
+    bool IsLockedTableSource(DragSource? source) =>
+        source?.Type == "table" &&
+        tables.FirstOrDefault(t => t.Id == source.TableId)?.IsLocked == true;
+
     RenderFragment RenderSeat(TableGuest? guest, EventTable table, int idx, string? label) =>
     @<div class="seat-wrap @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-wrap-over" : "")"
           @ondragover:preventDefault="@(!IsLockedHeadSeat(table, idx))"
@@ -1277,10 +1639,10 @@
             var g = guest;
             var isCouple = IsLockedHeadGuest(g);
             var isHeadLocked = headTableLocked && table.IsHeadTable;
-            var isLocked = isCouple || isHeadLocked;
+            var isLocked = isCouple || isHeadLocked || table.IsLocked;
             var col = GroupDefs[g.Group];
             var title = $"{g.FirstName} {g.LastName}{(g.DupIndex > 0 ? $" #{g.DupIndex}" : "")} - {label ?? $"Seat {idx + 1}"}";
-            <div class="seat-guest @(isCouple ? "seat-guest-couple" : isHeadLocked ? "seat-guest-head-locked" : "") @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
+            <div class="seat-guest @((isCouple || isHeadLocked) ? "seat-guest-head-locked" : "") @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-guest-over" : "")"
                  style="background:linear-gradient(135deg,@col.SeatFrom,@col.SeatTo);box-shadow:0 2px 8px rgba(0,0,0,.2);"
                  title="@title"
                  draggable="@(!isLocked)"
@@ -1304,12 +1666,13 @@
         else
         {
             var isLockedSeat = IsLockedHeadSeat(table, idx);
-            <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") @(isLockedSeat ? "seat-empty-locked" : "seat-empty-clickable")"
+            var isTableLocked = table.IsLocked;
+            <div class="seat-empty @(dragOverSeat == $"{table.Id}-{idx}" ? "seat-empty-over" : "") @((isLockedSeat || isTableLocked) ? "seat-empty-locked" : "seat-empty-clickable")"
                  title="@(label != null ? label : $"Seat {idx + 1}") - click to assign or drop a guest"
-                 @onclick="@(() => { if (!isLockedSeat) OpenSeatPicker(table, idx); })"
+                 @onclick="@(() => { if (!isLockedSeat && !isTableLocked) OpenSeatPicker(table, idx); })"
                  @onclick:stopPropagation="true">
                 <span class="seat-empty-num">@(label != null ? label.Split(' ').Select(w => w[0].ToString()).Aggregate((a, b) => a + b) : (idx + 1).ToString())</span>
-                @if (!isLockedSeat)
+                @if (!isLockedSeat && !isTableLocked)
                 {
                     <span class="seat-empty-plus">+</span>
                 }

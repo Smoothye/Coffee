@@ -1,0 +1,125 @@
+@using WeddingPlannerApp.Components.LayoutPaula
+@using WeddingPlannerApp.DTOs.Venue
+
+<div class="panel">
+    <div class="panel-head">
+        <div class="panel-head-left">
+            <span class="panel-head-icon">@((MarkupString)SvgIcons.VenuesNav)</span>
+            <h2>Venue requests</h2>
+        </div>
+        <div class="venue-request-tabs" role="tablist" aria-label="Venue request status">
+            <button type="button"
+                    class="venue-request-tab @(selectedStatus == RequestStatus.Pending ? "venue-request-tab-active" : "")"
+                    @onclick="@(() => selectedStatus = RequestStatus.Pending)">
+                @PendingCount pending
+            </button>
+            <button type="button"
+                    class="venue-request-tab @(selectedStatus == RequestStatus.Accepted ? "venue-request-tab-active" : "")"
+                    @onclick="@(() => selectedStatus = RequestStatus.Accepted)">
+                @AcceptedCount accepted
+            </button>
+        </div>
+    </div>
+
+    <div class="venue-request-list">
+        @if (!FilteredRequests.Any())
+        {
+            <div class="admin-empty">
+                <span class="admin-empty-icon">@SvgIcons.CheckCircle</span>
+                <p>@(selectedStatus == RequestStatus.Pending ? "No pending venue changes." : "No accepted venue changes yet.")</p>
+            </div>
+        }
+
+        @foreach (var item in FilteredRequests)
+        {
+            var request = item;
+            var isPending = string.Equals(request.Status, "Pending", StringComparison.OrdinalIgnoreCase);
+            var canApprove = isPending && request.FitsCapacity && request.FitsBudget;
+            <div class="admin-venue-request-card @(isPending ? "admin-venue-request-pending" : "admin-venue-request-accepted")">
+                <div class="admin-venue-request-icon">
+                    @((MarkupString)SvgIcons.VenuesNav)
+                </div>
+                <div class="admin-venue-request-main">
+                    <div class="admin-venue-request-topline">
+                        <div>
+                            <p class="admin-venue-request-title">@request.EventName</p>
+                            <p class="admin-venue-request-meta">
+                                @request.EventDate.ToString("MMM d, yyyy")
+                                @if (!string.IsNullOrWhiteSpace(request.OwnerName) || !string.IsNullOrWhiteSpace(request.OwnerEmail))
+                                {
+                                    <span>-</span>
+                                    <span>@(string.IsNullOrWhiteSpace(request.OwnerName) ? request.OwnerEmail : request.OwnerName)</span>
+                                }
+                            </p>
+                        </div>
+                        <span class="admin-venue-status-badge @(isPending ? "admin-venue-status-pending" : "admin-venue-status-accepted")">
+                            @request.Status
+                        </span>
+                    </div>
+                    <div class="admin-venue-request-route">
+                        <span class="admin-venue-route-item">
+                            <small>Current</small>
+                            @request.CurrentVenueName
+                        </span>
+                        <span class="admin-venue-route-arrow">@SvgIcons.ArrowRight</span>
+                        <span class="admin-venue-route-item admin-venue-route-target">
+                            <small>Requested</small>
+                            @request.RequestedVenueName
+                        </span>
+                    </div>
+                </div>
+                <div class="admin-venue-guests-card">
+                    <span class="admin-venue-guests-label">Guests</span>
+                    <div class="admin-venue-guests-values">
+                        <div>
+                            <strong>@request.ActualGuests</strong>
+                            <span>Actual</span>
+                        </div>
+                        <div>
+                            <strong>@request.EstimatedGuests</strong>
+                            <span>Estimated</span>
+                        </div>
+                    </div>
+                </div>
+                @if (isPending)
+                {
+                    <div class="admin-venue-request-actions">
+                        <button class="admin-venue-request-action-btn admin-venue-request-approve"
+                                disabled="@(!canApprove)"
+                                title="@(canApprove ? "Approve request" : "Capacity or budget needs review")"
+                                @onclick="@(() => OnApprove.InvokeAsync(request.EventId))">
+                            @SvgIcons.CheckSmall
+                            Approve
+                        </button>
+                        <button class="admin-venue-request-action-btn admin-venue-request-reject" title="Reject request" @onclick="@(() => OnReject.InvokeAsync(request.EventId))">
+                            @SvgIcons.XSmall
+                            Reject
+                        </button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<VenueChangeRequestDto> Requests { get; set; } = [];
+    [Parameter] public EventCallback<int> OnApprove { get; set; }
+    [Parameter] public EventCallback<int> OnReject { get; set; }
+
+    RequestStatus selectedStatus = RequestStatus.Pending;
+
+    int PendingCount => Requests.Count(request => string.Equals(request.Status, "Pending", StringComparison.OrdinalIgnoreCase));
+    int AcceptedCount => Requests.Count(request => string.Equals(request.Status, "Accepted", StringComparison.OrdinalIgnoreCase));
+
+    IReadOnlyList<VenueChangeRequestDto> FilteredRequests =>
+        Requests
+            .Where(request => string.Equals(request.Status, selectedStatus.ToString(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    enum RequestStatus
+    {
+        Pending,
+        Accepted
+    }
+}

@@ -445,8 +445,9 @@
 
 .other-venues-header {
     display: flex;
-    flex-direction: column;
-    gap: .2rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
 }
 
 .other-venues-title {
@@ -463,28 +464,51 @@
     margin: 0;
 }
 
+.other-venues-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    flex-shrink: 0;
+}
+
+.venue-carousel-nav {
+    width: 2.15rem;
+    height: 2.15rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(125,155,118,.32);
+    border-radius: 999px;
+    background: rgba(255,255,255,.86);
+    color: var(--sage-dark);
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(79,107,74,.09);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+    .venue-carousel-nav:hover {
+        transform: translateY(-1px);
+        background: #fff;
+        box-shadow: 0 5px 14px rgba(79,107,74,.14);
+    }
+
+.venue-carousel-shell {
+    position: relative;
+    overflow: hidden;
+}
+
 .venue-carousel {
     display: flex;
     gap: .85rem;
     overflow-x: auto;
-    padding-bottom: .5rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--sage-light) transparent;
+    padding-bottom: .15rem;
+    scrollbar-width: none;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
 }
 
     .venue-carousel::-webkit-scrollbar {
-        height: .35rem;
-    }
-
-    .venue-carousel::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .venue-carousel::-webkit-scrollbar-thumb {
-        background: var(--sage-light);
-        border-radius: 999px;
+        display: none;
     }
 
 .carousel-card {
@@ -1263,6 +1287,30 @@
     border-radius: .5rem;
     flex-shrink: 0;
     display: block;
+}
+
+.venue-request-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .65rem;
+    align-items: stretch;
+}
+
+.venue-request-action {
+    width: 100%;
+    min-height: 2.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .venue-request-actions {
+        grid-template-columns: 1fr;
+    }
 }
 
 .vreq-venues {
