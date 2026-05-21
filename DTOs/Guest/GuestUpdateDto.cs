@@ -5,7 +5,7 @@ namespace WeddingPlannerApp.DTOs.Guest;
 
 public sealed class GuestUpdateDto
 {
-    [Range(0, int.MaxValue, ErrorMessage = "TableId must be a positive number.")]
+    [Range(0, int.MaxValue, ErrorMessage = "TableId must be a non-negative number.")]
     public int? TableId { get; set; }
     
     [RegularExpression(
@@ -20,7 +20,7 @@ public sealed class GuestUpdateDto
     )]
     public required string LastName { get; set; }
     
-    [Range(0, int.MaxValue, ErrorMessage = "Age must be a positive number.")]
+    [Range(1, int.MaxValue, ErrorMessage = "Age must be greater than 0.")]
     public int? Age { get; set; }
     
     [RegularExpression(@"^$|^[^\s@]+@[^\s@]+$", ErrorMessage = "Invalid email address.")]   

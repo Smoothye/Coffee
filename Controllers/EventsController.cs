@@ -54,6 +54,26 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         return Ok(events);
     }
 
+    // GET: api/Events/BookedVenueIds?eventDate=2026-06-01
+    [HttpGet("BookedVenueIds")]
+    public async Task<ActionResult<IEnumerable<int>>> GetBookedVenueIds(
+        [FromQuery] DateTime eventDate,
+        [FromQuery] int? exceptEventId = null
+    )
+    {
+        var date = eventDate.Date;
+        var nextDate = date.AddDays(1);
+
+        var bookedVenueIds = await context.Events
+            .Where(e => e.EventDate >= date && e.EventDate < nextDate)
+            .Where(e => !exceptEventId.HasValue || e.EventId != exceptEventId.Value)
+            .Select(e => e.VenueId)
+            .Distinct()
+            .ToListAsync();
+
+        return Ok(bookedVenueIds);
+    }
+
     // GET: api/Events/{id}
     [HttpGet("{id:int}")]
     public async Task<ActionResult<EventDto>> GetById(int id)
@@ -193,7 +213,12 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         }
         
         // check if an event already exists for this date and venue
-        var eventExists = await context.Events.AnyAsync(e => e.EventDate == model.EventDate && e.VenueId == model.VenueId);
+        var eventDate = model.EventDate.Date;
+        var nextEventDate = eventDate.AddDays(1);
+        var eventExists = await context.Events.AnyAsync(e =>
+            e.EventDate >= eventDate &&
+            e.EventDate < nextEventDate &&
+            e.VenueId == model.VenueId);
         if (eventExists)
             return BadRequest("An event already exists for this date and venue.");       
         
@@ -260,6 +285,16 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         var venueExists = await context.Venues.AnyAsync(v => v.VenueId == model.VenueId);
         if (!venueExists)
             return BadRequest($"Venue with id {model.VenueId} was not found.");
+
+        var eventDate = model.EventDate.Date;
+        var nextEventDate = eventDate.AddDays(1);
+        var eventExists = await context.Events.AnyAsync(e =>
+            e.EventId != id &&
+            e.EventDate >= eventDate &&
+            e.EventDate < nextEventDate &&
+            e.VenueId == model.VenueId);
+        if (eventExists)
+            return BadRequest("An event already exists for this date and venue.");
 
         eventItem.VenueId = model.VenueId;
         eventItem.Menus.Clear();

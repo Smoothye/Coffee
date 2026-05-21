@@ -261,7 +261,7 @@
     int? selectedVenue = null;
     bool isLoadingVenues = true;
     bool isSubmitting = false;
-    List<EventDto> existingEvents = new();
+    HashSet<int> bookedVenueIds = [];
     StepMeta[] steps = new[]
     {
         new StepMeta(new MarkupString(@"<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/></svg>"), "Event Details"),
@@ -292,7 +292,6 @@
             }
 
             venues = await Api.GetVenuesAsync();
-            existingEvents = await Api.GetEventsAsync();
             selectedVenue = availableVenues.FirstOrDefault()?.VenueId;
         }
         catch (Exception ex)
@@ -325,9 +324,13 @@
             return;
         }
 
-        if (step == 1 && selectedVenue.HasValue && IsBookedOnSelectedDate(selectedVenue.Value))
+        if (step == 1 &&
+            (!await LoadBookedVenueIdsAsync() ||
+             selectedVenue.HasValue && IsBookedOnSelectedDate(selectedVenue.Value)))
         {
             selectedVenue = null;
+            if (!string.IsNullOrEmpty(errorMsg))
+                return;
         }
 
         if (step == 2 && guestCount <= 0)
@@ -336,6 +339,9 @@
             errorMsg = "Please fix the highlighted field.";
             return;
         }
+
+        if (step == 3 && !await LoadBookedVenueIdsAsync())
+            return;
 
         if (step == 3 && selectedVenue is null && availableVenues.Count > 0)
         {
@@ -363,6 +369,9 @@
             errorMsg = "Choose a venue to create your event.";
             return;
         }
+
+        if (!await LoadBookedVenueIdsAsync())
+            return;
 
         if (IsBookedOnSelectedDate(selectedVenue.Value))
         {
@@ -416,7 +425,27 @@
 
     bool IsBookedOnSelectedDate(int venueId) =>
         date.HasValue &&
-        existingEvents.Any(e => e.VenueId == venueId && e.EventDate.Date == date.Value.Date);
+        bookedVenueIds.Contains(venueId);
+
+    async Task<bool> LoadBookedVenueIdsAsync()
+    {
+        if (!date.HasValue)
+        {
+            bookedVenueIds.Clear();
+            return true;
+        }
+
+        try
+        {
+            bookedVenueIds = await Api.GetBookedVenueIdsAsync(date.Value);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            errorMsg = $"Could not load venue availability. Details: {ex.Message}";
+            return false;
+        }
+    }
 
     string UnavailableReason(VenueDto venue)
     {

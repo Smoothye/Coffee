@@ -1,4 +1,5 @@
 using System.Net;
+using System.Globalization;
 using System.Net.Http.Json;
 using WeddingPlannerApp.DTOs.Event;
 
@@ -29,6 +30,23 @@ public sealed partial class WeddingApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<EventDto>();
+    }
+
+    public async Task<HashSet<int>> GetBookedVenueIdsAsync(DateTime eventDate, int? exceptEventId = null)
+    {
+        var date = Uri.EscapeDataString(eventDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        var url = $"api/Events/BookedVenueIds?eventDate={date}";
+        if (exceptEventId.HasValue)
+            url += $"&exceptEventId={exceptEventId.Value}";
+
+        var response = await _http.GetAsync(url);
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            return [];
+
+        response.EnsureSuccessStatusCode();
+        var ids = await response.Content.ReadFromJsonAsync<List<int>>() ?? [];
+        return ids.ToHashSet();
     }
 
     public async Task<EventDto?> CreateEventAsync(EventCreateDto eventItem)
