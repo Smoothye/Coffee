@@ -9,6 +9,7 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.BudgetComponents
+@using WeddingPlannerApp.DTOs.Budget
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.Models
@@ -100,7 +101,8 @@
 
     void AddItem(BudgetDraft draft)
     {
-        if (WouldExceedBudget(draft.Actual))
+        var actualValue = draft.Paid && draft.Actual <= 0 ? draft.Estimated : draft.Actual;
+        if (WouldExceedBudget(actualValue))
         {
             _toast.Show("Actual spent cannot exceed the total budget.", true);
             return;
@@ -111,7 +113,8 @@
             Name = draft.Name,
             Category = draft.Category,
             Estimated = draft.Estimated,
-            Actual = draft.Actual,
+            Actual = actualValue,
+            Paid = draft.Paid
         });
     }
 
@@ -139,6 +142,12 @@
 
     void SaveItem(BudgetItem item)
     {
+        if (item.IsProtected)
+            return;
+
+        if (item.Paid && item.Actual <= 0)
+            item.Actual = item.Estimated;
+
         var existing = State.BudgetItems.FirstOrDefault(i => i.Id == item.Id);
         var currentActual = existing?.Actual ?? 0;
         if (WouldExceedBudget(item.Actual - currentActual))
@@ -149,7 +158,35 @@
 
         State.UpdateBudgetItem(item);
     }
-    void TogglePaid(int id) => State.TogglePaid(id);
+
+    async Task TogglePaid(int id)
+    {
+        var item = State.BudgetItems.FirstOrDefault(i => i.Id == id);
+        if (item is null || !item.CanTogglePaid)
+            return;
+
+        var previousPaid = item.Paid;
+        item.Paid = !item.Paid;
+        if (item.Paid && item.Actual <= 0)
+            item.Actual = item.Estimated;
+
+        State.UpdateBudgetItem(item);
+
+        if (!item.IsSupplierLinked || currentEvent is null)
+            return;
+
+        try
+        {
+            await Api.UpdateBudgetItemPaymentAsync(currentEvent.EventId, item.Id, item.Paid);
+        }
+        catch
+        {
+            item.Paid = previousPaid;
+            State.UpdateBudgetItem(item);
+            _toast.Show("Could not update supplier payment status.", true);
+        }
+    }
+
     void RemoveItem(int id)
     {
         if (State.BudgetItems.FirstOrDefault(i => i.Id == id)?.IsProtected == true)
@@ -188,11 +225,15 @@
         if (eventItem is null)
         {
             menuBudgetRows.Clear();
+            State.ReplaceBudgetItems([]);
             State.UpsertMenuBudgetItem(0);
             return;
         }
 
         State.UpdateBudgetTotal((int)Math.Round(eventItem.TotalBudget));
+        var manualItems = State.BudgetItems.Where(item => item.SupplierId is null).ToList();
+        var supplierItems = (await Api.GetBudgetItemsAsync(eventItem.EventId)).Select(ToBudgetItem);
+        State.ReplaceBudgetItems(supplierItems.Concat(manualItems));
 
         var venue = await Api.GetVenueAsync(eventItem.VenueId);
         if (venue is not null)
@@ -231,19 +272,7 @@
         if (currentEvent is null)
             return;
 
-        await Api.UpdateEventAsync(currentEvent.EventId, new EventUpdateDto
-        {
-            VenueId = currentEvent.VenueId,
-            MenuIds = currentEvent.MenuIds,
-            Name = currentEvent.Name,
-            BrideName = currentEvent.BrideName,
-            GroomName = currentEvent.GroomName,
-            EventDate = currentEvent.EventDate,
-            EstimatedGuests = currentEvent.EstimatedGuests,
-            TotalBudget = total,
-            Notes = currentEvent.Notes
-        });
-
+        await Api.UpdateEventBudgetAsync(currentEvent.EventId, total);
         currentEvent.TotalBudget = total;
     }
 
@@ -282,6 +311,17 @@
         DietaryRequirements.Vegetarian => MenuDietaryType.Vegetarian,
         DietaryRequirements.Fasting => MenuDietaryType.Fasting,
         _ => MenuDietaryType.Standard
+    };
+
+    static BudgetItem ToBudgetItem(BudgetItemDto item) => new()
+    {
+        Id = item.BudgetItemId,
+        SupplierId = item.SupplierId,
+        Name = item.Name,
+        Category = item.Category,
+        Estimated = item.Estimated,
+        Actual = item.Actual,
+        Paid = item.Paid
     };
 
 }

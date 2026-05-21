@@ -22,6 +22,7 @@ public enum CheckListTaskPriority
 public enum CheckListTaskCategory
 {
     General,
+    Budget,
     Venue,
     Invitations,
     Catering,

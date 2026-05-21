@@ -21,7 +21,7 @@
     </div>
     <div class="form-grid-2">
         <div class="field">
-            <label>Email *</label>
+            <label>Email</label>
             <input class="input @(HasGuestError(nameof(Guest.Email)) ? "field-invalid" : "")" @bind="Guest.Email" @bind:event="oninput" placeholder="email@example.com" />
             @GuestFieldError(nameof(Guest.Email))
         </div>

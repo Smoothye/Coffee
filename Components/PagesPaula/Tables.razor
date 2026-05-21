@@ -7,6 +7,7 @@
 @inject IJSRuntime JS
 @inject WeddingPlannerApp.Services.WeddingApiClient Api
 @using System.Text
+@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
@@ -168,12 +169,14 @@
     <TableGuestPool Guests="pool"
                     Groups="GroupDefs"
                     DragOver="dragOverPool"
+                    ClearableSeatCount="clearableSeatCount"
                     OnStartDrag="StartPoolDrag"
                     OnDragEnd="@(() => draggedGuest = null)"
                     OnDragOver="@(() => dragOverPool = true)"
                     OnDragLeave="@(() => dragOverPool = false)"
                     OnDrop="DropOnPool"
                     OnAutoArrange="AutoArrangeGuests"
+                    OnClearUnlockedSeats="RequestClearUnlockedSeats"
                     OnRemove="RemoveFromPool" />
 
 </div>
@@ -249,6 +252,7 @@
     int pendingDeleteId;
     string loadError = "";
     EventDto? currentEvent;
+    readonly EmailAddressAttribute emailValidator = new();
     bool seatPickerOpen = false;
     EventTable? pickerTable = null;
     int pickerSeatIndex = -1;
@@ -828,7 +832,7 @@
         FirstName = dto.FirstName,
         LastName = dto.LastName,
         Group = dto.Group.ToString().ToLowerInvariant(),
-        Email = dto.Email,
+        Email = dto.Email ?? "",
         Phone = dto.Phone ?? "",
         Age = dto.Age,
         Gender = dto.Gender?.ToString().ToLowerInvariant() ?? "",
@@ -846,7 +850,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = ToGender(guest.Gender),
         RsvpStatus = ToRsvpStatus(guest.Status),
@@ -863,7 +867,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = ToGender(guest.Gender),
         RsvpStatus = ToRsvpStatus(guest.Status),
@@ -880,7 +884,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = guest.Gender,
         RsvpStatus = guest.RsvpStatus,
@@ -923,6 +927,15 @@
         "fasting" => DietaryRequirements.Fasting,
         _ => DietaryRequirements.Standard,
     };
+
+    static string CleanEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
+
+    static string? EmailForApi(string? email)
+    {
+        var cleaned = CleanEmail(email);
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+    }
 
     static string ToDietaryValue(DietaryRequirements value) => value switch
     {
@@ -1155,12 +1168,12 @@
         var allGuests = AllGuests().ToList();
         var dupByEmail = !string.IsNullOrWhiteSpace(ng_Email) &&
                          allGuests.Any(g => !string.IsNullOrWhiteSpace(g.Email) &&
-                                            g.Email.Trim().ToLower() == ng_Email.Trim().ToLower());
+                                            CleanEmail(g.Email).Equals(ng_Email.Trim(), StringComparison.OrdinalIgnoreCase));
         var dupByPhone = !string.IsNullOrWhiteSpace(ng_Phone) &&
                          allGuests.Any(g => !string.IsNullOrWhiteSpace(g.Phone) &&
                                             g.Phone.Trim() == ng_Phone.Trim());
 
-        if (!string.IsNullOrWhiteSpace(ng_Email) && !ng_Email.Contains('@'))
+        if (!string.IsNullOrWhiteSpace(ng_Email) && !emailValidator.IsValid(ng_Email.Trim()))
             addGuestFieldErrors["Email"] = "Enter a valid email address.";
         if (dupByEmail)
             addGuestFieldErrors["Email"] = "A guest with this email already exists.";
@@ -1268,6 +1281,62 @@
     void RemoveFromPool(int id)
     {
         OpenDeleteConfirm("Remove guest?", "Remove this guest from the table plan?", "Remove guest", "pool", id);
+    }
+
+    void RequestClearUnlockedSeats()
+    {
+        if (clearableSeatCount <= 0)
+        {
+            ShowToast("No guests on unlocked tables to clear.", error: true);
+            return;
+        }
+
+        OpenDeleteConfirm(
+            "Clear unlocked seats?",
+            $"Move {clearableSeatCount} guest(s) from unlocked tables back to the pool. Locked tables and the head table will stay unchanged.",
+            "Clear seats",
+            "clear-unlocked-seats",
+            0);
+    }
+
+    async Task ClearUnlockedSeats()
+    {
+        var guestsToClear = tables
+            .Where(t => !t.IsHeadTable && !t.IsLocked)
+            .SelectMany(t => t.Seats.Select((guest, index) => new { Table = t, Guest = guest, SeatIndex = index }))
+            .Where(x => x.Guest is not null)
+            .ToList();
+
+        if (guestsToClear.Count == 0)
+        {
+            ShowToast("No guests on unlocked tables to clear.", error: true);
+            return;
+        }
+
+        var moved = 0;
+        try
+        {
+            foreach (var item in guestsToClear)
+            {
+                var guest = item.Guest!;
+                item.Table.Seats[item.SeatIndex] = null;
+                guest.TableId = null;
+                guest.SeatNumber = null;
+
+                if (pool.All(g => g.Id != guest.Id))
+                    pool.Add(guest);
+
+                await PersistGuestPlacement(guest, null, null);
+                moved++;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Cleared {moved} guest(s), then hit an error: {ex.Message}", error: true);
+            return;
+        }
+
+        ShowToast($"Moved {moved} guest(s) back to the pool. Locked tables stayed untouched.");
     }
 
     async Task AddTable()
@@ -1451,6 +1520,10 @@
                 }
             }
         }
+        else if (pendingDeleteType == "clear-unlocked-seats")
+        {
+            await ClearUnlockedSeats();
+        }
 
         confirmDeleteOpen = false;
     }
@@ -1458,6 +1531,9 @@
     int seatedCount => tables.Sum(t => t.Seats.Count(s => s != null));
     int totalGuests => pool.Count + seatedCount;
     int totalSeats => tables.Sum(t => t.Capacity);
+    int clearableSeatCount => tables
+        .Where(t => !t.IsHeadTable && !t.IsLocked)
+        .Sum(t => t.Seats.Count(s => s != null));
 
     async Task DownloadTemplate()
     {

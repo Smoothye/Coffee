@@ -602,7 +602,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = guest.Gender,
         RsvpStatus = guest.RsvpStatus,
@@ -627,6 +627,15 @@
             return (parts[0], fallbackRole);
 
         return (parts[0], parts[1]);
+    }
+
+    static string CleanEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
+
+    static string? EmailForApi(string? email)
+    {
+        var cleaned = CleanEmail(email);
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
     }
 
     static int? PlusOneOwnerId(GuestDto guest)

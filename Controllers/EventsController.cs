@@ -19,7 +19,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     {
         var query = context.Events.AsQueryable();
 
-        if (!User.IsInRole("Admin"))
+        if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Admin"))
         {
             if (!TryGetCurrentUserId(out var userId))
                 return Unauthorized();
@@ -60,7 +60,7 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     {
         var query = context.Events.Where(e => e.EventId == id);
 
-        if (!User.IsInRole("Admin"))
+        if (User.Identity?.IsAuthenticated == true && !User.IsInRole("Admin"))
         {
             if (!TryGetCurrentUserId(out var userId))
                 return Unauthorized();
@@ -177,18 +177,20 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<EventDto>> Create([FromBody] EventCreateDto model)
     {
-        var userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!int.TryParse(userIdText, out var userId))
+        var hasCurrentUser = TryGetCurrentUserId(out var userId);
+        if (User.Identity?.IsAuthenticated == true && !hasCurrentUser)
             return Unauthorized();
 
         var venueExists = await context.Venues.AnyAsync(v => v.VenueId == model.VenueId);
         if (!venueExists)
             return BadRequest($"Venue with id {model.VenueId} doesn't exist.");
 
-        var userAlreadyHasEvent = await context.UserEvents.AnyAsync(ue => ue.UserId == userId);
-        if (userAlreadyHasEvent)
-            return BadRequest("This user already has an event.");
+        if (hasCurrentUser)
+        {
+            var userAlreadyHasEvent = await context.UserEvents.AnyAsync(ue => ue.UserId == userId);
+            if (userAlreadyHasEvent)
+                return BadRequest("This user already has an event.");
+        }
         
         // check if an event already exists for this date and venue
         var eventExists = await context.Events.AnyAsync(e => e.EventDate == model.EventDate && e.VenueId == model.VenueId);
@@ -225,12 +227,15 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         context.Events.Add(entity);
         await context.SaveChangesAsync();
 
-        context.UserEvents.Add(new UserEvent
+        if (hasCurrentUser)
         {
-            UserId = userId,
-            EventId = entity.EventId
-        });
-        await context.SaveChangesAsync();
+            context.UserEvents.Add(new UserEvent
+            {
+                UserId = userId,
+                EventId = entity.EventId
+            });
+            await context.SaveChangesAsync();
+        }
 
         await transaction.CommitAsync();
 
@@ -288,6 +293,24 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
         return NoContent();
     }
 
+    // PUT: api/Events/{id}/Budget
+    [HttpPut("{id:int}/Budget")]
+    public async Task<IActionResult> UpdateBudget(int id, [FromBody] EventBudgetUpdateDto model)
+    {
+        if (!await CanAccessEventAsync(id))
+            return NotFound($"Event with id: {id} was not found.");
+
+        var eventItem = await context.Events.SingleOrDefaultAsync(e => e.EventId == id);
+        if (eventItem == null)
+            return NotFound($"Event with id: {id} was not found.");
+
+        eventItem.TotalBudget = model.TotalBudget;
+        eventItem.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+        return NoContent();
+    }
+
     // DELETE: api/Events/{id}
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
@@ -313,6 +336,9 @@ public class EventsController(ApplicationDbContext context) : ControllerBase
 
     async Task<bool> CanAccessEventAsync(int eventId)
     {
+        if (User.Identity?.IsAuthenticated != true)
+            return await context.Events.AnyAsync(e => e.EventId == eventId);
+
         if (User.IsInRole("Admin"))
             return await context.Events.AnyAsync(e => e.EventId == eventId);
 

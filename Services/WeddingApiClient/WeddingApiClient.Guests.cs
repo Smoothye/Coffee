@@ -14,7 +14,7 @@ public sealed partial class WeddingApiClient
     public async Task<GuestDto?> CreateGuestAsync(int eventId, GuestCreateDto guest)
     {
         await EnsureCanAccessEventAsync(eventId);
-        var response = await _http.PostAsJsonAsync($"api/Events/{eventId}/Guests", ToGuestDto(eventId, guest));
+        var response = await _http.PostAsJsonAsync($"api/Events/{eventId}/Guests", guest);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GuestDto>();
     }
@@ -41,21 +41,4 @@ public sealed partial class WeddingApiClient
         response.EnsureSuccessStatusCode();
     }
 
-    static GuestDto ToGuestDto(int eventId, GuestCreateDto guest) => new()
-    {
-        EventId = eventId,
-        TableId = guest.TableId,
-        FirstName = guest.FirstName,
-        LastName = guest.LastName,
-        Age = guest.Age,
-        Email = guest.Email,
-        Phone = guest.Phone,
-        Gender = guest.Gender,
-        RsvpStatus = guest.RsvpStatus,
-        Group = guest.Group,
-        DietaryRequirements = guest.DietaryRequirements,
-        HasPlusOne = guest.HasPlusOne,
-        SeatNumber = guest.SeatNumber,
-        Notes = guest.Notes,
-    };
 }

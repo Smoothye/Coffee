@@ -35,6 +35,14 @@
     padding-block: .35rem;
 }
 
+.pool-actions {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
 .pool-auto-btn {
     padding: .45rem .7rem;
     font-size: .76rem;
@@ -42,6 +50,8 @@
     border-color: rgba(79,107,74,.34);
     background: rgba(248,252,248,.72);
     flex-shrink: 0;
+    justify-content: center;
+    white-space: nowrap;
 }
 
 .pool-auto-btn:not(:disabled):hover {
@@ -53,3 +63,12 @@
     cursor: not-allowed;
 }
 
+.pool-clear-btn {
+    color: #9f1239;
+    border-color: rgba(190,18,60,.24);
+    background: rgba(255,241,242,.72);
+}
+
+.pool-clear-btn:not(:disabled):hover {
+    background: rgba(255,228,230,.9);
+}

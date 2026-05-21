@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,8 +17,7 @@ public class TablesController(ApplicationDbContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<WeddingTableDto>>> GetAll(int eventId)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id: {eventId} was not found.");
 
         var tables = await context.WeddingTables
@@ -34,6 +34,9 @@ public class TablesController(ApplicationDbContext context) : ControllerBase
     [HttpGet("{tableId:int}")]
     public async Task<ActionResult<WeddingTableDto>> GetById(int eventId, int tableId)
     {
+        if (!await CanAccessEventAsync(eventId))
+            return NotFound($"Event with id: {eventId} was not found.");
+
         var table = await context.WeddingTables
             .Where(t => t.EventId == eventId && t.TableId == tableId)
             .Select(t => ToDto(t))
@@ -49,8 +52,7 @@ public class TablesController(ApplicationDbContext context) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<WeddingTableDto>> Create(int eventId, [FromBody] WeddingTableCreateDto model)
     {
-        var eventExists = await context.Events.AnyAsync(e => e.EventId == eventId);
-        if (!eventExists)
+        if (!await CanAccessEventAsync(eventId))
             return NotFound($"Event with id: {eventId} was not found.");
 
         if (model.IsHeadTable)
@@ -82,6 +84,9 @@ public class TablesController(ApplicationDbContext context) : ControllerBase
     [HttpPut("{tableId:int}")]
     public async Task<IActionResult> Update(int eventId, int tableId, [FromBody] WeddingTableUpdateDto model)
     {
+        if (!await CanAccessEventAsync(eventId))
+            return NotFound($"Event with id: {eventId} was not found.");
+
         var table = await context.WeddingTables
             .SingleOrDefaultAsync(t => t.EventId == eventId && t.TableId == tableId);
 
@@ -110,6 +115,9 @@ public class TablesController(ApplicationDbContext context) : ControllerBase
     [HttpDelete("{tableId:int}")]
     public async Task<IActionResult> Delete(int eventId, int tableId)
     {
+        if (!await CanAccessEventAsync(eventId))
+            return NotFound($"Event with id: {eventId} was not found.");
+
         var table = await context.WeddingTables
             .Include(t => t.Guests)
             .SingleOrDefaultAsync(t => t.EventId == eventId && t.TableId == tableId);
@@ -135,4 +143,19 @@ public class TablesController(ApplicationDbContext context) : ControllerBase
         IsHeadTable = table.IsHeadTable,
         Notes = table.Notes
     };
+
+    bool TryGetCurrentUserId(out int userId)
+    {
+        var userIdText = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(userIdText, out userId);
+    }
+
+    async Task<bool> CanAccessEventAsync(int eventId)
+    {
+        if (User.IsInRole("Admin"))
+            return await context.Events.AnyAsync(e => e.EventId == eventId);
+
+        return TryGetCurrentUserId(out var userId) &&
+               await context.UserEvents.AnyAsync(ue => ue.EventId == eventId && ue.UserId == userId);
+    }
 }

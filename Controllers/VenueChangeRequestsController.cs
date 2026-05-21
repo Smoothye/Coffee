@@ -15,6 +15,7 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
 {
     const string RequestPrefix = "[[venue-change-request:";
     const string ApprovedPrefix = "[[venue-change-approved:";
+    const string RejectedPrefix = "[[venue-change-rejected:";
     const string RequestSuffix = "]]";
 
     // GET: api/VenueChangeRequests
@@ -27,7 +28,9 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
             .Include(e => e.UserEvents).ThenInclude(ue => ue.User)
             .Include(e => e.Guests)
             .Where(e => e.Notes != null &&
-                        (e.Notes.Contains(RequestPrefix) || e.Notes.Contains(ApprovedPrefix)))
+                        (e.Notes.Contains(RequestPrefix) ||
+                         e.Notes.Contains(ApprovedPrefix) ||
+                         e.Notes.Contains(RejectedPrefix)))
             .ToListAsync();
 
         var venueIds = requests
@@ -44,9 +47,13 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
             {
                 var pendingVenueId = ReadRequestedVenueId(e.Notes);
                 var approvedVenueIds = ReadApprovedVenueIds(e.Notes);
+                var rejectedVenueIds = ReadRejectedVenueIds(e.Notes);
                 var isPending = pendingVenueId.HasValue;
-                var currentVenueId = isPending ? e.VenueId : approvedVenueIds?.CurrentVenueId;
-                var requestedVenueId = isPending ? pendingVenueId : approvedVenueIds?.RequestedVenueId;
+                var isAccepted = !isPending && approvedVenueIds is not null;
+                var currentVenueId = isPending ? e.VenueId :
+                    isAccepted ? approvedVenueIds?.CurrentVenueId : rejectedVenueIds?.CurrentVenueId;
+                var requestedVenueId = isPending ? pendingVenueId :
+                    isAccepted ? approvedVenueIds?.RequestedVenueId : rejectedVenueIds?.RequestedVenueId;
 
                 if (!currentVenueId.HasValue ||
                     !requestedVenueId.HasValue ||
@@ -62,7 +69,7 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
                     EventId = e.EventId,
                     EventName = e.Name,
                     EventDate = e.EventDate,
-                    Status = isPending ? "Pending" : "Accepted",
+                    Status = isPending ? "Pending" : isAccepted ? "Accepted" : "Rejected",
                     EstimatedGuests = e.EstimatedGuests,
                     ActualGuests = actualGuests,
                     OwnerName = ownerName,
@@ -114,7 +121,7 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         var actualGuests = eventItem.Guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
         var guestsToFit = Math.Max(eventItem.EstimatedGuests, actualGuests);
         if (!FitsCapacity(venue, guestsToFit))
-            return BadRequest($"This venue does not fit {guestsToFit} guests.");
+            return BadRequest(CapacityError(venue, guestsToFit));
         if (!FitsBudget(eventItem, venue))
             return BadRequest("This venue is above the event budget.");
 
@@ -147,7 +154,7 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         var actualGuests = eventItem.Guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
         var guestsToFit = Math.Max(eventItem.EstimatedGuests, actualGuests);
         if (!FitsCapacity(venue, guestsToFit))
-            return BadRequest($"This venue does not fit {guestsToFit} guests.");
+            return BadRequest(CapacityError(venue, guestsToFit));
         if (!FitsBudget(eventItem, venue))
             return BadRequest("This venue is above the event budget.");
 
@@ -169,7 +176,11 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         if (eventItem == null)
             return NotFound($"Event with id: {eventId} was not found.");
 
-        eventItem.Notes = RemoveVenueRequest(eventItem.Notes);
+        var requestedVenueId = ReadRequestedVenueId(eventItem.Notes);
+        if (!requestedVenueId.HasValue)
+            return NotFound("No pending venue change request was found.");
+
+        eventItem.Notes = WriteRejectedVenueChange(eventItem.Notes, eventItem.VenueId, requestedVenueId.Value);
         eventItem.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
@@ -177,7 +188,10 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
     }
 
     static bool FitsCapacity(Venue venue, int guests) =>
-        guests <= venue.MaxCapacity;
+        guests >= venue.MinCapacity && guests <= venue.MaxCapacity;
+
+    static string CapacityError(Venue venue, int guests) =>
+        $"This venue fits {venue.MinCapacity}-{venue.MaxCapacity} guests, but the event needs {guests} guests.";
 
     static bool FitsBudget(Event eventItem, Venue venue) =>
         eventItem.TotalBudget <= 0 || venue.EstimatedPrice <= eventItem.TotalBudget;
@@ -201,14 +215,20 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
 
     static string WriteRequestedVenueId(string? notes, int venueId)
     {
-        var cleaned = RemoveVenueRequest(notes);
+        var cleaned = RemoveRejectedVenueChange(RemoveApprovedVenueChange(RemoveVenueRequest(notes)));
         return $"{cleaned} {RequestPrefix}{venueId}{RequestSuffix}".Trim();
     }
 
     static string WriteApprovedVenueChange(string? notes, int currentVenueId, int requestedVenueId)
     {
-        var cleaned = RemoveApprovedVenueChange(RemoveVenueRequest(notes));
+        var cleaned = RemoveRejectedVenueChange(RemoveApprovedVenueChange(RemoveVenueRequest(notes)));
         return $"{cleaned} {ApprovedPrefix}{currentVenueId}:{requestedVenueId}{RequestSuffix}".Trim();
+    }
+
+    static string WriteRejectedVenueChange(string? notes, int currentVenueId, int requestedVenueId)
+    {
+        var cleaned = RemoveRejectedVenueChange(RemoveApprovedVenueChange(RemoveVenueRequest(notes)));
+        return $"{cleaned} {RejectedPrefix}{currentVenueId}:{requestedVenueId}{RequestSuffix}".Trim();
     }
 
     static IEnumerable<int> ReadVenueIds(Event eventItem)
@@ -222,23 +242,41 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         }
 
         var approvedVenueIds = ReadApprovedVenueIds(eventItem.Notes);
-        if (approvedVenueIds is null)
+        if (approvedVenueIds is not null)
+        {
+            yield return approvedVenueIds.Value.CurrentVenueId;
+            yield return approvedVenueIds.Value.RequestedVenueId;
+            yield break;
+        }
+
+        var rejectedVenueIds = ReadRejectedVenueIds(eventItem.Notes);
+        if (rejectedVenueIds is null)
             yield break;
 
-        yield return approvedVenueIds.Value.CurrentVenueId;
-        yield return approvedVenueIds.Value.RequestedVenueId;
+        yield return rejectedVenueIds.Value.CurrentVenueId;
+        yield return rejectedVenueIds.Value.RequestedVenueId;
     }
 
     static (int CurrentVenueId, int RequestedVenueId)? ReadApprovedVenueIds(string? notes)
     {
+        return ReadVenuePair(notes, ApprovedPrefix);
+    }
+
+    static (int CurrentVenueId, int RequestedVenueId)? ReadRejectedVenueIds(string? notes)
+    {
+        return ReadVenuePair(notes, RejectedPrefix);
+    }
+
+    static (int CurrentVenueId, int RequestedVenueId)? ReadVenuePair(string? notes, string prefix)
+    {
         if (string.IsNullOrWhiteSpace(notes))
             return null;
 
-        var start = notes.IndexOf(ApprovedPrefix, StringComparison.OrdinalIgnoreCase);
+        var start = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
         if (start < 0)
             return null;
 
-        start += ApprovedPrefix.Length;
+        start += prefix.Length;
         var end = notes.IndexOf(RequestSuffix, start, StringComparison.OrdinalIgnoreCase);
         if (end < 0)
             return null;
@@ -271,10 +309,20 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
 
     static string RemoveApprovedVenueChange(string? notes)
     {
+        return RemoveMarker(notes, ApprovedPrefix);
+    }
+
+    static string RemoveRejectedVenueChange(string? notes)
+    {
+        return RemoveMarker(notes, RejectedPrefix);
+    }
+
+    static string RemoveMarker(string? notes, string prefix)
+    {
         if (string.IsNullOrWhiteSpace(notes))
             return "";
 
-        var start = notes.IndexOf(ApprovedPrefix, StringComparison.OrdinalIgnoreCase);
+        var start = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
         if (start < 0)
             return notes.Trim();
 

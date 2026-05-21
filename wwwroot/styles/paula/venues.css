@@ -570,6 +570,20 @@
     background: rgba(217,119,6,.94);
 }
 
+.venue-image-badge-capacity {
+    top: 2rem;
+    background: rgba(185,28,28,.94);
+}
+
+.venue-capacity-muted .carousel-img {
+    filter: grayscale(.25);
+    opacity: .76;
+}
+
+.venue-capacity-muted .carousel-info {
+    opacity: .78;
+}
+
 .carousel-card:hover .carousel-img {
     transform: scale(1.06);
 }
@@ -778,6 +792,12 @@
     display: flex;
     align-items: center;
     gap: .75rem;
+    min-width: 0;
+    height: 100%;
+}
+
+.vinfo-card > div:not(.vinfo-icon) {
+    min-width: 0;
 }
 
 .vinfo-icon {
@@ -1137,6 +1157,10 @@
     background: rgba(217,119,6,.92);
 }
 
+.sidebar-venue-capacity-warning {
+    background: rgba(185,28,28,.9);
+}
+
 .venue-pending-banner {
     display: flex;
     justify-content: space-between;
@@ -1148,6 +1172,70 @@
     background: #fffbeb;
     border: 1px solid #fde68a;
     color: #92400e;
+}
+
+.venue-approved-banner,
+.venue-rejected-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 1.75rem 0;
+    padding: .8rem 1rem;
+    border-radius: 8px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #14532d;
+}
+
+.venue-rejected-banner {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.venue-approved-banner div:not(.venue-approved-icon),
+.venue-rejected-banner div:not(.venue-approved-icon) {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+}
+
+.venue-approved-icon,
+.venue-approved-dismiss {
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+
+.venue-approved-icon {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.venue-rejected-banner .venue-approved-icon {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.venue-approved-dismiss {
+    border: 1px solid rgba(22,101,52,.18);
+    background: rgba(255,255,255,.72);
+    color: #166534;
+    cursor: pointer;
+}
+
+.venue-approved-dismiss:hover {
+    background: #fff;
+}
+
+.venue-rejected-banner .venue-approved-dismiss {
+    border-color: rgba(153,27,27,.18);
+    color: #991b1b;
 }
 
 .venue-pending-banner div {
@@ -1167,6 +1255,29 @@
     background: rgba(217,119,6,.24);
     color: #fde68a;
     border-color: rgba(253,230,138,.5);
+}
+
+.venue-capacity-badge {
+    background: rgba(185,28,28,.24);
+    color: #fecaca;
+    border-color: rgba(254,202,202,.5);
+}
+
+.venue-capacity-warning-card {
+    background: #fff1f2;
+    border-color: rgba(248,113,113,.35);
+}
+
+.venue-capacity-warning-card .vinfo-icon {
+    color: #b91c1c;
+}
+
+.venue-capacity-warning-card .vinfo-val {
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: break-word;
+    line-height: 1.25;
+    font-size: .8rem;
 }
 
 .gallery-active {

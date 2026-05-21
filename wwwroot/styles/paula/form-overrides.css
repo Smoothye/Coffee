@@ -215,9 +215,19 @@
 
 .supplier-cost-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: .45rem;
+    grid-template-columns: minmax(0, 1.2fr) minmax(6.5rem, .8fr);
+    gap: .55rem;
     margin-top: .25rem;
+}
+
+.supplier-cost-row-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 560px) {
+    .supplier-cost-row {
+        grid-template-columns: 1fr;
+    }
 }
 
 .supplier-cost-row span {
@@ -236,6 +246,13 @@
     min-width: 0;
 }
 
+.supplier-payment-inline {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    min-width: 0;
+}
+
 .supplier-cost-edit label span {
     padding: 0;
     background: transparent;
@@ -243,6 +260,69 @@
     font-size: .68rem;
     text-transform: uppercase;
     letter-spacing: .04em;
+}
+
+.supplier-payment-inline span {
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.supplier-payment-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .35rem;
+    min-height: 1rem;
+}
+
+.supplier-payment-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    color: var(--sage-dark);
+    cursor: help;
+}
+
+.supplier-payment-info svg {
+    width: .9rem;
+    height: .9rem;
+}
+
+.supplier-payment-tooltip {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + .45rem);
+    z-index: 20;
+    width: max-content;
+    max-width: 13rem;
+    padding: .45rem .55rem !important;
+    border-radius: .55rem !important;
+    background: rgba(47,67,43,.96) !important;
+    color: #fff !important;
+    box-shadow: 0 10px 24px rgba(47,67,43,.2);
+    font-size: .68rem !important;
+    font-weight: 700 !important;
+    line-height: 1.25;
+    letter-spacing: 0 !important;
+    text-transform: none !important;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity .16s ease, transform .16s ease;
+}
+
+.supplier-payment-info:hover .supplier-payment-tooltip,
+.supplier-payment-info:focus-visible .supplier-payment-tooltip {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .supplier-cost-input {
@@ -267,5 +347,25 @@
     margin: .35rem 0 0;
     color: var(--muted);
     font-size: .72rem;
+}
+
+.supplier-payment-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .5rem;
+    color: var(--muted);
+    font-size: .76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.supplier-payment-inline .paid-toggle {
+    width: 100%;
+    height: 2.05rem;
+    justify-content: center;
+    padding-inline: .55rem;
 }
 

@@ -1,20 +1,27 @@
 @page "/tasks"
+@page "/tasks/{EventId:int}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @rendermode InteractiveServer
-@inject WeddingPlannerApp.Services.WeddingStateService State
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.TaskComponents
-@implements IDisposable
+@using WeddingPlannerApp.DTOs.Event
+@using WeddingPlannerApp.DTOs.Task
 
 <PageNav Title="Tasks"
-         Subtitle="@($"{State.Tasks.Count(t => !t.Done)} remaining - {State.Tasks.Count(t => t.Done)} done")"
+         Subtitle="@($"{openCount} remaining - {doneCount} done")"
          IconSvg="@SvgIcons.TasksNav" />
 
 <div class="tasks-page">
+
+    @if (!string.IsNullOrWhiteSpace(loadError))
+    {
+        <div class="error-banner">@SvgIcons.AlertCircle @loadError</div>
+    }
 
     <div class="tasks-progress-card">
         <div class="tasks-progress-top">
@@ -30,17 +37,17 @@
         <div class="tasks-summary-pills">
             <span class="priority-pill pill-high">
                 <span class="priority-dot dot-high"></span>
-                @State.Tasks.Count(t => t.Priority == "high" && !t.Done) high priority
+                @openTasks.Count(t => t.Priority == "high") high priority
             </span>
 
             <span class="priority-pill pill-medium">
                 <span class="priority-dot dot-medium"></span>
-                @State.Tasks.Count(t => t.Priority == "medium" && !t.Done) medium
+                @openTasks.Count(t => t.Priority == "medium") medium
             </span>
 
             <span class="priority-pill pill-low">
                 <span class="priority-dot dot-low"></span>
-                @State.Tasks.Count(t => t.Priority == "low" && !t.Done) low
+                @openTasks.Count(t => t.Priority == "low") low
             </span>
         </div>
     </div>
@@ -92,88 +99,114 @@
         </div>
 
         <div class="task-list-wrap">
-
-            @foreach (var task in filteredTasks)
-            {
-                var t = task;
-
-                <div class="task-card
-                @(t.Done ? "task-card-done" : "")
-                @(t.IsUrgent ? "task-card-urgent" : "")
-                @(t.IsOverdue ? "task-card-overdue" : "")
-                priority-border-@t.Priority"
-                 @key="t.Id">
-
-                    <button class="task-checkbox @(t.Done ? "checkbox-done" : "")"
-                            @onclick="@(() => State.ToggleTask(t.Id))">
-
-                        @if (t.Done)
-                        {
-                            @SvgIcons.CheckSmall
-                        }
-                    </button>
-
-                    <div class="task-content">
-
-                        <span class="task-title">@t.Title</span>
-
-                        <div class="task-meta">
-
-                            <span class="task-cat-tag">@t.Category</span>
-
-                            @if (t.IsOverdue)
-                            {
-                                <span class="task-date-tag tag-overdue">
-                                    Overdue - @t.DueDate.ToString("MMM d")
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="task-date-tag @(t.IsUrgent ? "tag-urgent" : "")">
-                                    @t.DueDate.ToString("MMM d")
-                                </span>
-                            }
-
-                        </div>
-                    </div>
-
-                    <span class="task-priority-badge badge-@t.Priority">
-                        @(char.ToUpper(t.Priority[0]) + t.Priority[1..])
-                    </span>
-
-                    <button class="task-delete"
-                            @onclick="@(() => RemoveTask(t.Id))"
-                            title="Remove">
-
-                        @SvgIcons.Trash
-                    </button>
-
-                </div>
-            }
-
-            @if (!filteredTasks.Any())
+            @if (isLoading)
             {
                 <div class="tasks-empty">
                     @SvgIcons.CheckCircleLarge
-                    <p>@(HasActiveFilters ? "No tasks match these filters." : "No tasks added yet.")</p>
-                    @if (!HasActiveFilters)
-                    {
-                        <span>Add a task when you are ready to plan the next step.</span>
-                    }
-                    @if (HasActiveFilters)
-                    {
-                        <button class="btn-outline" @onclick="ResetFilters">Clear filters</button>
-                    }
+                    <p>Loading tasks...</p>
                 </div>
             }
+            else
+            {
+                @foreach (var task in filteredTasks)
+                {
+                    var t = task;
 
+                    <div class="task-card
+                    @(t.Done ? "task-card-done" : "")
+                    @(t.IsUrgent ? "task-card-urgent" : "")
+                    @(t.IsOverdue ? "task-card-overdue" : "")
+                    priority-border-@t.Priority"
+                     @key="t.Key">
+
+                        <button class="task-checkbox @(t.Done ? "checkbox-done" : "")"
+                                @onclick="@(() => ToggleTask(t))">
+
+                            @if (t.Done)
+                            {
+                                @SvgIcons.CheckSmall
+                            }
+                        </button>
+
+                        <div class="task-content">
+
+                            <span class="task-title">@t.Title</span>
+
+                            <div class="task-meta">
+
+                                <span class="task-cat-tag">@t.Category</span>
+
+                                @if (t.IsSystem)
+                                {
+                                    <span class="task-date-tag tag-urgent">
+                                        Required today
+                                    </span>
+                                }
+                                else if (t.IsOverdue)
+                                {
+                                    <span class="task-date-tag tag-overdue">
+                                        Overdue - @t.DueDate.ToString("MMM d")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="task-date-tag @(t.IsUrgent ? "tag-urgent" : "")">
+                                        @t.DueDate.ToString("MMM d")
+                                    </span>
+                                }
+
+                            </div>
+                        </div>
+
+                        <span class="task-priority-badge badge-@t.Priority">
+                            @(char.ToUpper(t.Priority[0]) + t.Priority[1..])
+                        </span>
+
+                        @if (t.IsSystem)
+                        {
+                            <button class="btn-outline task-budget-link"
+                                    @onclick="OpenBudget"
+                                    title="Set budget">
+                                Set budget
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="task-delete"
+                                    @onclick="@(() => RemoveTask(t.Id))"
+                                    title="Remove">
+
+                                @SvgIcons.Trash
+                            </button>
+                        }
+
+                    </div>
+                }
+
+                @if (!filteredTasks.Any())
+                {
+                    <div class="tasks-empty">
+                        @SvgIcons.CheckCircleLarge
+                        <p>@(HasActiveFilters ? "No tasks match these filters." : "No tasks added yet.")</p>
+                        @if (!HasActiveFilters)
+                        {
+                            <span>Add a task when you are ready to plan the next step.</span>
+                        }
+                        @if (HasActiveFilters)
+                        {
+                            <button class="btn-outline" @onclick="ResetFilters">Clear filters</button>
+                        }
+                    </div>
+                }
+            }
         </div>
     </div>
 </div>
 
 <ModalShell IsOpen="addOpen"
             Title="Add Task"
-            OnClose="CloseAdd">
+            OnClose="CloseAdd"
+            ExtraClass="task-add-modal">
 
     @if (!string.IsNullOrEmpty(addError))
     {
@@ -225,8 +258,8 @@
         @AddFieldError(nameof(newDueDate))
     </div>
 
-    <button class="btn-add-guest" @onclick="AddTask">
-        @SvgIcons.Plus Add Task
+    <button class="btn-add-guest" disabled="@savingTask" @onclick="AddTask">
+        @SvgIcons.Plus @(savingTask ? "Adding..." : "Add Task")
     </button>
 
 </ModalShell>
@@ -239,6 +272,7 @@
                OnConfirm="ConfirmRemoveTask" />
 
 @code {
+    [Parameter] public int EventId { get; set; }
 
     List<TaskFilter> statusFilters = new()
     {
@@ -250,18 +284,37 @@
     };
 
     static readonly string[] categories = {
-        "General","Venue","Invitations","Catering","Vendors","Decor","Travel","Details"
+        "General","Budget","Venue","Invitations","Catering","Suppliers","Decor","Travel","Details"
     };
 
+    readonly List<WeddingTaskDto> tasks = [];
+    EventDto? currentEvent;
+    bool isLoading = true;
+    bool savingTask = false;
+    string loadError = "";
     string activeStatus = "all";
     string activeCat = "";
     string searchQuery = "";
 
-    IEnumerable<WeddingPlannerApp.Services.WeddingTask> filteredTasks
+    IEnumerable<TaskViewModel> allTasks
     {
         get
         {
-            var q = State.Tasks.AsEnumerable();
+            if (budgetTask is not null)
+                yield return budgetTask;
+
+            foreach (var task in tasks)
+                yield return TaskViewModel.FromDto(task);
+        }
+    }
+
+    IEnumerable<TaskViewModel> openTasks => allTasks.Where(t => !t.Done);
+
+    IEnumerable<TaskViewModel> filteredTasks
+    {
+        get
+        {
+            var q = allTasks;
 
             if (!string.IsNullOrWhiteSpace(searchQuery))
             {
@@ -272,21 +325,10 @@
 
             q = activeStatus switch
             {
-                "open" => q.Where(t =>
-                    !t.Done),
-
-                "overdue" => q.Where(t =>
-                    t.IsOverdue &&
-                    !t.Done),
-
-                "urgent" => q.Where(t =>
-                    t.IsUrgent &&
-                    !t.IsOverdue &&
-                    !t.Done),
-
-                "done" => q.Where(t =>
-                    t.Done),
-
+                "open" => q.Where(t => !t.Done),
+                "overdue" => q.Where(t => t.IsOverdue && !t.Done),
+                "urgent" => q.Where(t => t.IsUrgent && !t.IsOverdue && !t.Done),
+                "done" => q.Where(t => t.Done),
                 _ => q
             };
 
@@ -296,18 +338,26 @@
             }
 
             return q.OrderBy(t => t.Done)
-                    .ThenBy(t => t.Priority switch
-                    {
-                        "high" => 0,
-                        "medium" => 1,
-                        _ => 2
-                    })
+                    .ThenBy(t => t.IsSystem ? 0 : 1)
+                    .ThenBy(t => PriorityOrder(t.Priority))
                     .ThenBy(t => t.DueDate);
         }
     }
 
-    int totalCount => State.Tasks.Count;
-    int doneCount => State.Tasks.Count(t => t.Done);
+    TaskViewModel? budgetTask => currentEvent is not null && currentEvent.TotalBudget <= 0
+        ? new TaskViewModel(
+            -1,
+            "Set your wedding budget",
+            "Budget",
+            DateTime.Today,
+            "high",
+            Done: false,
+            IsSystem: true)
+        : null;
+
+    int totalCount => allTasks.Count();
+    int doneCount => allTasks.Count(t => t.Done);
+    int openCount => allTasks.Count(t => !t.Done);
     int progressPct => totalCount > 0
         ? doneCount * 100 / totalCount
         : 0;
@@ -330,6 +380,49 @@
 
     DateTime newDueDate = DateTime.Today.AddDays(7);
 
+    protected override async Task OnParametersSetAsync()
+    {
+        loadError = "";
+        isLoading = true;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.IsInRole("Admin"))
+            {
+                Nav.NavigateTo("/admin", replace: true);
+                return;
+            }
+
+            var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+            if (ownEvent is null)
+            {
+                Nav.NavigateTo("/onboarding", replace: true);
+                return;
+            }
+
+            if (EventId <= 0 || EventId != ownEvent.EventId)
+                EventId = ownEvent.EventId;
+
+            currentEvent = await Api.GetEventAsync(EventId) ?? ownEvent;
+            await LoadTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load tasks: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    async Task LoadTasksAsync()
+    {
+        tasks.Clear();
+        tasks.AddRange(await Api.GetTasksAsync(EventId));
+    }
+
     void CloseAdd()
     {
         addOpen = false;
@@ -343,11 +436,46 @@
         newDueDate = DateTime.Today.AddDays(7);
     }
 
-    void AddTask()
+    async Task AddTask()
     {
         addError = "";
         addFieldErrors.Clear();
+        ValidateNewTask();
 
+        if (addFieldErrors.Count > 0)
+        {
+            addError = "Please fix the highlighted fields.";
+            return;
+        }
+
+        savingTask = true;
+        try
+        {
+            var created = await Api.CreateTaskAsync(EventId, new WeddingTaskCreateDto
+            {
+                Title = newTitle.Trim(),
+                Category = newCategory,
+                Priority = newPriority,
+                DueDate = newDueDate.Date
+            });
+
+            if (created is not null)
+                tasks.Add(created);
+
+            CloseAdd();
+        }
+        catch (Exception ex)
+        {
+            addError = $"Could not add task: {ex.Message}";
+        }
+        finally
+        {
+            savingTask = false;
+        }
+    }
+
+    void ValidateNewTask()
+    {
         if (string.IsNullOrWhiteSpace(newTitle))
         {
             addFieldErrors[nameof(newTitle)] = "Task title is required.";
@@ -358,7 +486,7 @@
         }
 
         if (!string.IsNullOrWhiteSpace(newTitle) &&
-            State.Tasks.Any(t =>
+            tasks.Any(t =>
                 t.Title.Trim().Equals(newTitle.Trim(), StringComparison.OrdinalIgnoreCase) &&
                 t.Category == newCategory &&
                 t.DueDate.Date == newDueDate.Date))
@@ -380,22 +508,33 @@
         {
             addFieldErrors[nameof(newPriority)] = "Choose one of the available priorities.";
         }
+    }
 
-        if (addFieldErrors.Count > 0)
+    async Task ToggleTask(TaskViewModel task)
+    {
+        if (task.IsSystem)
         {
-            addError = "Please fix the highlighted fields.";
+            OpenBudget();
             return;
         }
 
-        State.AddTask(new WeddingPlannerApp.Services.WeddingTask
-        {
-            Title = newTitle.Trim(),
-            Category = newCategory,
-            Priority = newPriority,
-            DueDate = newDueDate,
-        });
+        var dto = tasks.FirstOrDefault(t => t.TaskId == task.Id);
+        if (dto is null)
+            return;
 
-        CloseAdd();
+        var updated = ToUpdateDto(dto, !dto.Done);
+
+        try
+        {
+            await Api.UpdateTaskAsync(EventId, dto.TaskId, updated);
+            dto.Done = updated.Done;
+            dto.Status = updated.Done ? "completed" : "pending";
+            dto.CompletedAt = updated.Done ? DateTime.UtcNow : null;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not update task: {ex.Message}";
+        }
     }
 
     void RemoveTask(int id)
@@ -404,10 +543,18 @@
         confirmDeleteOpen = true;
     }
 
-    void ConfirmRemoveTask()
+    async Task ConfirmRemoveTask()
     {
-        State.RemoveTask(pendingDeleteTaskId);
-        confirmDeleteOpen = false;
+        try
+        {
+            await Api.DeleteTaskAsync(EventId, pendingDeleteTaskId);
+            tasks.RemoveAll(t => t.TaskId == pendingDeleteTaskId);
+            confirmDeleteOpen = false;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not delete task: {ex.Message}";
+        }
     }
 
     void ResetFilters()
@@ -417,17 +564,7 @@
         activeStatus = "all";
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        State.OnChange += Refresh;
-
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.IsInRole("Admin"))
-            Nav.NavigateTo("/admin", replace: true);
-    }
-
-    void Refresh()
-        => InvokeAsync(StateHasChanged);
+    void OpenBudget() => Nav.NavigateTo("/budget");
 
     bool HasAddError(string field) => addFieldErrors.ContainsKey(field);
 
@@ -440,6 +577,42 @@
         builder.CloseElement();
     };
 
-    public void Dispose()
-        => State.OnChange -= Refresh;
+    static int PriorityOrder(string priority) => priority switch
+    {
+        "high" => 0,
+        "medium" => 1,
+        _ => 2
+    };
+
+    static WeddingTaskUpdateDto ToUpdateDto(WeddingTaskDto task, bool done) => new()
+    {
+        Title = task.Title,
+        Category = task.Category,
+        Priority = task.Priority,
+        DueDate = task.DueDate,
+        Done = done,
+        Notes = task.Notes
+    };
+
+    sealed record TaskViewModel(
+        int Id,
+        string Title,
+        string Category,
+        DateTime DueDate,
+        string Priority,
+        bool Done,
+        bool IsSystem = false)
+    {
+        public string Key => IsSystem ? $"system-{Id}" : Id.ToString();
+        public bool IsUrgent => IsSystem || (!Done && (DueDate.Date - DateTime.Today).Days <= 14);
+        public bool IsOverdue => !Done && DueDate.Date < DateTime.Today;
+
+        public static TaskViewModel FromDto(WeddingTaskDto task) => new(
+            task.TaskId,
+            task.Title,
+            task.Category,
+            task.DueDate,
+            task.Priority,
+            task.Done);
+    }
 }

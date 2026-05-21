@@ -212,7 +212,8 @@
     IEnumerable<GuestDto> FilteredGuests => guests.Where(g =>
     {
         var name = $"{g.FirstName} {g.LastName}".ToLower();
-        var matchSearch = string.IsNullOrEmpty(search) || name.Contains(search.ToLower()) || g.Email.Contains(search, StringComparison.OrdinalIgnoreCase);
+        var email = CleanEmail(g.Email);
+        var matchSearch = string.IsNullOrEmpty(search) || name.Contains(search.ToLower()) || email.Contains(search, StringComparison.OrdinalIgnoreCase);
         var matchGroup  = filterGroup == "all" || g.Group == ToGroup(filterGroup);
         var matchStatus = filterStatus == "all" || g.RsvpStatus == ToRsvpStatus(filterStatus);
         return matchSearch && matchGroup && matchStatus;
@@ -282,13 +283,22 @@
         RsvpStatus = RsvpStatus.Pending
     };
 
+    static string CleanEmail(string? email) =>
+        string.IsNullOrWhiteSpace(email) ? "" : email.Trim();
+
+    static string? EmailForApi(string? email)
+    {
+        var cleaned = CleanEmail(email);
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
+    }
+
     static GuestCreateDto CleanCreateDto(GuestCreateDto guest) => new()
     {
         TableId = guest.TableId,
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = guest.Gender,
         RsvpStatus = guest.RsvpStatus,
@@ -305,7 +315,7 @@
         FirstName = guest.FirstName.Trim(),
         LastName = guest.LastName.Trim(),
         Age = guest.Age,
-        Email = guest.Email.Trim(),
+        Email = EmailForApi(guest.Email),
         Phone = string.IsNullOrWhiteSpace(guest.Phone) ? null : guest.Phone.Trim(),
         Gender = guest.Gender,
         RsvpStatus = guest.RsvpStatus,
@@ -322,7 +332,7 @@
         FirstName = guest.FirstName,
         LastName = guest.LastName,
         Age = guest.Age,
-        Email = guest.Email,
+        Email = EmailForApi(guest.Email),
         Phone = guest.Phone,
         Gender = guest.Gender,
         RsvpStatus = guest.RsvpStatus,
@@ -551,7 +561,7 @@
         editGuest.DietaryRequirements = NormalizeDietaryForSelectedMenus(editGuest.DietaryRequirements);
         editGuest.FirstName = editGuest.FirstName.Trim();
         editGuest.LastName = editGuest.LastName.Trim();
-        editGuest.Email = editGuest.Email.Trim();
+        editGuest.Email = EmailForApi(editGuest.Email);
         editGuest.Phone = string.IsNullOrWhiteSpace(editGuest.Phone) ? null : editGuest.Phone.Trim();
         editGuest.Notes = string.IsNullOrWhiteSpace(editGuest.Notes) ? null : editGuest.Notes;
 
@@ -582,7 +592,7 @@
     bool IsDuplicate(string fn, string ln, string email, string phone) =>
         guests.Any(g =>
             $"{g.FirstName.ToLower()} {g.LastName.ToLower()}" == $"{fn.Trim().ToLower()} {ln.Trim().ToLower()}"
-            || (!string.IsNullOrWhiteSpace(email) && g.Email.Trim().ToLower() == email.Trim().ToLower())
+            || (!string.IsNullOrWhiteSpace(email) && CleanEmail(g.Email).ToLower() == email.Trim().ToLower())
             || (!string.IsNullOrWhiteSpace(phone) && (g.Phone ?? "").Trim() == phone.Trim()));
 
     async Task AddGuest()
@@ -745,7 +755,7 @@
         var sb = new StringBuilder();
         sb.AppendLine("FirstName,LastName,Email,Phone,Age,Gender,Dietary,Group,Status,PlusOne");
         foreach (var g in guests)
-            sb.AppendLine($"{g.FirstName},{g.LastName},{g.Email},{g.Phone},{g.Age},{g.Gender},{DietaryExportLabel(g.DietaryRequirements)},{g.Group},{g.RsvpStatus},{(g.HasPlusOne ? "Yes" : "No")}");
+            sb.AppendLine($"{g.FirstName},{g.LastName},{CleanEmail(g.Email)},{g.Phone},{g.Age},{g.Gender},{DietaryExportLabel(g.DietaryRequirements)},{g.Group},{g.RsvpStatus},{(g.HasPlusOne ? "Yes" : "No")}");
         var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='guest_list.csv';a.click()");
     }
@@ -761,7 +771,7 @@
         int imported = 0, duplicateSkipped = 0, invalidSkipped = 0;
         var guestsToCreate = new List<GuestCreateDto>();
         var importEmails = new HashSet<string>(
-            guests.Select(g => g.Email.Trim()).Where(email => !string.IsNullOrWhiteSpace(email)),
+            guests.Select(g => CleanEmail(g.Email)).Where(email => !string.IsNullOrWhiteSpace(email)),
             StringComparer.OrdinalIgnoreCase);
         var importPhones = new HashSet<string>(
             guests.Select(g => (g.Phone ?? "").Trim()).Where(phone => !string.IsNullOrWhiteSpace(phone)),
@@ -906,7 +916,7 @@
         HashSet<string> importEmails,
         HashSet<string> importPhones)
     {
-        var email = guest.Email.Trim();
+        var email = CleanEmail(guest.Email);
         var phone = guest.Phone?.Trim() ?? "";
 
         return (!string.IsNullOrWhiteSpace(email) && importEmails.Contains(email)) ||
@@ -918,7 +928,7 @@
         HashSet<string> importEmails,
         HashSet<string> importPhones)
     {
-        var email = guest.Email.Trim();
+        var email = CleanEmail(guest.Email);
         var phone = guest.Phone?.Trim() ?? "";
 
         if (!string.IsNullOrWhiteSpace(email))
@@ -945,7 +955,7 @@
     {
         var firstName = guest.FirstName.Trim();
         var lastName = guest.LastName.Trim();
-        var email = guest.Email.Trim();
+        var email = CleanEmail(guest.Email);
         var phone = guest.Phone?.Trim() ?? "";
 
         if (string.IsNullOrWhiteSpace(firstName))
@@ -958,16 +968,14 @@
         else if (!GuestNamePattern.IsMatch(lastName))
             errors[nameof(guest.LastName)] = "Use only letters, spaces, accents, hyphens, or apostrophes.";
 
-        if (string.IsNullOrWhiteSpace(email))
-            errors[nameof(guest.Email)] = "Email is required.";
-        else if (!emailValidator.IsValid(email))
+        if (!string.IsNullOrWhiteSpace(email) && !emailValidator.IsValid(email))
             errors[nameof(guest.Email)] = "Enter a valid email address.";
 
         if (guest.Age is < 0)
             errors[nameof(guest.Age)] = "Age cannot be negative.";
 
         if (!string.IsNullOrWhiteSpace(email) &&
-            guests.Any(g => g.GuestId != ignoredGuestId && g.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase)))
+            guests.Any(g => g.GuestId != ignoredGuestId && CleanEmail(g.Email).Equals(email, StringComparison.OrdinalIgnoreCase)))
             errors[nameof(guest.Email)] = "A guest with this email already exists.";
 
         if (!string.IsNullOrWhiteSpace(phone) &&

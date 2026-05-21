@@ -16,7 +16,7 @@ public sealed class GuestDto
     
     public int? Age { get; set; }
     
-    public required string Email { get; set; }
+    public string? Email { get; set; }
     
     public string? Phone { get; set; }
     public Gender? Gender { get; set; }
