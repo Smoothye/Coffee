@@ -958,9 +958,7 @@
         else if (!GuestNamePattern.IsMatch(lastName))
             errors[nameof(guest.LastName)] = "Use only letters, spaces, accents, hyphens, or apostrophes.";
 
-        if (string.IsNullOrWhiteSpace(email))
-            errors[nameof(guest.Email)] = "Email is required.";
-        else if (!emailValidator.IsValid(email))
+        if (!string.IsNullOrWhiteSpace(email) && !emailValidator.IsValid(email))
             errors[nameof(guest.Email)] = "Enter a valid email address.";
 
         if (guest.Age is < 0)
