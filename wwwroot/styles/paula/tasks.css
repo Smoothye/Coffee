@@ -379,6 +379,13 @@
     background: #fee2e2;
 }
 
+.task-budget-link {
+    font-size: .72rem;
+    padding: .32rem .58rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .tasks-empty {
     display: flex;
     flex-direction: column;

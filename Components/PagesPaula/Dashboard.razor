@@ -4,9 +4,11 @@
 @layout PaulaLayout
 @rendermode InteractiveServer
 @using WeddingPlannerApp.Components.PagesPaula.DashboardWidgets
+@using WeddingPlannerApp.DTOs.Budget
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Guest
 @using WeddingPlannerApp.DTOs.Menu
+@using WeddingPlannerApp.DTOs.Task
 @using WeddingPlannerApp.DTOs.Venue
 @using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Data
@@ -18,6 +20,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject WeddingStateService State
+@inject IJSRuntime JS
 
 <HeadContent>
     <link rel="stylesheet" href="styles/Dashboard.css" />
@@ -56,6 +59,20 @@
         <div class="error-banner">@SvgIcons.AlertCircle @loadError</div>
     }
 
+    @if (venueApprovalNotice is not null && !venueApprovalNoticeDismissed)
+    {
+        <div class="venue-approval-banner">
+            <div class="venue-approval-icon">@SvgIcons.CheckCircle</div>
+            <div>
+                <p class="venue-approval-title">Venue change approved</p>
+                <p class="venue-approval-copy">Your wedding venue is now <strong>@venueApprovalNotice.VenueName</strong>.</p>
+            </div>
+            <button type="button" class="venue-approval-dismiss" title="Dismiss notification" @onclick="DismissVenueApprovalNotice">
+                @SvgIcons.XSmall
+            </button>
+        </div>
+    }
+
     <div class="dash-header">
         <div>
             <h1 class="dash-greeting">@Greeting, @userDisplayName</h1>
@@ -88,7 +105,7 @@
 
         <TasksWidget Tasks="tasks"
                      OnToggleTask="ToggleTask"
-                     Href="/tasks" />
+                     Href="@($"/tasks/{EventId}")" />
 
         <MenuDetailsWidget SelectedMenu="@selectedMenu"
                            MenuRows="menuRows"
@@ -130,6 +147,13 @@
     string eventNotesError = "";
     const string HeadConfigPrefix = "[[head-godparents:";
     const string HeadConfigSuffix = "]]";
+    const string VenueRequestPrefix = "[[venue-change-request:";
+    const string VenueApprovedPrefix = "[[venue-change-approved:";
+    const string VenueMarkerSuffix = "]]";
+    VenueApprovalNotice? venueApprovalNotice = null;
+    string? venueApprovalStorageKey = null;
+    string? checkedVenueApprovalStorageKey = null;
+    bool venueApprovalNoticeDismissed = true;
 
     [CascadingParameter] public Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
@@ -152,11 +176,42 @@
     int rsvpPlusOnes = 0;
 
     List<DashboardTaskItem> tasks = [];
+    List<WeddingTaskDto> eventTasks = [];
 
-    void ToggleTask(int id)
+    async Task ToggleTask(int id)
     {
-        State.ToggleTask(id);
-        ApplyTasksState();
+        if (id < 0)
+        {
+            Nav.NavigateTo("/budget");
+            return;
+        }
+
+        var task = eventTasks.FirstOrDefault(t => t.TaskId == id);
+        if (task is null)
+            return;
+
+        var done = !task.Done;
+        try
+        {
+            await Api.UpdateTaskAsync(EventId, task.TaskId, new WeddingTaskUpdateDto
+            {
+                Title = task.Title,
+                Category = task.Category,
+                Priority = task.Priority,
+                DueDate = task.DueDate,
+                Done = done,
+                Notes = task.Notes
+            });
+
+            task.Done = done;
+            task.Status = done ? "completed" : "pending";
+            task.CompletedAt = done ? DateTime.UtcNow : null;
+            ApplyTasksState();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not update task: {ex.Message}";
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -202,14 +257,17 @@
             var venue = await Api.GetVenueAsync(eventItem.VenueId);
             if (venue != null)
                 venueName = venue.Name;
+            SetVenueApprovalNotice(eventItem, venue);
 
             var menus = await Api.GetMenusAsync();
             selectedMenu = FormatMenuNames(eventItem.MenuIds, menus);
             ApplyMenuRows(eventItem.MenuIds, menus, guests, eventItem.EstimatedGuests);
+            State.ReplaceBudgetItems((await Api.GetBudgetItemsAsync(EventId)).Select(ToBudgetItem));
             if (venue != null)
                 State.UpsertVenueBudgetItem(venue.Name, (int)Math.Round(venue.EstimatedPrice));
             State.UpsertMenuBudgetItem(menuEstimate);
             ApplyBudgetState();
+            eventTasks = await Api.GetTasksAsync(EventId);
             ApplyTasksState();
         }
         catch (Exception ex)
@@ -255,10 +313,40 @@
             : "Select a menu";
     }
 
+    void SetVenueApprovalNotice(EventDto eventItem, VenueDto? venue)
+    {
+        var approved = ReadApprovedVenueIds(eventItem.Notes);
+        if (approved is null || approved.Value.RequestedVenueId != eventItem.VenueId)
+        {
+            venueApprovalNotice = null;
+            venueApprovalStorageKey = null;
+            checkedVenueApprovalStorageKey = null;
+            venueApprovalNoticeDismissed = true;
+            return;
+        }
+
+        venueApprovalNotice = new VenueApprovalNotice(venue?.Name ?? $"Venue #{eventItem.VenueId}");
+        venueApprovalStorageKey = VenueApprovalSeenKey(eventItem.EventId, approved.Value.RequestedVenueId);
+        venueApprovalNoticeDismissed = true;
+    }
+
+    async Task DismissVenueApprovalNotice()
+    {
+        venueApprovalNoticeDismissed = true;
+        if (string.IsNullOrWhiteSpace(venueApprovalStorageKey))
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", venueApprovalStorageKey, "1");
+        }
+        catch { }
+    }
+
     void OpenEventNotes()
     {
         eventNotesError = "";
-        eventNotesDraft = RemoveHeadConfig(currentEvent?.Notes).Trim();
+        eventNotesDraft = RemoveHiddenEventMarkers(currentEvent?.Notes).Trim();
         eventNotesOpen = true;
     }
 
@@ -305,45 +393,109 @@
         }
     }
 
-    static string WithHeadConfigPreserved(string? existingNotes, string visibleNotes)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var marker = ReadHeadConfigMarker(existingNotes);
-        return string.IsNullOrWhiteSpace(marker)
-            ? visibleNotes
-            : $"{visibleNotes.Trim()} {marker}".Trim();
+        if (venueApprovalNotice is null ||
+            string.IsNullOrWhiteSpace(venueApprovalStorageKey) ||
+            checkedVenueApprovalStorageKey == venueApprovalStorageKey)
+            return;
+
+        checkedVenueApprovalStorageKey = venueApprovalStorageKey;
+
+        try
+        {
+            var seen = await JS.InvokeAsync<string?>("localStorage.getItem", venueApprovalStorageKey);
+            venueApprovalNoticeDismissed = string.Equals(seen, "1", StringComparison.Ordinal);
+        }
+        catch
+        {
+            venueApprovalNoticeDismissed = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
-    static string ReadHeadConfigMarker(string? notes)
+    static string WithHeadConfigPreserved(string? existingNotes, string visibleNotes)
+    {
+        var hiddenMarkers = ReadHiddenEventMarkers(existingNotes);
+        return string.IsNullOrWhiteSpace(hiddenMarkers)
+            ? visibleNotes
+            : $"{visibleNotes.Trim()} {hiddenMarkers}".Trim();
+    }
+
+    static string ReadHiddenEventMarkers(string? notes)
+    {
+        var markers = new[]
+        {
+            ReadMarker(notes, HeadConfigPrefix, HeadConfigSuffix),
+            ReadMarker(notes, VenueRequestPrefix, VenueMarkerSuffix),
+            ReadMarker(notes, VenueApprovedPrefix, VenueMarkerSuffix)
+        }.Where(marker => !string.IsNullOrWhiteSpace(marker));
+
+        return string.Join(" ", markers);
+    }
+
+    static string ReadMarker(string? notes, string prefix, string suffix)
     {
         if (string.IsNullOrWhiteSpace(notes))
             return "";
 
-        var start = notes.IndexOf(HeadConfigPrefix, StringComparison.OrdinalIgnoreCase);
+        var start = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
         if (start < 0)
             return "";
 
-        var end = notes.IndexOf(HeadConfigSuffix, start, StringComparison.OrdinalIgnoreCase);
+        var end = notes.IndexOf(suffix, start, StringComparison.OrdinalIgnoreCase);
         if (end < 0)
             return "";
 
-        return notes[start..(end + HeadConfigSuffix.Length)].Trim();
+        return notes[start..(end + suffix.Length)].Trim();
     }
 
-    static string RemoveHeadConfig(string? notes)
+    static string RemoveHiddenEventMarkers(string? notes)
     {
         if (string.IsNullOrWhiteSpace(notes))
             return "";
 
-        var start = notes.IndexOf(HeadConfigPrefix, StringComparison.OrdinalIgnoreCase);
+        var cleaned = RemoveMarker(notes, HeadConfigPrefix, HeadConfigSuffix);
+        cleaned = RemoveMarker(cleaned, VenueRequestPrefix, VenueMarkerSuffix);
+        cleaned = RemoveMarker(cleaned, VenueApprovedPrefix, VenueMarkerSuffix);
+        return cleaned.Trim();
+    }
+
+    static (int CurrentVenueId, int RequestedVenueId)? ReadApprovedVenueIds(string? notes)
+    {
+        var marker = ReadMarker(notes, VenueApprovedPrefix, VenueMarkerSuffix);
+        if (string.IsNullOrWhiteSpace(marker))
+            return null;
+
+        var content = marker[VenueApprovedPrefix.Length..^VenueMarkerSuffix.Length];
+        var parts = content.Split(':', 2);
+        if (parts.Length != 2)
+            return null;
+
+        return int.TryParse(parts[0], out var currentVenueId) &&
+               int.TryParse(parts[1], out var requestedVenueId)
+            ? (currentVenueId, requestedVenueId)
+            : null;
+    }
+
+    static string VenueApprovalSeenKey(int eventId, int venueId) =>
+        $"venue-change-approved-seen:{eventId}:{venueId}";
+
+    static string RemoveMarker(string notes, string prefix, string suffix)
+    {
+        var start = notes.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
         if (start < 0)
             return notes;
 
-        var end = notes.IndexOf(HeadConfigSuffix, start, StringComparison.OrdinalIgnoreCase);
+        var end = notes.IndexOf(suffix, start, StringComparison.OrdinalIgnoreCase);
         if (end < 0)
-            return notes[..start];
+            return notes[..start].Trim();
 
-        return (notes[..start] + notes[(end + HeadConfigSuffix.Length)..]).Trim();
+        return (notes[..start] + notes[(end + suffix.Length)..]).Trim();
     }
+
+    sealed record VenueApprovalNotice(string VenueName);
 
     static string FormatMenuNames(
         IReadOnlyCollection<int> menuIds,
@@ -457,15 +609,25 @@
 
     void ApplyTasksState()
     {
-        tasks = State.Tasks
+        tasks = eventTasks
             .Select(task => new DashboardTaskItem(
-                task.Id,
+                task.TaskId,
                 task.Title,
                 task.Category,
                 task.DueDate,
                 task.Priority,
                 task.Done))
             .ToList();
+
+        if (currentEvent is not null && currentEvent.TotalBudget <= 0)
+        {
+            tasks.Insert(0, new DashboardTaskItem(
+                -1,
+                "Set your wedding budget",
+                "Budget",
+                DateTime.Today,
+                "high"));
+        }
     }
 
     static string BudgetCategoryColor(string category) => category switch
@@ -481,5 +643,16 @@
         "Transport" => "#64748b",
         "Cake" => "#f59e0b",
         _ => "#9ca3af"
+    };
+
+    static BudgetItem ToBudgetItem(BudgetItemDto item) => new()
+    {
+        Id = item.BudgetItemId,
+        SupplierId = item.SupplierId,
+        Name = item.Name,
+        Category = item.Category,
+        Estimated = item.Estimated,
+        Actual = item.Actual,
+        Paid = item.Paid
     };
 }

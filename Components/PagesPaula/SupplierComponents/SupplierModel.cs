@@ -8,6 +8,8 @@ public sealed class SupplierModel
     public string Phone { get; set; } = "";
     public string Email { get; set; } = "";
     public string Description { get; set; } = "";
-    public decimal EstimatedValue { get; set; }
-    public decimal ActualValue { get; set; }
+    public decimal Price { get; set; }
+    public decimal Advance { get; set; }
+    public decimal Remaining => Math.Max(0, Price - Advance);
+    public bool RemainingPaid { get; set; }
 }

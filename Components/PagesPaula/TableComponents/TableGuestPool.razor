@@ -9,12 +9,21 @@
             <h3 class="pool-title">Guest Pool</h3>
             <p class="pool-sub">@FilteredGuests.Count unassigned &middot; synced from Guests</p>
         </div>
-        <button type="button"
-                class="btn-outline pool-auto-btn"
-                disabled="@(!Guests.Any())"
-                @onclick="OnAutoArrange">
-            @SvgIcons.Sparkles Auto arrange
-        </button>
+        <div class="pool-actions">
+            <button type="button"
+                    class="btn-outline pool-auto-btn"
+                    disabled="@(!Guests.Any())"
+                    @onclick="OnAutoArrange">
+                @SvgIcons.Sparkles Auto arrange
+            </button>
+            <button type="button"
+                    class="btn-outline pool-auto-btn pool-clear-btn"
+                    title="Move guests from unlocked tables back to the pool"
+                    disabled="@(ClearableSeatCount <= 0)"
+                    @onclick="OnClearUnlockedSeats">
+                @SvgIcons.Trash Clear seats
+            </button>
+        </div>
     </div>
 
     <div class="pool-filter-panel">
@@ -86,12 +95,14 @@
     [Parameter] public IReadOnlyDictionary<string, GroupColors> Groups { get; set; } =
         new Dictionary<string, GroupColors>();
     [Parameter] public bool DragOver { get; set; }
+    [Parameter] public int ClearableSeatCount { get; set; }
     [Parameter] public EventCallback<TableGuest> OnStartDrag { get; set; }
     [Parameter] public EventCallback OnDragEnd { get; set; }
     [Parameter] public EventCallback OnDragOver { get; set; }
     [Parameter] public EventCallback OnDragLeave { get; set; }
     [Parameter] public EventCallback OnDrop { get; set; }
     [Parameter] public EventCallback OnAutoArrange { get; set; }
+    [Parameter] public EventCallback OnClearUnlockedSeats { get; set; }
     [Parameter] public EventCallback<int> OnRemove { get; set; }
 
     string search = "";

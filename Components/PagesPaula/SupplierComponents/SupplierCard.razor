@@ -31,8 +31,9 @@
         }
         <p class="supplier-notes">@Supplier.Description</p>
         <div class="supplier-cost-row supplier-cost-edit">
-            <label><span>Estimated</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.EstimatedValue" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
-            <label><span>Actual</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.ActualValue" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
+            <label><span>Price</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.Price" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
+            <label><span>Advance</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled="@(!CanEditCosts)" @bind="Supplier.Advance" @bind:event="oninput" @bind:after="NotifyBudgetSync" /></label>
+            <label><span>Remaining</span><input class="input supplier-cost-input" type="number" min="0" step="50" disabled value="@Supplier.Remaining.ToString("0")" /></label>
         </div>
         @if (!CanEditCosts)
         {
@@ -42,6 +43,14 @@
 
     @if (EventSupplier != null)
     {
+        <div class="supplier-payment-row">
+            <span>Remaining payment</span>
+            <button type="button"
+                    class="paid-toggle @(EventSupplier.RemainingPaid ? "paid-toggle-paid" : "")"
+                    @onclick="@(() => OnRemainingPaidChanged.InvokeAsync((Supplier.Id, !EventSupplier.RemainingPaid)))">
+                @(EventSupplier.RemainingPaid ? "Paid" : "Unpaid")
+            </button>
+        </div>
         <div class="supplier-notes-field">
             <input class="input" style="font-size:.78rem;padding:.35rem .6rem;" placeholder="Add notes..." @bind="EventSupplier.Notes" />
         </div>
@@ -81,6 +90,7 @@
     [Parameter] public string? Status { get; set; }
     [Parameter] public EventSupplierModel? EventSupplier { get; set; }
     [Parameter] public EventCallback<(int SupplierId, string Status)> OnSetStatus { get; set; }
+    [Parameter] public EventCallback<(int SupplierId, bool RemainingPaid)> OnRemainingPaidChanged { get; set; }
     [Parameter] public EventCallback<int> OnRemoveStatus { get; set; }
     [Parameter] public EventCallback<SupplierModel> OnSyncBudget { get; set; }
 

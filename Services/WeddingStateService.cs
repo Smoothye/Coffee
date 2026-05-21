@@ -36,6 +36,12 @@
             Notify();
         }
 
+        public void ReplaceBudgetItems(IEnumerable<BudgetItem> items)
+        {
+            _budgetItems = items.ToList();
+            Notify();
+        }
+
         public void UpdateBudgetItem(BudgetItem item)
         {
             var idx = _budgetItems.FindIndex(i => i.Id == item.Id);
@@ -193,7 +199,7 @@
     {
         public int Id { get; set; }
         public int? SupplierId { get; set; }
-        public bool IsProtected => SupplierId is < 0;
+        public bool IsProtected => SupplierId.HasValue;
         public string Name { get; set; } = "";
         public string Category { get; set; } = "Other";
         public int Estimated { get; set; }

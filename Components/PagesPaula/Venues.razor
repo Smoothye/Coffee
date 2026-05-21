@@ -15,6 +15,7 @@
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.DTOs.Event
 @using WeddingPlannerApp.DTOs.Venue
+@using WeddingPlannerApp.Models
 @using WeddingPlannerApp.Services
 
 <HeadContent>
@@ -28,6 +29,20 @@
 <Toast @ref="_toast" />
 
 <div class="venues-page">
+
+    @if (venueApprovalNotice is not null && !venueApprovalNoticeDismissed)
+    {
+        <div class="venue-approved-banner">
+            <div class="venue-approved-icon">@SvgIcons.CheckCircle</div>
+            <div>
+                <span class="venue-pending-kicker">Venue change approved</span>
+                <strong>@venueApprovalNotice.VenueName</strong>
+            </div>
+            <button type="button" class="venue-approved-dismiss" title="Dismiss notification" @onclick="DismissVenueApprovalNotice">
+                @SvgIcons.XSmall
+            </button>
+        </div>
+    }
 
     @if (current == null)
     {
@@ -103,11 +118,14 @@
                     @foreach (var v in allVenues.Where(v => v.VenueId != userSelectedVenueId))
                     {
                         var venue = v;
-                        <button class="carousel-card" @onclick="@(() => SelectVenue(venue.VenueId))">
+                        var fitsEventCapacity = VenueFitsEventCapacity(venue);
+                        <button class="carousel-card @(fitsEventCapacity ? "" : "venue-capacity-muted")" @onclick="@(() => SelectVenue(venue.VenueId))">
                             <div class="carousel-img-wrap">
                                 <img src="@VenueImage(venue)" alt="@venue.Name" class="carousel-img" loading="lazy" decoding="async" />
                                 @if (pendingVenueId == venue.VenueId)
                                 { <span class="venue-image-badge venue-image-badge-pending">Pending review</span> }
+                                @if (!fitsEventCapacity)
+                                { <span class="venue-image-badge venue-image-badge-capacity">@CapacityBadgeLabel(venue)</span> }
                             </div>
                             <div class="carousel-info">
                                 <p class="carousel-name">@venue.Name</p>
@@ -141,6 +159,12 @@
                         {
                             <span class="venue-booked-badge venue-pending-badge">
                                 @SvgIcons.Clock Pending admin review
+                            </span>
+                        }
+                        else if (!VenueFitsEventCapacity(detail))
+                        {
+                            <span class="venue-booked-badge venue-capacity-badge">
+                                @SvgIcons.AlertCircle @CapacityBadgeLabel(detail)
                             </span>
                         }
                         else
@@ -179,6 +203,13 @@
                             <div class="vinfo-icon">@SvgIcons.Users</div>
                             <div><p class="vinfo-label">Capacity</p><p class="vinfo-val">@detail.MinCapacity-@detail.MaxCapacity guests</p></div>
                         </div>
+                        @if (!VenueFitsEventCapacity(detail))
+                        {
+                            <div class="vinfo-card venue-capacity-warning-card">
+                                <div class="vinfo-icon">@SvgIcons.AlertCircle</div>
+                                <div><p class="vinfo-label">Your estimate</p><p class="vinfo-val">@CapacityMismatchText(detail)</p></div>
+                            </div>
+                        }
                         @if (detail.EstimatedPrice > 0)
                         {
                             <div class="vinfo-card">
@@ -224,10 +255,15 @@
                     @foreach (var sv in allVenues.Where(v => v.VenueId != detail.VenueId))
                     {
                         var s = sv;
+                        var fitsEventCapacity = VenueFitsEventCapacity(s);
                         <button class="sidebar-venue-card" @onclick="@(() => SelectVenue(s.VenueId))">
                             <div class="sidebar-venue-img-wrap">
                                 <img src="@VenueImage(s)" alt="@s.Name" class="sidebar-venue-img" loading="lazy" decoding="async" />
-                                @if (s.MaxCapacity >= detail.MinCapacity && s.MinCapacity <= detail.MaxCapacity)
+                                @if (HasEventCapacityRequirement)
+                                {
+                                    <span class="sidebar-venue-match @(fitsEventCapacity ? "" : "sidebar-venue-capacity-warning")">@CapacityBadgeLabel(s)</span>
+                                }
+                                else if (s.MaxCapacity >= detail.MinCapacity && s.MinCapacity <= detail.MaxCapacity)
                                 { <span class="sidebar-venue-match">Similar capacity</span> }
                                 @if (pendingVenueId == s.VenueId)
                                 { <span class="sidebar-venue-match sidebar-venue-pending">Pending review</span> }
@@ -253,13 +289,17 @@
     @if (current != null)
     {
         var bookVenue = current!;
-        <div style="padding:.25rem 0 1.25rem;">
-            <p style="font-size:.9rem;color:var(--text);margin:0 0 .75rem;">
-                You're about to ask the admin to change your wedding venue to <strong>@bookVenue.Name</strong>.
-            </p>
-            <div class="book-confirm-venue">
-                <img src="@VenueImage(bookVenue)" alt="@bookVenue.Name" class="book-confirm-img" loading="lazy" decoding="async" />
-                <div>
+    <div style="padding:.25rem 0 1.25rem;">
+        <p style="font-size:.9rem;color:var(--text);margin:0 0 .75rem;">
+            You're about to ask the admin to change your wedding venue to <strong>@bookVenue.Name</strong>.
+        </p>
+        @if (!VenueFitsEventCapacity(bookVenue))
+        {
+            <div class="error-banner" style="margin-bottom:.75rem;">@CapacityMismatchText(bookVenue)</div>
+        }
+        <div class="book-confirm-venue">
+            <img src="@VenueImage(bookVenue)" alt="@bookVenue.Name" class="book-confirm-img" loading="lazy" decoding="async" />
+            <div>
                     <p style="font-weight:700;font-size:.92rem;color:var(--sage-dark);margin:0 0 .2rem;">@bookVenue.Name</p>
                     <p style="font-size:.78rem;color:var(--muted);margin:0;">@bookVenue.Address</p>
                     <p style="font-size:.78rem;color:var(--muted);margin:.15rem 0 0;">@bookVenue.MinCapacity-@bookVenue.MaxCapacity guests</p>
@@ -272,7 +312,7 @@
         </div>
         <div class="venue-request-actions">
             <button class="btn-outline venue-request-action" @onclick="@(() => showBookConfirm = false)">Cancel</button>
-            <button class="btn-add-guest venue-request-action" @onclick="ConfirmBooking">
+            <button class="btn-add-guest venue-request-action" disabled="@(!VenueFitsEventCapacity(bookVenue))" @onclick="ConfirmBooking">
                 @SvgIcons.Check Send request
             </button>
         </div>
@@ -294,8 +334,13 @@
     int    activeImage      = 0;
     bool   mapLoaded        = false;
     int    userSelectedVenueId = 1;
+    int    actualGuestCount = 0;
     int?   pendingVenueId   = null;
     bool   showBookConfirm  = false;
+    VenueApprovalNotice? venueApprovalNotice = null;
+    string? venueApprovalStorageKey = null;
+    string? checkedVenueApprovalStorageKey = null;
+    bool venueApprovalNoticeDismissed = true;
 
     void Refresh() => InvokeAsync(StateHasChanged);
 
@@ -324,6 +369,8 @@
             mapLoaded = true;
             await InitMap(current.Name, current.Address, current.Latitude, current.Longitude);
         }
+
+        await LoadVenueApprovalNoticeStateAsync();
     }
 
     async Task InitMap(string name, string address, decimal? latitude, decimal? longitude)
@@ -393,6 +440,10 @@
                 return;
 
             venues = await Api.GetVenuesAsync();
+            eventItem = null;
+            actualGuestCount = 0;
+            pendingVenueId = null;
+            ClearVenueApprovalNotice();
 
             var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
             if (ownEvent is not null && (EventId <= 0 || EventId != ownEvent.EventId))
@@ -407,8 +458,11 @@
                 eventItem = await Api.GetEventAsync(EventId);
                 if (eventItem != null)
                 {
+                    var guests = await Api.GetGuestsAsync(EventId);
+                    actualGuestCount = guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
                     userSelectedVenueId = eventItem.VenueId;
                     pendingVenueId = ReadVenueChangeRequest(eventItem.Notes);
+                    SetVenueApprovalNotice(eventItem);
                 }
             }
             else
@@ -436,6 +490,13 @@
     {
         if (current == null) return;
 
+        if (!VenueFitsEventCapacity(current))
+        {
+            showBookConfirm = false;
+            _toast.Show(CapacityMismatchText(current));
+            return;
+        }
+
         if (eventItem is null)
         {
             pendingVenueId = current.VenueId;
@@ -457,8 +518,94 @@
         }
     }
 
+    int GuestsToFit => eventItem is null
+        ? 0
+        : Math.Max(eventItem.EstimatedGuests, actualGuestCount);
+
+    bool HasEventCapacityRequirement => GuestsToFit > 0;
+
+    bool VenueFitsEventCapacity(VenueDto venue) =>
+        !HasEventCapacityRequirement ||
+        (GuestsToFit >= venue.MinCapacity && GuestsToFit <= venue.MaxCapacity);
+
+    string CapacityBadgeLabel(VenueDto venue)
+    {
+        if (!HasEventCapacityRequirement)
+            return "Similar capacity";
+
+        if (GuestsToFit < venue.MinCapacity)
+            return $"Needs {venue.MinCapacity}+ guests";
+
+        if (GuestsToFit > venue.MaxCapacity)
+            return $"Max {venue.MaxCapacity} guests";
+
+        return $"Fits {GuestsToFit} guests";
+    }
+
+    string CapacityMismatchText(VenueDto venue) =>
+        $"Your event estimate is {GuestsToFit} guests, but this venue fits {venue.MinCapacity}-{venue.MaxCapacity}.";
+
     const string VenueRequestPrefix = "[[venue-change-request:";
+    const string VenueApprovedPrefix = "[[venue-change-approved:";
     const string VenueRequestSuffix = "]]";
+
+    async Task LoadVenueApprovalNoticeStateAsync()
+    {
+        if (venueApprovalNotice is null ||
+            string.IsNullOrWhiteSpace(venueApprovalStorageKey) ||
+            checkedVenueApprovalStorageKey == venueApprovalStorageKey)
+            return;
+
+        checkedVenueApprovalStorageKey = venueApprovalStorageKey;
+
+        try
+        {
+            var seen = await JS.InvokeAsync<string?>("localStorage.getItem", venueApprovalStorageKey);
+            venueApprovalNoticeDismissed = string.Equals(seen, "1", StringComparison.Ordinal);
+        }
+        catch
+        {
+            venueApprovalNoticeDismissed = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void SetVenueApprovalNotice(EventDto eventDto)
+    {
+        var approved = ReadApprovedVenueIds(eventDto.Notes);
+        if (approved is null || approved.Value.RequestedVenueId != eventDto.VenueId)
+        {
+            ClearVenueApprovalNotice();
+            return;
+        }
+
+        var approvedVenue = allVenues.FirstOrDefault(v => v.VenueId == approved.Value.RequestedVenueId);
+        venueApprovalNotice = new VenueApprovalNotice(approvedVenue?.Name ?? $"Venue #{approved.Value.RequestedVenueId}");
+        venueApprovalStorageKey = VenueApprovalSeenKey(eventDto.EventId, approved.Value.RequestedVenueId);
+        venueApprovalNoticeDismissed = true;
+    }
+
+    void ClearVenueApprovalNotice()
+    {
+        venueApprovalNotice = null;
+        venueApprovalStorageKey = null;
+        checkedVenueApprovalStorageKey = null;
+        venueApprovalNoticeDismissed = true;
+    }
+
+    async Task DismissVenueApprovalNotice()
+    {
+        venueApprovalNoticeDismissed = true;
+        if (string.IsNullOrWhiteSpace(venueApprovalStorageKey))
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", venueApprovalStorageKey, "1");
+        }
+        catch { }
+    }
 
     static int? ReadVenueChangeRequest(string? notes)
     {
@@ -476,6 +623,35 @@
 
         return int.TryParse(notes[start..end], out var venueId) ? venueId : null;
     }
+
+    static (int CurrentVenueId, int RequestedVenueId)? ReadApprovedVenueIds(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return null;
+
+        var start = notes.IndexOf(VenueApprovedPrefix, StringComparison.OrdinalIgnoreCase);
+        if (start < 0)
+            return null;
+
+        start += VenueApprovedPrefix.Length;
+        var end = notes.IndexOf(VenueRequestSuffix, start, StringComparison.OrdinalIgnoreCase);
+        if (end < 0)
+            return null;
+
+        var parts = notes[start..end].Split(':', 2);
+        if (parts.Length != 2)
+            return null;
+
+        return int.TryParse(parts[0], out var currentVenueId) &&
+               int.TryParse(parts[1], out var requestedVenueId)
+            ? (currentVenueId, requestedVenueId)
+            : null;
+    }
+
+    static string VenueApprovalSeenKey(int eventId, int venueId) =>
+        $"venue-change-approved-seen:{eventId}:{venueId}";
+
+    sealed record VenueApprovalNotice(string VenueName);
 
     public void Dispose()
     {

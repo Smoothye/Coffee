@@ -114,7 +114,7 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         var actualGuests = eventItem.Guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
         var guestsToFit = Math.Max(eventItem.EstimatedGuests, actualGuests);
         if (!FitsCapacity(venue, guestsToFit))
-            return BadRequest($"This venue does not fit {guestsToFit} guests.");
+            return BadRequest(CapacityError(venue, guestsToFit));
         if (!FitsBudget(eventItem, venue))
             return BadRequest("This venue is above the event budget.");
 
@@ -147,7 +147,7 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
         var actualGuests = eventItem.Guests.Count(g => g.RsvpStatus != RsvpStatus.Declined);
         var guestsToFit = Math.Max(eventItem.EstimatedGuests, actualGuests);
         if (!FitsCapacity(venue, guestsToFit))
-            return BadRequest($"This venue does not fit {guestsToFit} guests.");
+            return BadRequest(CapacityError(venue, guestsToFit));
         if (!FitsBudget(eventItem, venue))
             return BadRequest("This venue is above the event budget.");
 
@@ -177,7 +177,10 @@ public class VenueChangeRequestsController(ApplicationDbContext context) : Contr
     }
 
     static bool FitsCapacity(Venue venue, int guests) =>
-        guests <= venue.MaxCapacity;
+        guests >= venue.MinCapacity && guests <= venue.MaxCapacity;
+
+    static string CapacityError(Venue venue, int guests) =>
+        $"This venue fits {venue.MinCapacity}-{venue.MaxCapacity} guests, but the event needs {guests} guests.";
 
     static bool FitsBudget(Event eventItem, Venue venue) =>
         eventItem.TotalBudget <= 0 || venue.EstimatedPrice <= eventItem.TotalBudget;

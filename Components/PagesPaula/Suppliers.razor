@@ -1,48 +1,55 @@
 @rendermode InteractiveServer
 @implements IDisposable
 @page "/suppliers"
+@page "/suppliers/{EventId:int}"
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @layout PaulaLayout
 @using System.Text
 @using System.ComponentModel.DataAnnotations
-@inject IJSRuntime JS
-@inject WeddingPlannerApp.Services.WeddingStateService State
-@inject NavigationManager Nav
-@inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.AspNetCore.Components.Authorization
 @using WeddingPlannerApp.Components.LayoutPaula
 @using WeddingPlannerApp.Components.PagesPaula.SupplierComponents
+@using WeddingPlannerApp.DTOs.Supplier
+@inject IJSRuntime JS
+@inject WeddingPlannerApp.Services.WeddingApiClient Api
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageNav Title="Suppliers"
          Subtitle="@($"{eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")} confirmed - {eventSuppliers.Count(s => s.CollaborationStatus == "pending")} pending")"
          IconSvg="@SvgIcons.SuppliersNav" />
 
+@if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <div class="error-banner">@SvgIcons.AlertCircle @loadError</div>
+}
+
 <CsvGuideModal IsOpen="csvGuideOpen"
                Title="Import Suppliers"
-               IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, BasePrice and ActualValue columns."
+               IntroNote="Use a .csv file with Name, Category, Phone, Email, Description, BasePrice, Advance, RemainingPaid, Status and Notes columns."
                Columns="supplierCsvColumns"
                OnClose="@(() => csvGuideOpen = false)">
     <LeftFooter>
-            <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
-                @SvgIcons.Download Download blank template
-            </button>
+        <button class="btn-outline" style="margin-top:.75rem;width:100%;justify-content:center;" @onclick="DownloadTemplate">
+            @SvgIcons.Download Download blank template
+        </button>
     </LeftFooter>
     <UploadContent>
-            <p class="csv-section-title">Upload file</p>
-            <label class="csv-dropzone" style="cursor:pointer;">
-                <div class="csv-drop-inner">
-                    <div class="csv-drop-icon">@SvgIcons.UploadCloud</div>
-                    <p class="csv-drop-title">Browse a .csv file</p>
-                    <p class="csv-drop-sub">Suppliers will be added to this list</p>
-                    <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
-                </div>
-            </label>
-            @if (!string.IsNullOrEmpty(importSummary))
-            {
-                <div class="import-toast @(importHasWarning ? "import-toast-warn" : "import-toast-ok")" style="position:static;margin-top:.75rem;">
-                    @importSummary
-                </div>
-            }
+        <p class="csv-section-title">Upload file</p>
+        <label class="csv-dropzone" style="cursor:pointer;">
+            <div class="csv-drop-inner">
+                <div class="csv-drop-icon">@SvgIcons.UploadCloud</div>
+                <p class="csv-drop-title">Browse a .csv file</p>
+                <p class="csv-drop-sub">Suppliers will be added to this list</p>
+                <InputFile OnChange="ImportCSV" accept=".csv" style="display:none;" />
+            </div>
+        </label>
+        @if (!string.IsNullOrEmpty(importSummary))
+        {
+            <div class="import-toast @(importHasWarning ? "import-toast-warn" : "import-toast-ok")" style="position:static;margin-top:.75rem;">
+                @importSummary
+            </div>
+        }
     </UploadContent>
 </CsvGuideModal>
 
@@ -86,16 +93,16 @@
     <div class="form-grid-2">
         <div class="field">
             <label>Base price</label>
-            <input class="input @(HasFormError(nameof(draftSupplier.EstimatedValue)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.EstimatedValue" @bind:event="oninput" />
-            @FormFieldError(nameof(draftSupplier.EstimatedValue))
+            <input class="input @(HasFormError(nameof(draftSupplier.Price)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.Price" @bind:event="oninput" />
+            @FormFieldError(nameof(draftSupplier.Price))
         </div>
         <div class="field">
-            <label>Actual value</label>
-            <input class="input @(HasFormError(nameof(draftSupplier.ActualValue)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.ActualValue" @bind:event="oninput" />
-            @FormFieldError(nameof(draftSupplier.ActualValue))
+            <label>Advance</label>
+            <input class="input @(HasFormError(nameof(draftSupplier.Advance)) ? "field-invalid" : "")" type="number" min="0" step="50" @bind="draftSupplier.Advance" @bind:event="oninput" />
+            @FormFieldError(nameof(draftSupplier.Advance))
         </div>
     </div>
-    <button class="btn-add-guest" @onclick="AddSupplier">@SvgIcons.Plus Add Supplier</button>
+    <button class="btn-add-guest" disabled="@savingSupplier" @onclick="AddSupplier">@SvgIcons.Plus @(savingSupplier ? "Adding..." : "Add Supplier")</button>
 </ModalShell>
 
 <ConfirmDialog IsOpen="confirmRemoveOpen"
@@ -106,37 +113,36 @@
                OnConfirm="ConfirmRemoveStatus" />
 
 <div class="suppliers-page">
-
     <SupplierStats Available="@allSuppliers.Count"
-                 Confirmed="@eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")"
-                 Pending="@eventSuppliers.Count(s => s.CollaborationStatus == "pending")"
-                 NotSelected="@allSuppliers.Count(s => !eventSuppliers.Any(es => es.SupplierId == s.Id))"
-                 Estimated="@ActiveSuppliers.Sum(s => s.EstimatedValue)"
-                 Actual="@ActiveSuppliers.Sum(s => s.ActualValue)" />
+                   Confirmed="@eventSuppliers.Count(s => s.CollaborationStatus == "confirmed")"
+                   Pending="@eventSuppliers.Count(s => s.CollaborationStatus == "pending")"
+                   NotSelected="@allSuppliers.Count(s => !eventSuppliers.Any(es => es.SupplierId == s.Id))"
+                   PaidTotal="@PaidTotal"
+                   UnpaidTotal="@UnpaidTotal" />
 
     <SupplierToolbar Search="@search"
-                   SearchChanged="@((value) => search = value)"
-                   Category="@filterCat"
-                   CategoryChanged="@((value) => filterCat = value)"
-                   Status="@filterStatus"
-                   StatusChanged="@((value) => filterStatus = value)"
-                   Categories="categories"
-                   OnCsvGuide="@(() => csvGuideOpen = true)"
-                   OnImport="ImportCSV"
-                   OnExport="ExportCSV"
-                   OnAddSupplier="OpenAddSupplier" />
+                     SearchChanged="@((value) => search = value)"
+                     Category="@filterCat"
+                     CategoryChanged="@((value) => filterCat = value)"
+                     Status="@filterStatus"
+                     StatusChanged="@((value) => filterStatus = value)"
+                     Categories="categories"
+                     OnCsvGuide="@(() => csvGuideOpen = true)"
+                     OnImport="ImportCSV"
+                     OnExport="ExportCSV"
+                     OnAddSupplier="OpenAddSupplier" />
 
-    
     <div class="supplier-grid">
         @foreach (var supplier in filteredSuppliers)
         {
             var sid = supplier.Id;
             <SupplierCard Supplier="supplier"
-                        Status="@GetStatus(sid)"
-                        EventSupplier="GetEventSupplier(sid)"
-                        OnSetStatus="SetStatus"
-                        OnRemoveStatus="RemoveStatus"
-                        OnSyncBudget="SyncSupplierBudget" />
+                          Status="@GetStatus(sid)"
+                          EventSupplier="GetEventSupplier(sid)"
+                          OnSetStatus="SetStatus"
+                          OnRemainingPaidChanged="SetRemainingPaid"
+                          OnRemoveStatus="RemoveStatus"
+                          OnSyncBudget="SyncSupplier" />
         }
         @if (!filteredSuppliers.Any())
         {
@@ -150,6 +156,8 @@
 </div>
 
 @code {
+    [Parameter] public int EventId { get; set; }
+
     static readonly string[] categories = { "Cake", "Candy Bar", "Flowers", "Photography", "Music/DJ", "Catering", "Decorations", "Rentals", "Other" };
 
     static readonly CsvGuideColumn[] supplierCsvColumns =
@@ -160,25 +168,31 @@
         new() { Name = "Email", ValidValues = "Used for duplicate check" },
         new() { Name = "Description", ValidValues = "Short notes" },
         new() { Name = "BasePrice", ValidValues = "Number, cannot be negative" },
-        new() { Name = "ActualValue", ValidValues = "Number, cannot be negative" },
+        new() { Name = "Advance", ValidValues = "Number, cannot be negative and cannot exceed BasePrice" },
+        new() { Name = "RemainingPaid", ValidValues = "Yes/No, true/false, paid/unpaid" },
+        new() { Name = "Status", ValidValues = "pending, confirmed or empty" },
+        new() { Name = "Notes", ValidValues = "Optional event-specific notes" },
     };
 
-    List<SupplierModel> allSuppliers = [];
-
-    List<EventSupplierModel> eventSuppliers = [];
+    readonly List<SupplierModel> allSuppliers = [];
+    readonly List<EventSupplierModel> eventSuppliers = [];
+    readonly EmailAddressAttribute emailValidator = new();
 
     IEnumerable<SupplierModel> ActiveSuppliers => allSuppliers.Where(s => GetStatus(s.Id) != null);
+    decimal PaidTotal => ActiveSuppliers.Sum(PaidAmount);
+    decimal UnpaidTotal => ActiveSuppliers.Sum(UnpaidAmount);
 
     bool csvGuideOpen = false;
     bool addSupplierOpen = false;
     bool confirmRemoveOpen = false;
+    bool savingSupplier = false;
     int pendingRemoveSupplierId;
     string formError = "";
-    Dictionary<string, string> formFieldErrors = new();
+    string loadError = "";
     string importSummary = "";
     bool importHasWarning = false;
     SupplierModel draftSupplier = new() { Category = "Other" };
-    readonly EmailAddressAttribute emailValidator = new();
+    Dictionary<string, string> formFieldErrors = new();
 
     string _search = "";
     string search { get => _search; set { _search = value; ApplyFilters(); } }
@@ -189,7 +203,56 @@
     string _filterStatus = "all";
     string filterStatus { get => _filterStatus; set { _filterStatus = value; ApplyFilters(); } }
 
-    List<SupplierModel> filteredSuppliers = new();
+    List<SupplierModel> filteredSuppliers = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.IsInRole("Admin"))
+            {
+                Nav.NavigateTo("/admin", replace: true);
+                return;
+            }
+
+            var ownEvent = (await Api.GetEventsAsync()).OrderByDescending(e => e.EventId).FirstOrDefault();
+            if (ownEvent is null)
+            {
+                Nav.NavigateTo("/onboarding", replace: true);
+                return;
+            }
+
+            if (EventId <= 0 || EventId != ownEvent.EventId)
+                EventId = ownEvent.EventId;
+
+            await LoadSuppliers();
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not load suppliers: {ex.Message}";
+        }
+    }
+
+    async Task LoadSuppliers()
+    {
+        allSuppliers.Clear();
+        eventSuppliers.Clear();
+
+        var suppliers = await Api.GetSuppliersAsync(EventId);
+        allSuppliers.AddRange(suppliers.Select(ToModel));
+        eventSuppliers.AddRange(suppliers
+            .Where(s => s.CollaborationStatus is not null)
+            .Select(s => new EventSupplierModel
+            {
+                SupplierId = s.SupplierId,
+                CollaborationStatus = s.CollaborationStatus,
+                RemainingPaid = s.RemainingPaid,
+                Notes = s.EventNotes
+            }));
+
+        ApplyFilters();
+    }
 
     void ApplyFilters()
     {
@@ -211,26 +274,22 @@
         filteredSuppliers = q.OrderBy(s => s.Name).ToList();
     }
 
-    protected override async Task OnInitializedAsync()
+    void OpenAddSupplier()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.IsInRole("Admin"))
-        {
-            Nav.NavigateTo("/admin", replace: true);
-            return;
-        }
-
-        ApplyFilters();
-        foreach (var supplier in ActiveSuppliers)
-        {
-            SyncSupplierBudget(supplier);
-        }
+        draftSupplier = new SupplierModel { Category = "Other" };
+        formError = "";
+        formFieldErrors.Clear();
+        addSupplierOpen = true;
     }
 
-    void OpenAddSupplier() { draftSupplier = new SupplierModel { Category = "Other" }; formError = ""; formFieldErrors.Clear(); addSupplierOpen = true; }
-    void CloseAddSupplier() { addSupplierOpen = false; formError = ""; formFieldErrors.Clear(); }
+    void CloseAddSupplier()
+    {
+        addSupplierOpen = false;
+        formError = "";
+        formFieldErrors.Clear();
+    }
 
-    void AddSupplier()
+    async Task AddSupplier()
     {
         formError = "";
         formFieldErrors.Clear();
@@ -242,25 +301,65 @@
             return;
         }
 
-        draftSupplier.Id = allSuppliers.Count == 0 ? 1 : allSuppliers.Max(s => s.Id) + 1;
-        allSuppliers.Add(SanitizeSupplier(draftSupplier));
-        CloseAddSupplier();
-        ApplyFilters();
+        savingSupplier = true;
+        try
+        {
+            var created = await Api.CreateSupplierAsync(EventId, new SupplierCreateDto
+            {
+                Name = draftSupplier.Name.Trim(),
+                Category = draftSupplier.Category.Trim(),
+                Phone = NullIfBlank(draftSupplier.Phone),
+                Email = NullIfBlank(draftSupplier.Email),
+                Description = NullIfBlank(draftSupplier.Description),
+                Price = draftSupplier.Price,
+                Advance = draftSupplier.Advance
+            });
+
+            if (created is not null)
+            {
+                allSuppliers.Add(ToModel(created));
+                ApplyFilters();
+            }
+
+            CloseAddSupplier();
+        }
+        catch (Exception ex)
+        {
+            formError = $"Could not add supplier: {ex.Message}";
+        }
+        finally
+        {
+            savingSupplier = false;
+        }
     }
 
     string? GetStatus(int id) => eventSuppliers.FirstOrDefault(e => e.SupplierId == id)?.CollaborationStatus;
     EventSupplierModel? GetEventSupplier(int id) => eventSuppliers.FirstOrDefault(e => e.SupplierId == id);
 
-    void SetStatus((int SupplierId, string Status) change) => SetStatus(change.SupplierId, change.Status);
+    Task SetStatus((int SupplierId, string Status) change) => SetStatus(change.SupplierId, change.Status);
 
-    void SetStatus(int supplierId, string status)
+    async Task SetStatus(int supplierId, string status)
     {
         var es = eventSuppliers.FirstOrDefault(e => e.SupplierId == supplierId);
-        if (es != null) es.CollaborationStatus = status;
-        else eventSuppliers.Add(new EventSupplierModel { SupplierId = supplierId, CollaborationStatus = status });
-        var supplier = allSuppliers.FirstOrDefault(s => s.Id == supplierId);
-        if (supplier is not null) SyncSupplierBudget(supplier);
+        if (es is null)
+        {
+            es = new EventSupplierModel { SupplierId = supplierId };
+            eventSuppliers.Add(es);
+        }
+
+        es.CollaborationStatus = status;
+        await SaveSupplierStatus(supplierId);
         if (_filterStatus != "all") ApplyFilters();
+    }
+
+    async Task SetRemainingPaid((int SupplierId, bool RemainingPaid) change)
+    {
+        var es = eventSuppliers.FirstOrDefault(e => e.SupplierId == change.SupplierId);
+        if (es is null)
+            return;
+
+        es.RemainingPaid = change.RemainingPaid;
+        await SaveSupplierStatus(change.SupplierId);
     }
 
     void RemoveStatus(int supplierId)
@@ -269,54 +368,79 @@
         confirmRemoveOpen = true;
     }
 
-    void ConfirmRemoveStatus()
+    async Task ConfirmRemoveStatus()
     {
-        eventSuppliers.RemoveAll(e => e.SupplierId == pendingRemoveSupplierId);
-        State.RemoveSupplierBudgetItem(pendingRemoveSupplierId);
-        if (_filterStatus != "all") ApplyFilters();
-        confirmRemoveOpen = false;
+        try
+        {
+            await Api.UpdateSupplierStatusAsync(EventId, pendingRemoveSupplierId, new EventSupplierStatusUpdateDto
+            {
+                CollaborationStatus = null
+            });
+
+            eventSuppliers.RemoveAll(e => e.SupplierId == pendingRemoveSupplierId);
+            if (_filterStatus != "all") ApplyFilters();
+            confirmRemoveOpen = false;
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not remove supplier from event: {ex.Message}";
+        }
     }
 
-    void SyncSupplierBudget(SupplierModel supplier)
+    async Task SyncSupplier(SupplierModel supplier)
     {
-        var status = GetStatus(supplier.Id);
-        if (status is null)
+        if (supplier.Advance > supplier.Price)
         {
-            State.RemoveSupplierBudgetItem(supplier.Id);
+            loadError = "Advance cannot be greater than base price.";
             return;
         }
 
-        State.UpsertSupplierBudgetItem(
-            supplier.Id,
-            $"Supplier: {supplier.Name}",
-            BudgetCategoryFor(supplier.Category),
-            DecimalToInt(supplier.EstimatedValue),
-            DecimalToInt(supplier.ActualValue),
-            status == "confirmed" && supplier.ActualValue > 0);
+        try
+        {
+            await Api.UpdateSupplierAsync(EventId, supplier.Id, new SupplierUpdateDto
+            {
+                Name = supplier.Name,
+                Category = supplier.Category,
+                Phone = NullIfBlank(supplier.Phone),
+                Email = NullIfBlank(supplier.Email),
+                Description = NullIfBlank(supplier.Description),
+                Price = supplier.Price,
+                Advance = supplier.Advance,
+                RemainingPaid = GetEventSupplier(supplier.Id)?.RemainingPaid == true
+            });
+            await SaveSupplierStatus(supplier.Id);
+            loadError = "";
+        }
+        catch (Exception ex)
+        {
+            loadError = $"Could not sync supplier budget: {ex.Message}";
+        }
     }
 
-    static int DecimalToInt(decimal value) => (int)Math.Round(value, MidpointRounding.AwayFromZero);
-
-    static string BudgetCategoryFor(string supplierCategory) => supplierCategory switch
+    async Task SaveSupplierStatus(int supplierId)
     {
-        "Cake" or "Candy Bar" or "Catering" => "Catering",
-        "Flowers" => "Florals",
-        "Music/DJ" => "Music",
-        "Decorations" or "Rentals" => "Decor",
-        "Photography" => "Photography",
-        _ => "Other"
-    };
+        var supplier = allSuppliers.FirstOrDefault(s => s.Id == supplierId);
+        var es = GetEventSupplier(supplierId);
+        if (supplier is null || es?.CollaborationStatus is null)
+            return;
 
-    static string Money(decimal value) => value > 0 ? $"${value:N0}" : "-";
+        await Api.UpdateSupplierStatusAsync(EventId, supplierId, new EventSupplierStatusUpdateDto
+        {
+            CollaborationStatus = es.CollaborationStatus,
+            Advance = supplier.Advance,
+            RemainingPaid = es.RemainingPaid,
+            Notes = es.Notes
+        });
+    }
 
     async Task ExportCSV()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Name,Category,Phone,Email,Description,BasePrice,ActualValue,Status,Notes");
+        sb.AppendLine("Name,Category,Phone,Email,Description,BasePrice,Advance,RemainingPaid,Status,Notes");
         foreach (var s in allSuppliers)
         {
             var es = GetEventSupplier(s.Id);
-            sb.AppendLine($"{s.Name},{s.Category},{s.Phone},{s.Email},{s.Description},{s.EstimatedValue},{s.ActualValue},{es?.CollaborationStatus ?? ""},{es?.Notes ?? ""}");
+            sb.AppendLine($"{Csv(s.Name)},{Csv(s.Category)},{Csv(s.Phone)},{Csv(s.Email)},{Csv(s.Description)},{s.Price},{s.Advance},{(es?.RemainingPaid == true ? "yes" : "no")},{es?.CollaborationStatus ?? ""},{Csv(es?.Notes ?? "")}");
         }
         var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(sb.ToString()));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='suppliers.csv';a.click()");
@@ -327,10 +451,10 @@
         var file = e.File;
         if (!file.Name.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
         { importSummary = "Only .csv files are accepted."; importHasWarning = true; return; }
+
         using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
         var text = await reader.ReadToEndAsync();
-        int imported = 0, duplicateSkipped = 0, invalidSkipped = 0, counter = 0;
-        var nextId = allSuppliers.Count == 0 ? 1 : allSuppliers.Max(s => s.Id) + 1;
+        int imported = 0, duplicateSkipped = 0, invalidSkipped = 0;
         var lines = CsvImportHelper.NonEmptyLines(text);
         if (lines.Count <= 1)
         {
@@ -345,15 +469,17 @@
             var c = CsvImportHelper.ParseFields(line, delimiter);
             var supplier = new SupplierModel
             {
-                Id = nextId + counter++,
                 Name = c.ElementAtOrDefault(0)?.Trim() ?? "",
                 Category = c.ElementAtOrDefault(1)?.Trim() ?? "",
                 Phone = c.ElementAtOrDefault(2)?.Trim() ?? "",
                 Email = c.ElementAtOrDefault(3)?.Trim() ?? "",
                 Description = c.ElementAtOrDefault(4)?.Trim() ?? "",
-                EstimatedValue = decimal.TryParse(c.ElementAtOrDefault(5), out var est) ? est : 0,
-                ActualValue = decimal.TryParse(c.ElementAtOrDefault(6), out var act) ? act : 0,
+                Price = decimal.TryParse(c.ElementAtOrDefault(5), out var price) ? price : 0,
+                Advance = decimal.TryParse(c.ElementAtOrDefault(6), out var advance) ? advance : 0,
             };
+            var remainingPaid = ParsePaid(c.ElementAtOrDefault(7));
+            var status = ParseSupplierStatus(c.ElementAtOrDefault(8));
+            var notes = c.ElementAtOrDefault(9)?.Trim();
 
             var rowErrors = new Dictionary<string, string>();
             ValidateSupplierDraft(supplier, rowErrors);
@@ -366,7 +492,35 @@
                 continue;
             }
 
-            allSuppliers.Add(SanitizeSupplier(supplier));
+            var created = await Api.CreateSupplierAsync(EventId, new SupplierCreateDto
+            {
+                Name = supplier.Name.Trim(),
+                Category = supplier.Category.Trim(),
+                Phone = NullIfBlank(supplier.Phone),
+                Email = NullIfBlank(supplier.Email),
+                Description = NullIfBlank(supplier.Description),
+                Price = supplier.Price,
+                Advance = supplier.Advance
+            });
+
+            if (created is null)
+            {
+                invalidSkipped++;
+                continue;
+            }
+
+            allSuppliers.Add(ToModel(created));
+            if (status is not null)
+            {
+                eventSuppliers.Add(new EventSupplierModel
+                {
+                    SupplierId = created.SupplierId,
+                    CollaborationStatus = status,
+                    RemainingPaid = remainingPaid,
+                    Notes = string.IsNullOrWhiteSpace(notes) ? null : notes
+                });
+                await SaveSupplierStatus(created.SupplierId);
+            }
             imported++;
         }
         importSummary = CsvImportHelper.BuildImportMessage("supplier", imported, duplicateSkipped, invalidSkipped);
@@ -376,7 +530,7 @@
 
     async Task DownloadTemplate()
     {
-        var csv = "Name,Category,Phone,Email,Description,BasePrice,ActualValue\n";
+        var csv = "Name,Category,Phone,Email,Description,BasePrice,Advance,RemainingPaid,Status,Notes\n";
         var b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
         await JS.InvokeVoidAsync("eval", $"var a=document.createElement('a');a.href='data:text/csv;base64,{b64}';a.download='suppliers_template.csv';a.click()");
     }
@@ -395,7 +549,7 @@
         else if (!categories.Contains(category))
             errors[nameof(supplier.Category)] = "Choose one of the available categories.";
 
-        if (allSuppliers.Any(s => s.Name.Trim().Equals(name, StringComparison.OrdinalIgnoreCase)))
+        if (allSuppliers.Any(s => s.Name.Trim().Equals(name, StringComparison.OrdinalIgnoreCase) && s.Id != supplier.Id))
             errors[nameof(supplier.Name)] = "A supplier with this name already exists.";
 
         if (!string.IsNullOrWhiteSpace(email))
@@ -405,30 +559,74 @@
                 errors[nameof(supplier.Email)] = "Enter a valid email address.";
             }
             else if (allSuppliers.Any(s => !string.IsNullOrWhiteSpace(s.Email) &&
-                                           s.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase)))
+                                           s.Email.Trim().Equals(email, StringComparison.OrdinalIgnoreCase) &&
+                                           s.Id != supplier.Id))
             {
                 errors[nameof(supplier.Email)] = "A supplier with this email already exists.";
             }
         }
 
-        if (supplier.EstimatedValue < 0)
-            errors[nameof(supplier.EstimatedValue)] = "Base price cannot be negative.";
+        if (supplier.Price < 0)
+            errors[nameof(supplier.Price)] = "Base price cannot be negative.";
 
-        if (supplier.ActualValue < 0)
-            errors[nameof(supplier.ActualValue)] = "Actual value cannot be negative.";
+        if (supplier.Advance < 0)
+            errors[nameof(supplier.Advance)] = "Advance cannot be negative.";
+        else if (supplier.Advance > supplier.Price)
+            errors[nameof(supplier.Advance)] = "Advance cannot be greater than base price.";
     }
 
-    static SupplierModel SanitizeSupplier(SupplierModel supplier) => new()
+    decimal PaidAmount(SupplierModel supplier)
     {
-        Id = supplier.Id,
-        Name = supplier.Name.Trim(),
-        Category = supplier.Category.Trim(),
-        Phone = supplier.Phone.Trim(),
-        Email = supplier.Email.Trim(),
-        Description = supplier.Description.Trim(),
-        EstimatedValue = supplier.EstimatedValue,
-        ActualValue = supplier.ActualValue
+        var status = GetStatus(supplier.Id);
+        if (status != "confirmed")
+            return 0;
+
+        var remainingPaid = GetEventSupplier(supplier.Id)?.RemainingPaid == true;
+        return Math.Min(supplier.Advance, supplier.Price) + (remainingPaid ? supplier.Remaining : 0);
+    }
+
+    decimal UnpaidAmount(SupplierModel supplier)
+    {
+        var status = GetStatus(supplier.Id);
+        if (status is null)
+            return 0;
+        if (status == "pending")
+            return supplier.Price;
+
+        return GetEventSupplier(supplier.Id)?.RemainingPaid == true ? 0 : supplier.Remaining;
+    }
+
+    static bool ParsePaid(string? value)
+    {
+        var text = value?.Trim().ToLowerInvariant();
+        return text is "yes" or "true" or "paid" or "1";
+    }
+
+    static string? ParseSupplierStatus(string? value)
+    {
+        var text = value?.Trim().ToLowerInvariant();
+        return text is "pending" or "confirmed" ? text : null;
+    }
+
+    static SupplierModel ToModel(SupplierDto supplier) => new()
+    {
+        Id = supplier.SupplierId,
+        Name = supplier.Name,
+        Category = supplier.Category,
+        Phone = supplier.Phone ?? "",
+        Email = supplier.Email ?? "",
+        Description = supplier.Description ?? "",
+        Price = supplier.Price,
+        Advance = supplier.Advance,
+        RemainingPaid = supplier.RemainingPaid
     };
+
+    static string? NullIfBlank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    static string Csv(string value) =>
+        value.Contains(',') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
 
     bool HasFormError(string field) => formFieldErrors.ContainsKey(field);
 
